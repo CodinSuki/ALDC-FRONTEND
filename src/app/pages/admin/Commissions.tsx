@@ -1,8 +1,27 @@
 import { useState } from 'react';
-import AdminLayout from '../../components/AdminLayout';
-import { Search, DollarSign, CheckCircle, Clock } from 'lucide-react';
+import AdminLayout from '@/app/components/AdminLayout';
+import { Search, DollarSign, CheckCircle, Clock, Plus, Edit, Trash2 } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/app/components/ui/dialog';
 
-const mockCommissions = [
+interface Commission {
+  id: string;
+  agent: string;
+  transaction: string;
+  property: string;
+  amount: string;
+  rate: string;
+  status: string;
+  paidDate: string;
+}
+
+const initialCommissions: Commission[] = [
   { 
     id: 'COM-001',
     agent: 'Roberto Martinez',
@@ -55,38 +74,188 @@ const mockCommissions = [
   },
 ];
 
-const agentSummary = [
-  { agent: 'Roberto Martinez', transactions: 12, totalCommission: '₱3,250,000', pending: '₱425,000' },
-  { agent: 'Sofia Reyes', transactions: 18, totalCommission: '₱5,100,000', pending: '₱450,000' },
-  { agent: 'Miguel Santos', transactions: 9, totalCommission: '₱2,800,000', pending: '₱0' },
-];
-
 export default function AdminCommissions() {
+  const [commissions, setCommissions] = useState<Commission[]>(initialCommissions);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState('All');
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [selectedCommission, setSelectedCommission] = useState<Commission | null>(null);
+  
+  const [formData, setFormData] = useState<Commission>({
+    id: '',
+    agent: '',
+    transaction: '',
+    property: '',
+    amount: '',
+    rate: '5%',
+    status: 'Pending',
+    paidDate: '',
+  });
 
-  const filteredCommissions = mockCommissions.filter(commission => {
+  const filteredCommissions = commissions.filter(commission => {
     const matchesSearch = commission.agent.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          commission.transaction.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = filterStatus === 'All' || commission.status === filterStatus;
     return matchesSearch && matchesStatus;
   });
 
+  // Calculate agent summaries dynamically
+  const agentSummary = Object.values(
+    commissions.reduce((acc, comm) => {
+      if (!acc[comm.agent]) {
+        acc[comm.agent] = {
+          agent: comm.agent,
+          transactions: 0,
+          totalCommission: 0,
+          pending: 0,
+        };
+      }
+      acc[comm.agent].transactions += 1;
+      const amount = parseFloat(comm.amount.replace(/[₱,]/g, ''));
+      acc[comm.agent].totalCommission += amount;
+      if (comm.status === 'Pending') {
+        acc[comm.agent].pending += amount;
+      }
+      return acc;
+    }, {} as Record<string, any>)
+  ).map(agent => ({
+    ...agent,
+    totalCommission: `₱${agent.totalCommission.toLocaleString()}`,
+    pending: `₱${agent.pending.toLocaleString()}`,
+  }));
+
+  const generateId = () => {
+    const maxId = commissions.reduce((max, c) => {
+      const num = parseInt(c.id.replace('COM-', ''));
+      return num > max ? num : max;
+    }, 0);
+    return `COM-${String(maxId + 1).padStart(3, '0')}`;
+  };
+
+  const handleAddCommission = () => {
+    if (!formData.agent || !formData.transaction || !formData.property || !formData.amount) {
+      alert('Please fill in all required fields');
+      return;
+    }
+
+    const newCommission: Commission = {
+      ...formData,
+      id: generateId(),
+      paidDate: formData.status === 'Paid' ? formData.paidDate : '-',
+    };
+
+    setCommissions([...commissions, newCommission]);
+    setIsAddDialogOpen(false);
+    resetForm();
+  };
+
+  const handleEditCommission = () => {
+    if (!formData.agent || !formData.transaction || !formData.property || !formData.amount) {
+      alert('Please fill in all required fields');
+      return;
+    }
+
+    const updatedCommission = {
+      ...formData,
+      paidDate: formData.status === 'Paid' ? formData.paidDate : '-',
+    };
+
+    setCommissions(commissions.map(c =>
+      c.id === formData.id ? updatedCommission : c
+    ));
+    setIsEditDialogOpen(false);
+    resetForm();
+  };
+
+  const handleDeleteCommission = () => {
+    if (selectedCommission) {
+      setCommissions(commissions.filter(c => c.id !== selectedCommission.id));
+      setIsDeleteDialogOpen(false);
+      setSelectedCommission(null);
+    }
+  };
+
+  const handleMarkAsPaid = (commission: Commission) => {
+    const updatedCommission = {
+      ...commission,
+      status: 'Paid',
+      paidDate: new Date().toISOString().split('T')[0],
+    };
+    setCommissions(commissions.map(c =>
+      c.id === commission.id ? updatedCommission : c
+    ));
+  };
+
+  const openEditDialog = (commission: Commission) => {
+    setFormData(commission);
+    setSelectedCommission(commission);
+    setIsEditDialogOpen(true);
+  };
+
+  const openDeleteDialog = (commission: Commission) => {
+    setSelectedCommission(commission);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const resetForm = () => {
+    setFormData({
+      id: '',
+      agent: '',
+      transaction: '',
+      property: '',
+      amount: '',
+      rate: '5%',
+      status: 'Pending',
+      paidDate: '',
+    });
+    setSelectedCommission(null);
+  };
+
+  const handleFormChange = (field: keyof Commission, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
   return (
     <AdminLayout>
       <div className="space-y-6">
         {/* Header */}
-        <div>
-          <h2 className="text-gray-900">Commission Tracking</h2>
-          <p className="text-gray-600">Monitor agent commissions and payment status</p>
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <h2 className="text-gray-900">Commission Tracking</h2>
+            <p className="text-gray-600">Monitor agent commissions and payment status</p>
+          </div>
+          <button
+            onClick={() => setIsAddDialogOpen(true)}
+            className="flex items-center gap-2 bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors"
+          >
+            <Plus className="w-5 h-5" />
+            Add Commission
+          </button>
         </div>
 
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {[
-            { label: 'Total Commissions Paid', value: '₱12.5M', icon: CheckCircle, color: 'bg-green-500' },
-            { label: 'Pending Commissions', value: '₱875K', icon: Clock, color: 'bg-yellow-500' },
-            { label: 'This Month', value: '₱1.2M', icon: DollarSign, color: 'bg-blue-500' },
+            { 
+              label: 'Total Commissions Paid', 
+              value: `₱${commissions.filter(c => c.status === 'Paid').reduce((sum, c) => sum + parseFloat(c.amount.replace(/[₱,]/g, '')), 0).toLocaleString()}`, 
+              icon: CheckCircle, 
+              color: 'bg-green-500' 
+            },
+            { 
+              label: 'Pending Commissions', 
+              value: `₱${commissions.filter(c => c.status === 'Pending').reduce((sum, c) => sum + parseFloat(c.amount.replace(/[₱,]/g, '')), 0).toLocaleString()}`, 
+              icon: Clock, 
+              color: 'bg-yellow-500' 
+            },
+            { 
+              label: 'Total Records', 
+              value: commissions.length.toString(), 
+              icon: DollarSign, 
+              color: 'bg-blue-500' 
+            },
           ].map((stat, index) => (
             <div key={index} className="bg-white rounded-lg shadow-sm p-6">
               <div className="flex items-center justify-between mb-2">
@@ -180,16 +349,13 @@ export default function AdminCommissions() {
                     Property
                   </th>
                   <th className="px-6 py-3 text-left text-xs text-gray-600 uppercase tracking-wider">
-                    Rate
+                    Amount
                   </th>
                   <th className="px-6 py-3 text-left text-xs text-gray-600 uppercase tracking-wider">
-                    Commission Amount
+                    Status
                   </th>
-                  <th className="px-6 py-3 text-left text-xs text-gray-600 uppercase tracking-wider">
-                    Payment Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs text-gray-600 uppercase tracking-wider">
-                    Paid Date
+                  <th className="px-6 py-3 text-right text-xs text-gray-600 uppercase tracking-wider">
+                    Actions
                   </th>
                 </tr>
               </thead>
@@ -208,28 +374,46 @@ export default function AdminCommissions() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                       {commission.property}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                      {commission.rate}
-                    </td>
                     <td className="px-6 py-4 whitespace-nowrap text-gray-900">
                       {commission.amount}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex items-center gap-1 px-2 py-1 text-xs rounded-full ${
-                        commission.status === 'Paid' 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-yellow-100 text-yellow-800'
-                      }`}>
-                        {commission.status === 'Paid' ? (
-                          <CheckCircle className="w-3 h-3" />
-                        ) : (
-                          <Clock className="w-3 h-3" />
+                      <div className="flex items-center gap-2">
+                        <span className={`inline-flex items-center gap-1 px-2 py-1 text-xs rounded-full ${
+                          commission.status === 'Paid' 
+                            ? 'bg-green-100 text-green-800' 
+                            : 'bg-yellow-100 text-yellow-800'
+                        }`}>
+                          {commission.status === 'Paid' ? (
+                            <CheckCircle className="w-3 h-3" />
+                          ) : (
+                            <Clock className="w-3 h-3" />
+                          )}
+                          {commission.status}
+                        </span>
+                        {commission.status === 'Pending' && (
+                          <button
+                            onClick={() => handleMarkAsPaid(commission)}
+                            className="text-xs text-green-600 hover:text-green-800 underline"
+                          >
+                            Mark Paid
+                          </button>
                         )}
-                        {commission.status}
-                      </span>
+                      </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                      {commission.paidDate}
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
+                      <button
+                        onClick={() => openEditDialog(commission)}
+                        className="text-blue-600 hover:text-blue-800 mr-3"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => openDeleteDialog(commission)}
+                        className="text-red-600 hover:text-red-800"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -238,6 +422,306 @@ export default function AdminCommissions() {
           </div>
         </div>
       </div>
+
+      {/* Add Commission Dialog */}
+      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Add New Commission</DialogTitle>
+            <DialogDescription>
+              Create a new commission record for an agent
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm text-gray-700 mb-1">
+                  Agent Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={formData.agent}
+                  onChange={(e) => handleFormChange('agent', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="e.g., Roberto Martinez"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm text-gray-700 mb-1">
+                  Transaction Reference <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={formData.transaction}
+                  onChange={(e) => handleFormChange('transaction', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="e.g., TX-2024-045"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm text-gray-700 mb-1">
+                Property Name <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={formData.property}
+                onChange={(e) => handleFormChange('property', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                placeholder="e.g., Vista Verde Subdivision"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm text-gray-700 mb-1">
+                  Commission Amount <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={formData.amount}
+                  onChange={(e) => handleFormChange('amount', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="e.g., ₱275,000"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm text-gray-700 mb-1">
+                  Commission Rate
+                </label>
+                <input
+                  type="text"
+                  value={formData.rate}
+                  onChange={(e) => handleFormChange('rate', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="e.g., 5%"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm text-gray-700 mb-1">
+                  Payment Status <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={formData.status}
+                  onChange={(e) => handleFormChange('status', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                >
+                  <option value="Pending">Pending</option>
+                  <option value="Paid">Paid</option>
+                </select>
+              </div>
+
+              {formData.status === 'Paid' && (
+                <div>
+                  <label className="block text-sm text-gray-700 mb-1">
+                    Paid Date
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.paidDate}
+                    onChange={(e) => handleFormChange('paidDate', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter>
+            <button
+              onClick={() => {
+                setIsAddDialogOpen(false);
+                resetForm();
+              }}
+              className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleAddCommission}
+              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+            >
+              Add Commission
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Commission Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Commission</DialogTitle>
+            <DialogDescription>
+              Update commission record details
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm text-gray-700 mb-1">
+                  Agent Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={formData.agent}
+                  onChange={(e) => handleFormChange('agent', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm text-gray-700 mb-1">
+                  Transaction Reference <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={formData.transaction}
+                  onChange={(e) => handleFormChange('transaction', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm text-gray-700 mb-1">
+                Property Name <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={formData.property}
+                onChange={(e) => handleFormChange('property', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm text-gray-700 mb-1">
+                  Commission Amount <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={formData.amount}
+                  onChange={(e) => handleFormChange('amount', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm text-gray-700 mb-1">
+                  Commission Rate
+                </label>
+                <input
+                  type="text"
+                  value={formData.rate}
+                  onChange={(e) => handleFormChange('rate', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm text-gray-700 mb-1">
+                  Payment Status <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={formData.status}
+                  onChange={(e) => handleFormChange('status', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                >
+                  <option value="Pending">Pending</option>
+                  <option value="Paid">Paid</option>
+                </select>
+              </div>
+
+              {formData.status === 'Paid' && (
+                <div>
+                  <label className="block text-sm text-gray-700 mb-1">
+                    Paid Date
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.paidDate}
+                    onChange={(e) => handleFormChange('paidDate', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter>
+            <button
+              onClick={() => {
+                setIsEditDialogOpen(false);
+                resetForm();
+              }}
+              className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleEditCommission}
+              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+            >
+              Save Changes
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Commission</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this commission record? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedCommission && (
+            <div className="py-4">
+              <div className="bg-gray-50 rounded-lg p-4">
+                <p className="text-sm text-gray-600">Commission ID</p>
+                <p className="text-gray-900">{selectedCommission.id}</p>
+                <p className="text-sm text-gray-600 mt-2">Agent</p>
+                <p className="text-gray-900">{selectedCommission.agent}</p>
+                <p className="text-sm text-gray-600 mt-2">Amount</p>
+                <p className="text-gray-900">{selectedCommission.amount}</p>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <button
+              onClick={() => {
+                setIsDeleteDialogOpen(false);
+                setSelectedCommission(null);
+              }}
+              className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleDeleteCommission}
+              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+            >
+              Delete Commission
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AdminLayout>
   );
 }

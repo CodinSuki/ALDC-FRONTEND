@@ -1,109 +1,211 @@
 import { useState, useEffect } from 'react';
-import AdminLayout from '../../components/AdminLayout';
+import AdminLayout from '@/app/components/AdminLayout';
 import { Plus, Edit, Trash2, Search } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/app/components/ui/dialog';
+
+interface Project {
+  project_id: number;
+  project_name: string;
+  project_type: string;
+}
+
+interface Location {
+  location_id: number;
+  city: string;
+  province: string;
+}
+
+interface Landowner {
+  landowner_id: number;
+  name: string;
+}
+
+interface Property {
+  property_id: number;
+  property_code: string;
+  project_id: number;
+  location_id: number;
+  landowner_id: number | null;
+  lot_size?: number;
+  price?: number;
+  status: 'Available' | 'Reserved' | 'Sold';
+
+  // Derived display fields
+  project_name?: string;
+  location_display?: string;
+  landowner_name?: string;
+}
 
 export default function AdminProperties() {
+  const [properties, setProperties] = useState<Property[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [locations, setLocations] = useState<Location[]>([]);
+  const [landowners, setLandowners] = useState<Landowner[]>([]);
+
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterStatus, setFilterStatus] = useState('All');
+  const [filterStatus, setFilterStatus] = useState<'All' | 'Available' | 'Reserved' | 'Sold'>('All');
 
-  // --- State for properties ---
-  const [properties, setProperties] = useState([
-    { property_id: 1, name: 'Vista Verde Subdivision', type: 'Residential', location: 'Laguna', status: 'Available', project_id: 1, location_id: 1, landowner_id: 1, property_code: 'P001', lot_size: 100, price: 500000 }
-    // You can keep initial mock or fetch from backend with useEffect
-  ]);
-
-  // --- State for Add/Edit modal ---
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [newProperty, setNewProperty] = useState({
-  project_id: '',
-  location_id: '',
-  landowner_id: '',
-  property_code: '',
-  name: '',          // <-- added
-  type: '',          // <-- added
-  location: '',      // <-- added
-  lot_size: '',
-  price: '',
-  status: 'Available'
-});
-
+  const [showModal, setShowModal] = useState(false);
   const [editPropertyId, setEditPropertyId] = useState<number | null>(null);
 
-  // --- Filtered properties based on search and status ---
-  const filteredProperties = properties.filter(property => {
-    const matchesSearch = property.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          property.location.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = filterStatus === 'All' || property.status === filterStatus;
+  const [formData, setFormData] = useState<Partial<Property>>({
+    property_code: '',
+    project_id: 0,
+    location_id: 0,
+    landowner_id: null,
+    lot_size: undefined,
+    price: undefined,
+    status: 'Available',
+  });
+
+  // Fetch properties and related data
+  useEffect(() => {
+    fetch('http://localhost/aldc-system/api/admin/properties/get_properties.php')
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          const mapped: Property[] = data.data.map((item: any) => ({
+            property_id: Number(item.property_id),
+            property_code: item.property_code,
+            project_id: Number(item.project_id),
+            location_id: Number(item.location_id),
+            landowner_id: item.landowner_id ? Number(item.landowner_id) : null,
+            lot_size: Number(item.lot_size),
+            price: Number(item.price),
+            status: item.status,
+            project_name: item.project_name,
+            location_display: `${item.city}, ${item.province}`,
+            landowner_name: item.landowner_name,
+          }));
+          setProperties(mapped);
+        }
+      })
+      .catch(err => console.error('Failed to fetch properties', err));
+
+    // Fetch projects
+    fetch('http://localhost/aldc-system/api/admin/projects/get_projects.php')
+      .then(res => res.json())
+      .then(data => { if (data.success) setProjects(data.data); });
+
+    // Fetch locations
+    fetch('http://localhost/aldc-system/api/admin/locations/get_locations.php')
+      .then(res => res.json())
+      .then(data => { if (data.success) setLocations(data.data); });
+
+    // Fetch landowners
+    fetch('http://localhost/aldc-system/api/admin/landowners/get_landowners.php')
+      .then(res => res.json())
+      .then(data => { if (data.success) setLandowners(data.data); });
+  }, []);
+
+  const filteredProperties = properties.filter(p => {
+    const matchesSearch =
+      p.property_code?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.project_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.location_display?.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesStatus = filterStatus === 'All' || p.status === filterStatus;
     return matchesSearch && matchesStatus;
   });
 
-  // --- Handlers for Add/Edit/Delete ---
+  const resetForm = () => {
+    setFormData({
+      property_code: '',
+      project_id: 0,
+      location_id: 0,
+      landowner_id: null,
+      lot_size: undefined,
+      price: undefined,
+      status: 'Available',
+    });
+    setEditPropertyId(null);
+  };
 
-  // Add a new property
+  const openAddModal = () => {
+    resetForm();
+    setShowModal(true);
+  };
+
+  const openEditModal = (property: Property) => {
+    setFormData({ ...property });
+    setEditPropertyId(property.property_id);
+    setShowModal(true);
+  };
+
+  const handleFormChange = (field: keyof Property, value: any) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
   const handleAddProperty = async () => {
+    if (!formData.property_code || !formData.project_id || !formData.location_id || !formData.lot_size || !formData.price) {
+      alert('Please fill all required fields');
+      return;
+    }
+
     const res = await fetch('http://localhost/aldc-system/api/add_property.php', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(newProperty)
+      body: JSON.stringify(formData),
     });
     const data = await res.json();
     if (data.success) {
-      setProperties(prev => [...prev, data.property]);
-      setShowAddModal(false);
-      setNewProperty({
-        project_id: '',
-        location_id: '',
-        landowner_id: '',
-        property_code: '',
-        name: '',       // added
-        type: '',       // added
-        location: '',   // added
-        lot_size: '',
-        price: '',
-        status: 'Available'
-      });
+      setProperties(prev => [
+        ...prev,
+        {
+          ...data.property,
+          project_name: projects.find(p => p.project_id === data.property.project_id)?.project_name,
+          location_display: locations.find(l => l.location_id === data.property.location_id)
+            ? `${locations.find(l => l.location_id === data.property.location_id)!.city}, ${locations.find(l => l.location_id === data.property.location_id)!.province}`
+            : '',
+          landowner_name: landowners.find(l => l.landowner_id === data.property.landowner_id)?.name,
+        }
+      ]);
+      setShowModal(false);
+      resetForm();
     } else {
       alert('Error adding property');
     }
   };
 
-  // Open edit modal
-  const handleEditProperty = (property: any) => {
-    setEditPropertyId(property.property_id);
-    setNewProperty({
-      project_id: '',
-      location_id: '',
-      landowner_id: '',
-      property_code: '',
-      name: '',       // added
-      type: '',       // added
-      location: '',   // added
-      lot_size: '',
-      price: '',
-      status: 'Available'
-    });
-    setShowAddModal(true);
-  };
-
-  // Update existing property
   const handleUpdateProperty = async () => {
     if (!editPropertyId) return;
+    if (!formData.property_code || !formData.project_id || !formData.location_id || !formData.lot_size || !formData.price) {
+      alert('Please fill all required fields');
+      return;
+    }
+
     const res = await fetch('http://localhost/aldc-system/api/update_property.php', {
-      method: 'POST', // could also be PUT
+      method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ property_id: editPropertyId, ...newProperty })
+      body: JSON.stringify({ property_id: editPropertyId, ...formData }),
     });
     const data = await res.json();
     if (data.success) {
-      setProperties(prev => prev.map(p => p.property_id === editPropertyId ? data.property : p));
-      setEditPropertyId(null);
-      setShowAddModal(false);
+      setProperties(prev => prev.map(p =>
+        p.property_id === editPropertyId
+          ? {
+              ...data.property,
+              project_name: projects.find(pr => pr.project_id === data.property.project_id)?.project_name,
+              location_display: locations.find(l => l.location_id === data.property.location_id)
+                ? `${locations.find(l => l.location_id === data.property.location_id)!.city}, ${locations.find(l => l.location_id === data.property.location_id)!.province}`
+                : '',
+              landowner_name: landowners.find(l => l.landowner_id === data.property.landowner_id)?.name,
+            }
+          : p
+      ));
+      setShowModal(false);
+      resetForm();
     } else {
       alert('Error updating property');
     }
   };
 
-  // Delete property
   const handleDeleteProperty = async (property_id: number) => {
     if (!confirm('Are you sure you want to delete this property?')) return;
 
@@ -126,8 +228,8 @@ export default function AdminProperties() {
             <p className="text-gray-600">Manage all properties in the system</p>
           </div>
           <button
+            onClick={openAddModal}
             className="flex items-center gap-2 bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors"
-            onClick={() => { setShowAddModal(true); setEditPropertyId(null); }}
           >
             <Plus className="w-5 h-5" />
             Add Property
@@ -141,15 +243,15 @@ export default function AdminProperties() {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
               <input
                 type="text"
-                placeholder="Search properties..."
+                placeholder="Search by property code, project, or location..."
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={e => setSearchQuery(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
               />
             </div>
             <select
               value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
+              onChange={e => setFilterStatus(e.target.value as any)}
               className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
             >
               <option value="All">All Status</option>
@@ -166,35 +268,39 @@ export default function AdminProperties() {
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs text-gray-600 uppercase tracking-wider">Property ID</th>
-                  <th className="px-6 py-3 text-left text-xs text-gray-600 uppercase tracking-wider">Name</th>
-                  <th className="px-6 py-3 text-left text-xs text-gray-600 uppercase tracking-wider">Type</th>
+                  <th className="px-6 py-3 text-left text-xs text-gray-600 uppercase tracking-wider">Property Code</th>
+                  <th className="px-6 py-3 text-left text-xs text-gray-600 uppercase tracking-wider">Project</th>
                   <th className="px-6 py-3 text-left text-xs text-gray-600 uppercase tracking-wider">Location</th>
+                  <th className="px-6 py-3 text-left text-xs text-gray-600 uppercase tracking-wider">Landowner</th>
+                  <th className="px-6 py-3 text-left text-xs text-gray-600 uppercase tracking-wider">Lot Size</th>
+                  <th className="px-6 py-3 text-left text-xs text-gray-600 uppercase tracking-wider">Price</th>
                   <th className="px-6 py-3 text-left text-xs text-gray-600 uppercase tracking-wider">Status</th>
                   <th className="px-6 py-3 text-right text-xs text-gray-600 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {filteredProperties.map((property) => (
-                  <tr key={property.property_id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{property.property_code}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-gray-900">{property.name}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{property.type}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{property.location}</td>
+                {filteredProperties.map(p => (
+                  <tr key={p.property_id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{p.property_code}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-gray-900">{p.project_name}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{p.location_display}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{p.landowner_name || 'N/A'}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{p.lot_size?.toLocaleString()}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-gray-900">₱{p.price?.toLocaleString()}</td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`inline-flex px-2 py-1 text-xs rounded-full ${
-                        property.status === 'Available' ? 'bg-green-100 text-green-800' :
-                        property.status === 'Reserved' ? 'bg-yellow-100 text-yellow-800' :
+                        p.status === 'Available' ? 'bg-green-100 text-green-800' :
+                        p.status === 'Reserved' ? 'bg-yellow-100 text-yellow-800' :
                         'bg-gray-100 text-gray-800'
                       }`}>
-                        {property.status}
+                        {p.status}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
-                      <button onClick={() => handleEditProperty(property)} className="text-blue-600 hover:text-blue-800 mr-3">
+                      <button onClick={() => openEditModal(p)} className="text-blue-600 hover:text-blue-800 mr-3">
                         <Edit className="w-4 h-4" />
                       </button>
-                      <button onClick={() => handleDeleteProperty(property.property_id)} className="text-red-600 hover:text-red-800">
+                      <button onClick={() => handleDeleteProperty(p.property_id)} className="text-red-600 hover:text-red-800">
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </td>
@@ -203,84 +309,145 @@ export default function AdminProperties() {
               </tbody>
             </table>
           </div>
-
           {filteredProperties.length === 0 && (
-            <div className="text-center py-12 text-gray-500">
-              No properties found matching your criteria
-            </div>
+            <div className="text-center py-12 text-gray-500">No properties found matching your criteria</div>
           )}
         </div>
 
-        {/* Add/Edit Modal */}
-        {showAddModal && (
-          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-            <div className="bg-white rounded-lg p-6 w-full max-w-lg">
-              <h3 className="text-lg font-semibold mb-4">{editPropertyId ? 'Edit Property' : 'Add Property'}</h3>
-              <div className="space-y-3">
-                <input
-                  type="text"
-                  placeholder="Property Code"
-                  value={newProperty.property_code}
-                  onChange={(e) => setNewProperty({ ...newProperty, property_code: e.target.value })}
-                  className="w-full px-3 py-2 border rounded"
-                />
-                <input
-                  type="text"
-                  placeholder="Name"
-                  value={newProperty.name || ''}
-                  onChange={(e) => setNewProperty({ ...newProperty, name: e.target.value })}
-                  className="w-full px-3 py-2 border rounded"
-                />
-                <input
-                  type="text"
-                  placeholder="Type"
-                  value={newProperty.type || ''}
-                  onChange={(e) => setNewProperty({ ...newProperty, type: e.target.value })}
-                  className="w-full px-3 py-2 border rounded"
-                />
-                <input
-                  type="text"
-                  placeholder="Location"
-                  value={newProperty.location || ''}
-                  onChange={(e) => setNewProperty({ ...newProperty, location: e.target.value })}
-                  className="w-full px-3 py-2 border rounded"
-                />
-                <input
-                  type="number"
-                  placeholder="Lot Size"
-                  value={newProperty.lot_size || ''}
-                  onChange={(e) => setNewProperty({ ...newProperty, lot_size: e.target.value })}
-                  className="w-full px-3 py-2 border rounded"
-                />
-                <input
-                  type="number"
-                  placeholder="Price"
-                  value={newProperty.price || ''}
-                  onChange={(e) => setNewProperty({ ...newProperty, price: e.target.value })}
-                  className="w-full px-3 py-2 border rounded"
-                />
+        {/* Add/Edit Dialog */}
+        <Dialog open={showModal} onOpenChange={setShowModal}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>{editPropertyId ? 'Edit Property' : 'Add Property'}</DialogTitle>
+              <DialogDescription>
+                {editPropertyId ? 'Update the property details' : 'Fill in the details to add a new property'}
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 py-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm text-gray-700 mb-1">Property Code</label>
+                  <input
+                    type="text"
+                    value={formData.property_code || ''}
+                    onChange={e => handleFormChange('property_code', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm text-gray-700 mb-1">Project</label>
+                  <select
+                    value={formData.project_id || ''}
+                    onChange={e => handleFormChange('project_id', Number(e.target.value))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  >
+                    <option value="">Select Project</option>
+                    {projects.map(p => (
+                      <option key={p.project_id} value={p.project_id}>
+                        {p.project_name} ({p.project_type})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm text-gray-700 mb-1">Location</label>
+                  <select
+                    value={formData.location_id || ''}
+                    onChange={e => handleFormChange('location_id', Number(e.target.value))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  >
+                    <option value="">Select Location</option>
+                    {locations.map(l => (
+                      <option key={l.location_id} value={l.location_id}>
+                        {l.city}, {l.province}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm text-gray-700 mb-1">Landowner</label>
+                  <select
+                    value={formData.landowner_id || ''}
+                    onChange={e => handleFormChange('landowner_id', e.target.value ? Number(e.target.value) : null)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  >
+                    <option value="">Select Landowner (Optional)</option>
+                    {landowners.map(l => (
+                      <option key={l.landowner_id} value={l.landowner_id}>{l.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm text-gray-700 mb-1">Lot Size</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={formData.lot_size || ''}
+                    onChange={e => handleFormChange('lot_size', Number(e.target.value))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm text-gray-700 mb-1">Price</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={formData.price || ''}
+                    onChange={e => handleFormChange('price', Number(e.target.value))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm text-gray-700 mb-1">Status</label>
                 <select
-                  value={newProperty.status}
-                  onChange={(e) => setNewProperty({ ...newProperty, status: e.target.value })}
-                  className="w-full px-3 py-2 border rounded"
+                  value={formData.status}
+                  onChange={e => handleFormChange('status', e.target.value as any)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                 >
                   <option value="Available">Available</option>
                   <option value="Reserved">Reserved</option>
                   <option value="Sold">Sold</option>
                 </select>
               </div>
-              <div className="mt-4 flex justify-end gap-3">
-                <button className="px-4 py-2 border rounded" onClick={() => setShowAddModal(false)}>Cancel</button>
-                <button
-                  className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-                  onClick={editPropertyId ? handleUpdateProperty : handleAddProperty}
-                >
-                  {editPropertyId ? 'Update' : 'Add'}
-                </button>
-              </div>
             </div>
-          </div>
-        )}
+
+            <DialogFooter>
+              <button
+                className="px-4 py-2 border rounded-lg hover:bg-gray-50"
+                onClick={() => setShowModal(false)}
+              >
+                Cancel
+              </button>
+              {editPropertyId ? (
+                <button
+                  onClick={handleUpdateProperty}
+                  className="ml-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  Update Property
+                </button>
+              ) : (
+                <button
+                  onClick={handleAddProperty}
+                  className="ml-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                >
+                  Add Property
+                </button>
+              )}
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </AdminLayout>
   );
