@@ -10,72 +10,112 @@ import {
   DialogTitle,
 } from '@/app/components/ui/dialog';
 
+// Database-aligned interfaces
 interface Commission {
-  id: string;
-  agent: string;
-  transaction: string;
-  property: string;
+  commission_id: number;
+  transaction_id: number;
+  agent_id: number | null;
+  percentage: string;
   amount: string;
-  rate: string;
-  status: string;
-  paidDate: string;
+  // Joined data for display
+  transaction_ref?: string;
+  agent_name?: string;
+  property_code?: string;
+  client_name?: string;
+  status?: 'Paid' | 'Pending';
+  paid_date?: string;
 }
+
+interface Agent {
+  agent_id: number;
+  broker_id: number;
+  first_name: string;
+  middle_name: string | null;
+  last_name: string;
+  contact_email: string | null;
+  contact_number: string | null;
+}
+
+interface Transaction {
+  transaction_id: number;
+  property_code: string;
+  client_name: string;
+  total_amount: string;
+}
+
+// Mock data
+const mockAgents: Agent[] = [
+  { agent_id: 1, broker_id: 1, first_name: 'Roberto', middle_name: 'A.', last_name: 'Martinez', contact_email: 'roberto.martinez@aldc.com', contact_number: '09171234567' },
+  { agent_id: 2, broker_id: 1, first_name: 'Sofia', middle_name: 'B.', last_name: 'Reyes', contact_email: 'sofia.reyes@aldc.com', contact_number: '09181234567' },
+  { agent_id: 3, broker_id: 1, first_name: 'Miguel', middle_name: null, last_name: 'Santos', contact_email: 'miguel.santos@aldc.com', contact_number: '09191234567' },
+];
+
+const mockTransactions: Transaction[] = [
+  { transaction_id: 45, property_code: 'VV-BLK1-LOT5', client_name: 'Maria C. Santos', total_amount: '5500000.00' },
+  { transaction_id: 46, property_code: 'MBC-FL5-U501', client_name: 'John D. Reyes', total_amount: '12000000.00' },
+  { transaction_id: 47, property_code: 'GF-FARM-A12', client_name: 'Ana Cruz', total_amount: '8500000.00' },
+  { transaction_id: 48, property_code: 'SBR-LOT-B8', client_name: 'Pedro L. Garcia', total_amount: '7200000.00' },
+];
 
 const initialCommissions: Commission[] = [
   { 
-    id: 'COM-001',
-    agent: 'Roberto Martinez',
-    transaction: 'TX-2024-045',
-    property: 'Vista Verde Subdivision',
-    amount: '₱275,000',
-    rate: '5%',
+    commission_id: 1,
+    transaction_id: 45,
+    agent_id: 1,
+    percentage: '5.00',
+    amount: '275000.00',
+    transaction_ref: 'TX-45',
+    agent_name: 'Roberto A. Martinez',
+    property_code: 'VV-BLK1-LOT5',
+    client_name: 'Maria C. Santos',
     status: 'Paid',
-    paidDate: '2025-01-03'
+    paid_date: '2025-01-03'
   },
   { 
-    id: 'COM-002',
-    agent: 'Sofia Reyes',
-    transaction: 'TX-2024-046',
-    property: 'Metro Business Center',
-    amount: '₱600,000',
-    rate: '5%',
+    commission_id: 2,
+    transaction_id: 46,
+    agent_id: 2,
+    percentage: '5.00',
+    amount: '600000.00',
+    transaction_ref: 'TX-46',
+    agent_name: 'Sofia B. Reyes',
+    property_code: 'MBC-FL5-U501',
+    client_name: 'John D. Reyes',
     status: 'Paid',
-    paidDate: '2025-01-02'
+    paid_date: '2025-01-02'
   },
   { 
-    id: 'COM-003',
-    agent: 'Roberto Martinez',
-    transaction: 'TX-2024-047',
-    property: 'Greenfield Agricultural',
-    amount: '₱425,000',
-    rate: '5%',
+    commission_id: 3,
+    transaction_id: 47,
+    agent_id: 1,
+    percentage: '5.00',
+    amount: '425000.00',
+    transaction_ref: 'TX-47',
+    agent_name: 'Roberto A. Martinez',
+    property_code: 'GF-FARM-A12',
+    client_name: 'Ana Cruz',
     status: 'Pending',
-    paidDate: '-'
+    paid_date: undefined
   },
   { 
-    id: 'COM-004',
-    agent: 'Miguel Santos',
-    transaction: 'TX-2024-048',
-    property: 'Sunrise Beach Resort',
-    amount: '₱360,000',
-    rate: '5%',
+    commission_id: 4,
+    transaction_id: 48,
+    agent_id: 3,
+    percentage: '5.00',
+    amount: '360000.00',
+    transaction_ref: 'TX-48',
+    agent_name: 'Miguel Santos',
+    property_code: 'SBR-LOT-B8',
+    client_name: 'Pedro L. Garcia',
     status: 'Paid',
-    paidDate: '2024-12-30'
-  },
-  { 
-    id: 'COM-005',
-    agent: 'Sofia Reyes',
-    transaction: 'TX-2024-049',
-    property: 'Industrial Park Zone',
-    amount: '₱450,000',
-    rate: '5%',
-    status: 'Pending',
-    paidDate: '-'
+    paid_date: '2024-12-30'
   },
 ];
 
 export default function AdminCommissions() {
   const [commissions, setCommissions] = useState<Commission[]>(initialCommissions);
+  const [agents] = useState<Agent[]>(mockAgents);
+  const [transactions] = useState<Transaction[]>(mockTransactions);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState('All');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -83,20 +123,20 @@ export default function AdminCommissions() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedCommission, setSelectedCommission] = useState<Commission | null>(null);
   
-  const [formData, setFormData] = useState<Commission>({
-    id: '',
-    agent: '',
-    transaction: '',
-    property: '',
+  const [formData, setFormData] = useState<Partial<Commission>>({
+    transaction_id: 0,
+    agent_id: null,
+    percentage: '5.00',
     amount: '',
-    rate: '5%',
     status: 'Pending',
-    paidDate: '',
+    paid_date: '',
   });
 
   const filteredCommissions = commissions.filter(commission => {
-    const matchesSearch = commission.agent.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         commission.transaction.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = 
+      commission.agent_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      commission.transaction_ref?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      commission.property_code?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = filterStatus === 'All' || commission.status === filterStatus;
     return matchesSearch && matchesStatus;
   });
@@ -104,46 +144,69 @@ export default function AdminCommissions() {
   // Calculate agent summaries dynamically
   const agentSummary = Object.values(
     commissions.reduce((acc, comm) => {
-      if (!acc[comm.agent]) {
-        acc[comm.agent] = {
-          agent: comm.agent,
+      if (!comm.agent_id) return acc;
+      if (!acc[comm.agent_id]) {
+        acc[comm.agent_id] = {
+          agent_id: comm.agent_id,
+          agent_name: comm.agent_name,
           transactions: 0,
           totalCommission: 0,
           pending: 0,
         };
       }
-      acc[comm.agent].transactions += 1;
-      const amount = parseFloat(comm.amount.replace(/[₱,]/g, ''));
-      acc[comm.agent].totalCommission += amount;
+      acc[comm.agent_id].transactions += 1;
+      const amount = parseFloat(comm.amount);
+      acc[comm.agent_id].totalCommission += amount;
       if (comm.status === 'Pending') {
-        acc[comm.agent].pending += amount;
+        acc[comm.agent_id].pending += amount;
       }
       return acc;
-    }, {} as Record<string, any>)
+    }, {} as Record<number, any>)
   ).map(agent => ({
     ...agent,
     totalCommission: `₱${agent.totalCommission.toLocaleString()}`,
     pending: `₱${agent.pending.toLocaleString()}`,
   }));
 
-  const generateId = () => {
-    const maxId = commissions.reduce((max, c) => {
-      const num = parseInt(c.id.replace('COM-', ''));
-      return num > max ? num : max;
-    }, 0);
-    return `COM-${String(maxId + 1).padStart(3, '0')}`;
+  const getAgentName = (agentId: number | null): string => {
+    if (!agentId) return 'N/A';
+    const agent = agents.find(a => a.agent_id === agentId);
+    if (!agent) return 'Unknown';
+    return `${agent.first_name} ${agent.middle_name ? agent.middle_name + ' ' : ''}${agent.last_name}`;
+  };
+
+  const getTransactionInfo = (transactionId: number) => {
+    return transactions.find(t => t.transaction_id === transactionId);
+  };
+
+  const calculateCommission = (transactionId: number, percentage: string): string => {
+    const transaction = transactions.find(t => t.transaction_id === transactionId);
+    if (!transaction) return '0.00';
+    const amount = parseFloat(transaction.total_amount) * (parseFloat(percentage) / 100);
+    return amount.toFixed(2);
   };
 
   const handleAddCommission = () => {
-    if (!formData.agent || !formData.transaction || !formData.property || !formData.amount) {
+    if (!formData.transaction_id || !formData.agent_id || !formData.percentage) {
       alert('Please fill in all required fields');
       return;
     }
 
+    const calculatedAmount = formData.amount || calculateCommission(formData.transaction_id, formData.percentage!);
+    const transactionInfo = getTransactionInfo(formData.transaction_id);
+
     const newCommission: Commission = {
-      ...formData,
-      id: generateId(),
-      paidDate: formData.status === 'Paid' ? formData.paidDate : '-',
+      commission_id: Math.max(...commissions.map(c => c.commission_id), 0) + 1,
+      transaction_id: formData.transaction_id!,
+      agent_id: formData.agent_id,
+      percentage: formData.percentage!,
+      amount: calculatedAmount,
+      transaction_ref: `TX-${formData.transaction_id}`,
+      agent_name: getAgentName(formData.agent_id),
+      property_code: transactionInfo?.property_code || 'Unknown',
+      client_name: transactionInfo?.client_name || 'Unknown',
+      status: formData.status || 'Pending',
+      paid_date: formData.status === 'Paid' ? (formData.paid_date || new Date().toISOString().split('T')[0]) : undefined,
     };
 
     setCommissions([...commissions, newCommission]);
@@ -152,18 +215,30 @@ export default function AdminCommissions() {
   };
 
   const handleEditCommission = () => {
-    if (!formData.agent || !formData.transaction || !formData.property || !formData.amount) {
+    if (!formData.transaction_id || !formData.agent_id || !formData.percentage) {
       alert('Please fill in all required fields');
       return;
     }
 
-    const updatedCommission = {
-      ...formData,
-      paidDate: formData.status === 'Paid' ? formData.paidDate : '-',
+    const calculatedAmount = formData.amount || calculateCommission(formData.transaction_id, formData.percentage!);
+    const transactionInfo = getTransactionInfo(formData.transaction_id);
+
+    const updatedCommission: Commission = {
+      commission_id: selectedCommission!.commission_id,
+      transaction_id: formData.transaction_id!,
+      agent_id: formData.agent_id,
+      percentage: formData.percentage!,
+      amount: calculatedAmount,
+      transaction_ref: `TX-${formData.transaction_id}`,
+      agent_name: getAgentName(formData.agent_id),
+      property_code: transactionInfo?.property_code || 'Unknown',
+      client_name: transactionInfo?.client_name || 'Unknown',
+      status: formData.status || 'Pending',
+      paid_date: formData.status === 'Paid' ? (formData.paid_date || new Date().toISOString().split('T')[0]) : undefined,
     };
 
     setCommissions(commissions.map(c =>
-      c.id === formData.id ? updatedCommission : c
+      c.commission_id === selectedCommission!.commission_id ? updatedCommission : c
     ));
     setIsEditDialogOpen(false);
     resetForm();
@@ -171,7 +246,7 @@ export default function AdminCommissions() {
 
   const handleDeleteCommission = () => {
     if (selectedCommission) {
-      setCommissions(commissions.filter(c => c.id !== selectedCommission.id));
+      setCommissions(commissions.filter(c => c.commission_id !== selectedCommission.commission_id));
       setIsDeleteDialogOpen(false);
       setSelectedCommission(null);
     }
@@ -180,16 +255,23 @@ export default function AdminCommissions() {
   const handleMarkAsPaid = (commission: Commission) => {
     const updatedCommission = {
       ...commission,
-      status: 'Paid',
-      paidDate: new Date().toISOString().split('T')[0],
+      status: 'Paid' as 'Paid' | 'Pending',
+      paid_date: new Date().toISOString().split('T')[0],
     };
     setCommissions(commissions.map(c =>
-      c.id === commission.id ? updatedCommission : c
+      c.commission_id === commission.commission_id ? updatedCommission : c
     ));
   };
 
   const openEditDialog = (commission: Commission) => {
-    setFormData(commission);
+    setFormData({
+      transaction_id: commission.transaction_id,
+      agent_id: commission.agent_id,
+      percentage: commission.percentage,
+      amount: commission.amount,
+      status: commission.status,
+      paid_date: commission.paid_date || '',
+    });
     setSelectedCommission(commission);
     setIsEditDialogOpen(true);
   };
@@ -201,20 +283,27 @@ export default function AdminCommissions() {
 
   const resetForm = () => {
     setFormData({
-      id: '',
-      agent: '',
-      transaction: '',
-      property: '',
+      transaction_id: 0,
+      agent_id: null,
+      percentage: '5.00',
       amount: '',
-      rate: '5%',
       status: 'Pending',
-      paidDate: '',
+      paid_date: '',
     });
     setSelectedCommission(null);
   };
 
-  const handleFormChange = (field: keyof Commission, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+  const handleFormChange = (field: string, value: any) => {
+    setFormData(prev => {
+      const updated = { ...prev, [field]: value };
+      
+      // Auto-calculate amount when transaction or percentage changes
+      if ((field === 'transaction_id' || field === 'percentage') && updated.transaction_id && updated.percentage) {
+        updated.amount = calculateCommission(updated.transaction_id, updated.percentage);
+      }
+      
+      return updated;
+    });
   };
 
   return (
@@ -240,13 +329,13 @@ export default function AdminCommissions() {
           {[
             { 
               label: 'Total Commissions Paid', 
-              value: `₱${commissions.filter(c => c.status === 'Paid').reduce((sum, c) => sum + parseFloat(c.amount.replace(/[₱,]/g, '')), 0).toLocaleString()}`, 
+              value: `₱${commissions.filter(c => c.status === 'Paid').reduce((sum, c) => sum + parseFloat(c.amount), 0).toLocaleString()}`, 
               icon: CheckCircle, 
               color: 'bg-green-500' 
             },
             { 
               label: 'Pending Commissions', 
-              value: `₱${commissions.filter(c => c.status === 'Pending').reduce((sum, c) => sum + parseFloat(c.amount.replace(/[₱,]/g, '')), 0).toLocaleString()}`, 
+              value: `₱${commissions.filter(c => c.status === 'Pending').reduce((sum, c) => sum + parseFloat(c.amount), 0).toLocaleString()}`, 
               icon: Clock, 
               color: 'bg-yellow-500' 
             },
@@ -277,10 +366,10 @@ export default function AdminCommissions() {
               <div key={index} className="p-4 border border-gray-200 rounded-lg">
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-10 h-10 rounded-full bg-green-100 text-green-600 flex items-center justify-center">
-                    {agent.agent.charAt(0)}
+                    {agent.agent_name?.charAt(0)}
                   </div>
                   <div>
-                    <p className="text-gray-900">{agent.agent}</p>
+                    <p className="text-gray-900">{agent.agent_name}</p>
                     <p className="text-sm text-gray-600">{agent.transactions} transactions</p>
                   </div>
                 </div>
@@ -307,7 +396,7 @@ export default function AdminCommissions() {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
               <input
                 type="text"
-                placeholder="Search by agent or transaction..."
+                placeholder="Search by agent, transaction, or property..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
@@ -337,16 +426,19 @@ export default function AdminCommissions() {
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs text-gray-600 uppercase tracking-wider">
-                    Commission ID
+                    Comm. ID
                   </th>
                   <th className="px-6 py-3 text-left text-xs text-gray-600 uppercase tracking-wider">
                     Agent Name
                   </th>
                   <th className="px-6 py-3 text-left text-xs text-gray-600 uppercase tracking-wider">
-                    Transaction Ref
+                    Transaction
                   </th>
                   <th className="px-6 py-3 text-left text-xs text-gray-600 uppercase tracking-wider">
                     Property
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs text-gray-600 uppercase tracking-wider">
+                    Rate
                   </th>
                   <th className="px-6 py-3 text-left text-xs text-gray-600 uppercase tracking-wider">
                     Amount
@@ -361,21 +453,24 @@ export default function AdminCommissions() {
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {filteredCommissions.map((commission) => (
-                  <tr key={commission.id} className="hover:bg-gray-50">
+                  <tr key={commission.commission_id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {commission.id}
+                      COM-{commission.commission_id}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-gray-900">
-                      {commission.agent}
+                      {commission.agent_name}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                      {commission.transaction}
+                      {commission.transaction_ref}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                      {commission.property}
+                      {commission.property_code}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                      {parseFloat(commission.percentage).toFixed(2)}%
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-gray-900">
-                      {commission.amount}
+                      ₱{parseFloat(commission.amount).toLocaleString()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center gap-2">
@@ -437,69 +532,70 @@ export default function AdminCommissions() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm text-gray-700 mb-1">
-                  Agent Name <span className="text-red-500">*</span>
+                  Transaction <span className="text-red-500">*</span>
                 </label>
-                <input
-                  type="text"
-                  value={formData.agent}
-                  onChange={(e) => handleFormChange('agent', e.target.value)}
+                <select
+                  value={formData.transaction_id || ''}
+                  onChange={(e) => handleFormChange('transaction_id', parseInt(e.target.value))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  placeholder="e.g., Roberto Martinez"
-                />
+                >
+                  <option value="">Select Transaction</option>
+                  {transactions.map(transaction => (
+                    <option key={transaction.transaction_id} value={transaction.transaction_id}>
+                      TX-{transaction.transaction_id} - {transaction.property_code}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div>
                 <label className="block text-sm text-gray-700 mb-1">
-                  Transaction Reference <span className="text-red-500">*</span>
+                  Agent <span className="text-red-500">*</span>
                 </label>
-                <input
-                  type="text"
-                  value={formData.transaction}
-                  onChange={(e) => handleFormChange('transaction', e.target.value)}
+                <select
+                  value={formData.agent_id || ''}
+                  onChange={(e) => handleFormChange('agent_id', parseInt(e.target.value))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  placeholder="e.g., TX-2024-045"
-                />
+                >
+                  <option value="">Select Agent</option>
+                  {agents.map(agent => (
+                    <option key={agent.agent_id} value={agent.agent_id}>
+                      {agent.first_name} {agent.middle_name} {agent.last_name}
+                    </option>
+                  ))}
+                </select>
               </div>
-            </div>
-
-            <div>
-              <label className="block text-sm text-gray-700 mb-1">
-                Property Name <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={formData.property}
-                onChange={(e) => handleFormChange('property', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                placeholder="e.g., Vista Verde Subdivision"
-              />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm text-gray-700 mb-1">
-                  Commission Amount <span className="text-red-500">*</span>
+                  Commission Rate (%) <span className="text-red-500">*</span>
                 </label>
                 <input
-                  type="text"
-                  value={formData.amount}
-                  onChange={(e) => handleFormChange('amount', e.target.value)}
+                  type="number"
+                  step="0.01"
+                  value={formData.percentage}
+                  onChange={(e) => handleFormChange('percentage', e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  placeholder="e.g., ₱275,000"
+                  placeholder="e.g., 5.00"
                 />
               </div>
 
               <div>
                 <label className="block text-sm text-gray-700 mb-1">
-                  Commission Rate
+                  Commission Amount (PHP)
                 </label>
                 <input
-                  type="text"
-                  value={formData.rate}
-                  onChange={(e) => handleFormChange('rate', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  placeholder="e.g., 5%"
+                  type="number"
+                  step="0.01"
+                  value={formData.amount}
+                  onChange={(e) => handleFormChange('amount', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent bg-gray-50"
+                  placeholder="Auto-calculated"
+                  readOnly
                 />
+                <p className="text-xs text-gray-500 mt-1">Automatically calculated from transaction amount</p>
               </div>
             </div>
 
@@ -525,8 +621,8 @@ export default function AdminCommissions() {
                   </label>
                   <input
                     type="date"
-                    value={formData.paidDate}
-                    onChange={(e) => handleFormChange('paidDate', e.target.value)}
+                    value={formData.paid_date}
+                    onChange={(e) => handleFormChange('paid_date', e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                   />
                 </div>
@@ -568,63 +664,66 @@ export default function AdminCommissions() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm text-gray-700 mb-1">
-                  Agent Name <span className="text-red-500">*</span>
+                  Transaction <span className="text-red-500">*</span>
                 </label>
-                <input
-                  type="text"
-                  value={formData.agent}
-                  onChange={(e) => handleFormChange('agent', e.target.value)}
+                <select
+                  value={formData.transaction_id || ''}
+                  onChange={(e) => handleFormChange('transaction_id', parseInt(e.target.value))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                />
+                >
+                  <option value="">Select Transaction</option>
+                  {transactions.map(transaction => (
+                    <option key={transaction.transaction_id} value={transaction.transaction_id}>
+                      TX-{transaction.transaction_id} - {transaction.property_code}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div>
                 <label className="block text-sm text-gray-700 mb-1">
-                  Transaction Reference <span className="text-red-500">*</span>
+                  Agent <span className="text-red-500">*</span>
                 </label>
-                <input
-                  type="text"
-                  value={formData.transaction}
-                  onChange={(e) => handleFormChange('transaction', e.target.value)}
+                <select
+                  value={formData.agent_id || ''}
+                  onChange={(e) => handleFormChange('agent_id', parseInt(e.target.value))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                />
+                >
+                  <option value="">Select Agent</option>
+                  {agents.map(agent => (
+                    <option key={agent.agent_id} value={agent.agent_id}>
+                      {agent.first_name} {agent.middle_name} {agent.last_name}
+                    </option>
+                  ))}
+                </select>
               </div>
-            </div>
-
-            <div>
-              <label className="block text-sm text-gray-700 mb-1">
-                Property Name <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={formData.property}
-                onChange={(e) => handleFormChange('property', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-              />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm text-gray-700 mb-1">
-                  Commission Amount <span className="text-red-500">*</span>
+                  Commission Rate (%) <span className="text-red-500">*</span>
                 </label>
                 <input
-                  type="text"
-                  value={formData.amount}
-                  onChange={(e) => handleFormChange('amount', e.target.value)}
+                  type="number"
+                  step="0.01"
+                  value={formData.percentage}
+                  onChange={(e) => handleFormChange('percentage', e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                 />
               </div>
 
               <div>
                 <label className="block text-sm text-gray-700 mb-1">
-                  Commission Rate
+                  Commission Amount (PHP)
                 </label>
                 <input
-                  type="text"
-                  value={formData.rate}
-                  onChange={(e) => handleFormChange('rate', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  type="number"
+                  step="0.01"
+                  value={formData.amount}
+                  onChange={(e) => handleFormChange('amount', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent bg-gray-50"
+                  readOnly
                 />
               </div>
             </div>
@@ -651,8 +750,8 @@ export default function AdminCommissions() {
                   </label>
                   <input
                     type="date"
-                    value={formData.paidDate}
-                    onChange={(e) => handleFormChange('paidDate', e.target.value)}
+                    value={formData.paid_date}
+                    onChange={(e) => handleFormChange('paid_date', e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                   />
                 </div>
@@ -694,11 +793,11 @@ export default function AdminCommissions() {
             <div className="py-4">
               <div className="bg-gray-50 rounded-lg p-4">
                 <p className="text-sm text-gray-600">Commission ID</p>
-                <p className="text-gray-900">{selectedCommission.id}</p>
+                <p className="text-gray-900">COM-{selectedCommission.commission_id}</p>
                 <p className="text-sm text-gray-600 mt-2">Agent</p>
-                <p className="text-gray-900">{selectedCommission.agent}</p>
+                <p className="text-gray-900">{selectedCommission.agent_name}</p>
                 <p className="text-sm text-gray-600 mt-2">Amount</p>
-                <p className="text-gray-900">{selectedCommission.amount}</p>
+                <p className="text-gray-900">₱{parseFloat(selectedCommission.amount).toLocaleString()}</p>
               </div>
             </div>
           )}

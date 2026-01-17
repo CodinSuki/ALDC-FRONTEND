@@ -16,12 +16,6 @@ interface Project {
   project_type: string;
 }
 
-interface Location {
-  location_id: number;
-  city: string;
-  province: string;
-}
-
 interface Landowner {
   landowner_id: number;
   name: string;
@@ -31,22 +25,39 @@ interface Property {
   property_id: number;
   property_code: string;
   project_id: number;
-  location_id: number;
   landowner_id: number | null;
+  property_type_id?: number | null;
+
   lot_size?: number;
   price?: number;
   status: 'Available' | 'Reserved' | 'Sold';
+  location_id?: number;
 
-  // Derived display fields
+  // Display helpers
   project_name?: string;
   location_display?: string;
   landowner_name?: string;
+  property_type_name?: string;
+
+  // Location fields
+  region?: string;
+  province?: string;
+  city?: string;
+  barangay?: string;
+  street?: string;
 }
+
+
+
+interface PropertyType {
+  id: number;
+  type_name: string;
+}
+
 
 export default function AdminProperties() {
   const [properties, setProperties] = useState<Property[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
-  const [locations, setLocations] = useState<Location[]>([]);
   const [landowners, setLandowners] = useState<Landowner[]>([]);
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -54,36 +65,62 @@ export default function AdminProperties() {
 
   const [showModal, setShowModal] = useState(false);
   const [editPropertyId, setEditPropertyId] = useState<number | null>(null);
+  const [propertyTypes, setPropertyTypes] = useState<PropertyType[]>([]);
+
 
   const [formData, setFormData] = useState<Partial<Property>>({
     property_code: '',
     project_id: 0,
-    location_id: 0,
     landowner_id: null,
     lot_size: undefined,
     price: undefined,
     status: 'Available',
+    region: '',
+    province: '',
+    city: '',
+    barangay: '',
+    street: '',
   });
 
-  // Fetch properties and related data
   useEffect(() => {
+    // Fetch property types first
+    fetch('http://localhost/aldc-system/api/admin/property-types/get_property_types.php')
+      .then(res => res.json())
+      .then(data => { if (data.success) setPropertyTypes(data.data); })
+      .catch(err => console.error('Failed to fetch property types', err));
+  }, []);
+
+  useEffect(() => {
+    // Fetch properties with joined location & project & landowner
     fetch('http://localhost/aldc-system/api/admin/properties/get_properties.php')
       .then(res => res.json())
       .then(data => {
         if (data.success) {
-          const mapped: Property[] = data.data.map((item: any) => ({
-            property_id: Number(item.property_id),
-            property_code: item.property_code,
-            project_id: Number(item.project_id),
-            location_id: Number(item.location_id),
-            landowner_id: item.landowner_id ? Number(item.landowner_id) : null,
-            lot_size: Number(item.lot_size),
-            price: Number(item.price),
-            status: item.status,
-            project_name: item.project_name,
-            location_display: `${item.city}, ${item.province}`,
-            landowner_name: item.landowner_name,
-          }));
+          const mapped: Property[] = data.data.map((item: any) => {
+            const propertyType = propertyTypes.find(pt => pt.id === Number(item.property_type_id));
+            return {
+              property_id: Number(item.property_id),
+              property_code: item.property_code,
+              project_id: Number(item.project_id),
+              landowner_id: item.landowner_id ? Number(item.landowner_id) : null,
+              property_type_id: item.property_type_id ? Number(item.property_type_id) : null,
+              lot_size: Number(item.lot_size),
+              price: Number(item.price),
+              status: item.status,
+              project_name: item.project_name,
+              landowner_name: item.landowner_name,
+              property_type_name: propertyType?.type_name,
+              location_id: item.location_id ? Number(item.location_id) : undefined,
+              region: item.region,
+              province: item.province,
+              city: item.city,
+              barangay: item.barangay,
+              street: item.street,
+              location_display: [item.street, item.barangay, item.city, item.province, item.region]
+                .filter(Boolean)
+                .join(', '),
+            };
+          });
           setProperties(mapped);
         }
       })
@@ -94,16 +131,11 @@ export default function AdminProperties() {
       .then(res => res.json())
       .then(data => { if (data.success) setProjects(data.data); });
 
-    // Fetch locations
-    fetch('http://localhost/aldc-system/api/admin/locations/get_locations.php')
-      .then(res => res.json())
-      .then(data => { if (data.success) setLocations(data.data); });
-
     // Fetch landowners
     fetch('http://localhost/aldc-system/api/admin/landowners/get_landowners.php')
       .then(res => res.json())
       .then(data => { if (data.success) setLandowners(data.data); });
-  }, []);
+  }, [propertyTypes]);
 
   const filteredProperties = properties.filter(p => {
     const matchesSearch =
@@ -118,11 +150,16 @@ export default function AdminProperties() {
     setFormData({
       property_code: '',
       project_id: 0,
-      location_id: 0,
       landowner_id: null,
+      property_type_id: null,
       lot_size: undefined,
       price: undefined,
       status: 'Available',
+      region: '',
+      province: '',
+      city: '',
+      barangay: '',
+      street: '',
     });
     setEditPropertyId(null);
   };
@@ -142,67 +179,52 @@ export default function AdminProperties() {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleAddProperty = async () => {
-    if (!formData.property_code || !formData.project_id || !formData.location_id || !formData.lot_size || !formData.price) {
+  const handleAddOrUpdateProperty = async () => {
+    if (!formData.property_code || !formData.project_id || !formData.city || !formData.lot_size || !formData.price) {
       alert('Please fill all required fields');
       return;
     }
 
-    const res = await fetch('http://localhost/aldc-system/api/add_property.php', {
+    const endpoint = editPropertyId
+      ? 'http://localhost/aldc-system/api/update_property.php'
+      : 'http://localhost/aldc-system/api/add_property.php';
+
+    const payload = editPropertyId ? { property_id: editPropertyId, ...formData } : formData;
+
+    const res = await fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(formData),
+      body: JSON.stringify(payload),
     });
+
     const data = await res.json();
     if (data.success) {
-      setProperties(prev => [
-        ...prev,
-        {
-          ...data.property,
-          project_name: projects.find(p => p.project_id === data.property.project_id)?.project_name,
-          location_display: locations.find(l => l.location_id === data.property.location_id)
-            ? `${locations.find(l => l.location_id === data.property.location_id)!.city}, ${locations.find(l => l.location_id === data.property.location_id)!.province}`
-            : '',
-          landowner_name: landowners.find(l => l.landowner_id === data.property.landowner_id)?.name,
+      // Refresh the property list
+      const newProp: Property = {
+        ...data.property,
+        project_name: projects.find(p => p.project_id === data.property.project_id)?.project_name,
+        landowner_name: landowners.find(l => l.landowner_id === data.property.landowner_id)?.name,
+        location_display: [data.property.street, data.property.barangay, data.property.city, data.property.province, data.property.region]
+          .filter(Boolean)
+          .join(', '),
+        region: data.property.region,
+        province: data.property.province,
+        city: data.property.city,
+        barangay: data.property.barangay,
+        street: data.property.street,
+      };
+
+      setProperties(prev => {
+        if (editPropertyId) {
+          return prev.map(p => p.property_id === editPropertyId ? newProp : p);
         }
-      ]);
+        return [...prev, newProp];    
+      });
+
       setShowModal(false);
       resetForm();
     } else {
-      alert('Error adding property');
-    }
-  };
-
-  const handleUpdateProperty = async () => {
-    if (!editPropertyId) return;
-    if (!formData.property_code || !formData.project_id || !formData.location_id || !formData.lot_size || !formData.price) {
-      alert('Please fill all required fields');
-      return;
-    }
-
-    const res = await fetch('http://localhost/aldc-system/api/update_property.php', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ property_id: editPropertyId, ...formData }),
-    });
-    const data = await res.json();
-    if (data.success) {
-      setProperties(prev => prev.map(p =>
-        p.property_id === editPropertyId
-          ? {
-              ...data.property,
-              project_name: projects.find(pr => pr.project_id === data.property.project_id)?.project_name,
-              location_display: locations.find(l => l.location_id === data.property.location_id)
-                ? `${locations.find(l => l.location_id === data.property.location_id)!.city}, ${locations.find(l => l.location_id === data.property.location_id)!.province}`
-                : '',
-              landowner_name: landowners.find(l => l.landowner_id === data.property.landowner_id)?.name,
-            }
-          : p
-      ));
-      setShowModal(false);
-      resetForm();
-    } else {
-      alert('Error updating property');
+      alert('Error saving property');
     }
   };
 
@@ -272,6 +294,7 @@ export default function AdminProperties() {
                   <th className="px-6 py-3 text-left text-xs text-gray-600 uppercase tracking-wider">Project</th>
                   <th className="px-6 py-3 text-left text-xs text-gray-600 uppercase tracking-wider">Location</th>
                   <th className="px-6 py-3 text-left text-xs text-gray-600 uppercase tracking-wider">Landowner</th>
+                  <th className="px-6 py-3 text-left text-xs text-gray-600 uppercase tracking-wider">Property Type</th>
                   <th className="px-6 py-3 text-left text-xs text-gray-600 uppercase tracking-wider">Lot Size</th>
                   <th className="px-6 py-3 text-left text-xs text-gray-600 uppercase tracking-wider">Price</th>
                   <th className="px-6 py-3 text-left text-xs text-gray-600 uppercase tracking-wider">Status</th>
@@ -285,6 +308,7 @@ export default function AdminProperties() {
                     <td className="px-6 py-4 whitespace-nowrap text-gray-900">{p.project_name}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{p.location_display}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{p.landowner_name || 'N/A'}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{p.property_type_name || 'N/A'}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{p.lot_size?.toLocaleString()}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-gray-900">₱{p.price?.toLocaleString()}</td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -325,6 +349,7 @@ export default function AdminProperties() {
             </DialogHeader>
 
             <div className="space-y-4 py-4">
+              {/* Property & Project */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm text-gray-700 mb-1">Property Code</label>
@@ -353,23 +378,57 @@ export default function AdminProperties() {
                 </div>
               </div>
 
+              {/* Location Inputs */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm text-gray-700 mb-1">Location</label>
-                  <select
-                    value={formData.location_id || ''}
-                    onChange={e => handleFormChange('location_id', Number(e.target.value))}
+                  <label className="block text-sm text-gray-700 mb-1">Region</label>
+                  <input
+                    type="text"
+                    value={formData.region || ''}
+                    onChange={e => handleFormChange('region', e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                  >
-                    <option value="">Select Location</option>
-                    {locations.map(l => (
-                      <option key={l.location_id} value={l.location_id}>
-                        {l.city}, {l.province}
-                      </option>
-                    ))}
-                  </select>
+                  />
                 </div>
+                <div>
+                  <label className="block text-sm text-gray-700 mb-1">Province</label>
+                  <input
+                    type="text"
+                    value={formData.province || ''}
+                    onChange={e => handleFormChange('province', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-700 mb-1">City <span className="text-red-500">*</span></label>
+                  <input
+                    type="text"
+                    value={formData.city || ''}
+                    onChange={e => handleFormChange('city', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-700 mb-1">Barangay</label>
+                  <input
+                    type="text"
+                    value={formData.barangay || ''}
+                    onChange={e => handleFormChange('barangay', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-700 mb-1">Street</label>
+                  <input
+                    type="text"
+                    value={formData.street || ''}
+                    onChange={e => handleFormChange('street', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  />
+                </div>
+              </div>
 
+              {/* Landowner, Lot Size, Price, Status, Property type*/}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm text-gray-700 mb-1">Landowner</label>
                   <select
@@ -383,9 +442,7 @@ export default function AdminProperties() {
                     ))}
                   </select>
                 </div>
-              </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm text-gray-700 mb-1">Lot Size</label>
                   <input
@@ -407,19 +464,41 @@ export default function AdminProperties() {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                   />
                 </div>
-              </div>
 
-              <div>
-                <label className="block text-sm text-gray-700 mb-1">Status</label>
-                <select
-                  value={formData.status}
-                  onChange={e => handleFormChange('status', e.target.value as any)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                >
-                  <option value="Available">Available</option>
-                  <option value="Reserved">Reserved</option>
-                  <option value="Sold">Sold</option>
-                </select>
+                <div>
+                  <label className="block text-sm text-gray-700 mb-1">Status</label>
+                  <select
+                    value={formData.status}
+                    onChange={e => handleFormChange('status', e.target.value as any)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  >
+                    <option value="Available">Available</option>
+                    <option value="Reserved">Reserved</option>
+                    <option value="Sold">Sold</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-700 mb-1">
+                    Property Type
+                  </label>
+                  <select
+                    value={formData.property_type_id || ''}
+                    onChange={e =>
+                      handleFormChange(
+                        'property_type_id',
+                        e.target.value ? Number(e.target.value) : null
+                      )
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  >
+                    <option value="">Select Property Type</option>
+                    {propertyTypes.map(pt => (
+                      <option key={pt.id} value={pt.id}>
+                        {pt.type_name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </div>
 
@@ -430,21 +509,12 @@ export default function AdminProperties() {
               >
                 Cancel
               </button>
-              {editPropertyId ? (
-                <button
-                  onClick={handleUpdateProperty}
-                  className="ml-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                >
-                  Update Property
-                </button>
-              ) : (
-                <button
-                  onClick={handleAddProperty}
-                  className="ml-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-                >
-                  Add Property
-                </button>
-              )}
+              <button
+                onClick={handleAddOrUpdateProperty}
+                className={`ml-2 px-4 py-2 rounded-lg text-white ${editPropertyId ? 'bg-blue-600 hover:bg-blue-700' : 'bg-green-600 hover:bg-green-700'}`}
+              >
+                {editPropertyId ? 'Update Property' : 'Add Property'}
+              </button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

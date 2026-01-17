@@ -1,13 +1,19 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Home, Building2, Users, FileText, DollarSign, Menu, X } from 'lucide-react';
+import { Home, Building2, Users, FileText, DollarSign, Menu, X, FolderKanban, MapPin, UserSearch, MessageSquare, CreditCard, UserCog, BarChart3, Settings } from 'lucide-react';
 import { useState } from 'react';
 
 const navigation = [
   { name: 'Dashboard', path: '/admin/dashboard', icon: Home },
+  { name: 'Projects', path: '/admin/projects', icon: FolderKanban },
   { name: 'Properties', path: '/admin/properties', icon: Building2 },
-  { name: 'Clients & Inquiries', path: '/admin/clients', icon: Users },
+  { name: 'Locations', path: '/admin/locations', icon: MapPin },
+  { name: 'Clients', path: '/admin/clients', icon: Users },
+  { name: 'Inquiries', path: '/admin/inquiries', icon: MessageSquare },
   { name: 'Transactions', path: '/admin/transactions', icon: FileText },
-  { name: 'Commissions', path: '/admin/commissions', icon: DollarSign },
+  { name: 'Payments', path: '/admin/payments', icon: CreditCard },
+  { name: 'Agents & Brokers', path: '/admin/agents', icon: UserCog },
+  { name: 'Reports', path: '/admin/reports', icon: BarChart3 },
+  { name: 'Settings', path: '/admin/settings', icon: Settings },
 ];
 
 interface AdminLayoutProps {

@@ -4,9 +4,16 @@ import PropertyListings from './pages/PropertyListings';
 import PropertyDetail from './pages/PropertyDetail';
 import ConsultationForm from './pages/ConsultationForm';
 import AdminDashboard from './pages/admin/Dashboard';
+import AdminProjects from './pages/admin/Projects';
 import AdminProperties from './pages/admin/Properties';
+import AdminLocations from './pages/admin/Locations';
 import AdminClients from './pages/admin/Clients';
+import AdminInquiries from './pages/admin/Inquiries';
 import AdminTransactions from './pages/admin/Transactions';
+import AdminPayments from './pages/admin/Payments';
+import AdminAgents from './pages/admin/Agents';
+import AdminReports from './pages/admin/Reports';
+import AdminSettings from './pages/admin/Settings';
 import AdminCommissions from './pages/admin/Commissions';
 
 export default function App() {
@@ -22,9 +29,16 @@ export default function App() {
         {/* Admin Routes */}
         <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
         <Route path="/admin/dashboard" element={<AdminDashboard />} />
+        <Route path="/admin/projects" element={<AdminProjects />} />
         <Route path="/admin/properties" element={<AdminProperties />} />
+        <Route path="/admin/locations" element={<AdminLocations />} />
         <Route path="/admin/clients" element={<AdminClients />} />
+        <Route path="/admin/inquiries" element={<AdminInquiries />} />
         <Route path="/admin/transactions" element={<AdminTransactions />} />
+        <Route path="/admin/payments" element={<AdminPayments />} />
+        <Route path="/admin/agents" element={<AdminAgents />} />
+        <Route path="/admin/reports" element={<AdminReports />} />
+        <Route path="/admin/settings" element={<AdminSettings />} />
         <Route path="/admin/commissions" element={<AdminCommissions />} />
       </Routes>
     </BrowserRouter>
