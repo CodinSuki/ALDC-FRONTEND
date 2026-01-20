@@ -3,6 +3,9 @@ import Landing from './pages/Landing';
 import PropertyListings from './pages/PropertyListings';
 import PropertyDetail from './pages/PropertyDetail';
 import ConsultationForm from './pages/ConsultationForm';
+import BuyerInterestForm from './pages/BuyerInterestForm';
+import SellerForm from './components/ui/SellerForm';
+
 import AdminDashboard from './pages/admin/Dashboard';
 import AdminProjects from './pages/admin/Projects';
 import AdminProperties from './pages/admin/Properties';
@@ -16,6 +19,8 @@ import AdminReports from './pages/admin/Reports';
 import AdminSettings from './pages/admin/Settings';
 import AdminCommissions from './pages/admin/Commissions';
 
+
+
 export default function App() {
   return (
     <BrowserRouter>
@@ -24,7 +29,9 @@ export default function App() {
         <Route path="/" element={<Landing />} />
         <Route path="/properties" element={<PropertyListings />} />
         <Route path="/property/:id" element={<PropertyDetail />} />
+        <Route path="/property/:id/inquire" element={<BuyerInterestForm />} />
         <Route path="/consultation" element={<ConsultationForm />} />
+        <Route path="/sell" element={<SellerForm />} />
         
         {/* Admin Routes */}
         <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />

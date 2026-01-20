@@ -32,6 +32,13 @@ export default function PublicNav() {
             >
               Request Consultation
             </Link>
+            <Link
+              to="/sell"
+              className="border-2 border-green-600 text-green-600 px-6 py-2 rounded-lg hover:bg-green-50 transition-colors"
+            >
+              Sell Property
+            </Link>
+
           </div>
 
           {/* Mobile Menu Button */}

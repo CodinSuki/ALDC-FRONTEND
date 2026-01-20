@@ -3,12 +3,15 @@ import PublicNav from '../components/PublicNav';
 import Footer from '../components/Footer';
 import { MapPin, Home, Ruler, ArrowLeft, Calendar } from 'lucide-react';
 import { ImageWithFallback } from '../components/figma/ImageWithFallback';
+import SpecRow from '../components/ui/SpecRow';
 
 const mockPropertyData: Record<string, any> = {
   '1': {
     name: 'Vista Verde Subdivision',
     type: 'Residential',
     location: 'Laguna',
+    province: 'Laguna',
+    city: 'Santa Rosa',
     size: '120 sqm',
     status: 'Available',
     images: [
@@ -16,7 +19,40 @@ const mockPropertyData: Record<string, any> = {
       'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800',
       'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800'
     ],
-    description: 'A premium residential subdivision offering modern living spaces with excellent connectivity and amenities.'
+    description: 'A premium residential subdivision offering modern living spaces with excellent connectivity and amenities.',
+    // Property Specifications
+    property_type: 'Residential',
+    lot_size: '120 sqm',
+    titled: true,
+    overlooking: false,
+    lot_type: 'Corner Lot',
+    topography: 'Flat',
+    // Utilities
+    utilities: {
+      water: true,
+      electricity: true,
+      sim: true,
+      internet: true,
+    },
+    // Facilities & Amenities
+    facilities: {
+      gated: true,
+      security: true,
+      clubhouse: true,
+      sports: true,
+      parks: true,
+      pool: false,
+      other: 'Basketball court, Multi-purpose hall',
+    },
+    // Accessibility & Vicinity
+    accessibility: {
+      motorcycle: true,
+      car: true,
+      truck: false,
+      access_road: true,
+      cemented_road: true,
+      rough_road: false,
+    },
   }
 };
 
@@ -107,21 +143,83 @@ export default function PropertyDetail() {
                 </p>
               </div>
 
+              {/* Property Overview Section */}
+              <div className="mb-8">
+                <h2 className="text-gray-900 mb-4 text-lg font-semibold">Property Overview</h2>
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <SpecRow label="Property Type" value={property.property_type} />
+                  <SpecRow label="Lot Size" value={property.lot_size} />
+                  <SpecRow label="Land Title" value={property.titled} />
+                  <SpecRow label="Overlooking" value={property.overlooking} />
+                  <SpecRow label="Lot Type" value={property.lot_type} />
+                  <SpecRow label="Topography" value={property.topography} />
+                </div>
+              </div>
+
+              {/* Property Utilities Section */}
+              <div className="mb-8">
+                <h2 className="text-gray-900 mb-4 text-lg font-semibold">Property Utilities</h2>
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <SpecRow label="Water" value={property.utilities?.water} />
+                  <SpecRow label="Electricity" value={property.utilities?.electricity} />
+                  <SpecRow label="SIM Network" value={property.utilities?.sim} />
+                  <SpecRow label="Internet" value={property.utilities?.internet} />
+                </div>
+              </div>
+
+              {/* Property Facilities & Amenities Section */}
+              <div className="mb-8">
+                <h2 className="text-gray-900 mb-4 text-lg font-semibold">Facilities & Amenities</h2>
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <SpecRow label="Gated Community" value={property.facilities?.gated} />
+                  <SpecRow label="Security" value={property.facilities?.security} />
+                  <SpecRow label="Clubhouse / Function Hall" value={property.facilities?.clubhouse} />
+                  <SpecRow label="Sports & Fitness Center" value={property.facilities?.sports} />
+                  <SpecRow label="Parks & Playgrounds" value={property.facilities?.parks} />
+                  <SpecRow label="Swimming Pool" value={property.facilities?.pool} />
+                  {property.facilities?.other && (
+                    <div className="py-3 border-t border-gray-100">
+                      <p className="text-sm font-medium text-gray-700 mb-2">Other Amenities</p>
+                      <ul className="text-sm text-gray-600 space-y-1">
+                        {property.facilities.other.split(',').map((item: string, idx: number) => (
+                          <li key={idx} className="flex items-start gap-2">
+                            <span className="text-green-600 mt-1">•</span>
+                            <span>{item.trim()}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Property Accessibility & Vicinity Section */}
+              <div className="mb-8">
+                <h2 className="text-gray-900 mb-4 text-lg font-semibold">Accessibility & Vicinity</h2>
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <SpecRow label="Accessible by Motorcycle" value={property.accessibility?.motorcycle} />
+                  <SpecRow label="Accessible by Car" value={property.accessibility?.car} />
+                  <SpecRow label="Accessible by Truck" value={property.accessibility?.truck} />
+                  <SpecRow label="Access Road" value={property.accessibility?.access_road} />
+                  <SpecRow label="Cemented Road" value={property.accessibility?.cemented_road} />
+                  <SpecRow label="Rough Road" value={property.accessibility?.rough_road} />
+                </div>
+              </div>
+
               {/* Advisory Notice */}
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 mb-8">
                 <h3 className="text-gray-900 mb-2 flex items-center gap-2">
                   <Calendar className="w-5 h-5 text-yellow-600" />
-                  Consultation Required
+                  Interested in This Property?
                 </h3>
                 <p className="text-sm text-gray-700 mb-4">
-                  Detailed property information, pricing, and site visits are available through our consultation process. 
-                  Our expert brokers will guide you through every step of your investment decision.
+                  Register your interest and our expert brokers will contact you with detailed information, pricing, and site visit scheduling.
                 </p>
                 <Link 
-                  to="/consultation" 
+                  to={`/property/${id}/inquire`} 
                   className="inline-block bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors"
                 >
-                  Request Site Visit / Consultation
+                  Inquire About This Property
                 </Link>
               </div>
 
