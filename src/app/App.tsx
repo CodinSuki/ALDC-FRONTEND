@@ -44,7 +44,7 @@ export default function App() {
         <Route path="/sell" element={<SellerForm />} />
         
         {/* Admin Routes */}
-        <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
+        <Route path="/admin" element={<Navigate to="  " replace />} />
         <Route path="/admin/dashboard" element={<AdminDashboard />} />
         <Route path="/admin/projects" element={<AdminProjects />} />
         <Route path="/admin/properties" element={<AdminProperties />} />
