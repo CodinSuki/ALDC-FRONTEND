@@ -97,8 +97,9 @@ export default function Contact() {
       {/* Contact Form Section */}
       <section className="py-16 px-4 bg-white">
         <div className="max-w-2xl mx-auto">
-          <Card className="p-8">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">Send us a Message</h2>
+              <Card className="p-10 text-center shadow-sm border border-gray-100">
+                <h2 className="text-2xl font-bold text-gray-900 mb-3"> Send Us a Message </h2>
+                  <p className="text-gray-600 mb-8 leading-relaxed"> Have questions about a property or need professional guidance? Our team is ready to assist you. </p>
              <Link 
               to="/consultation" 
               className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors"
