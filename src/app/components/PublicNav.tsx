@@ -7,7 +7,7 @@ export default function PublicNav() {
 
   return (
     <nav className="bg-white shadow-sm border-b border-gray-200">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="w-full px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2">
@@ -37,6 +37,9 @@ export default function PublicNav() {
             </Link>
             <Link to="/contact" className="text-gray-700 hover:text-green-600 transition-colors">
               Contact
+            </Link>
+            <Link to="/about" className="text-gray-700 hover:text-green-600 transition-colors">
+              About Us
             </Link>
             <Link 
               to="/consultation" 
@@ -106,6 +109,13 @@ export default function PublicNav() {
               onClick={() => setMobileMenuOpen(false)}
             >
               Contact
+            </Link>
+            <Link 
+              to="/about" 
+              className="block text-gray-700 hover:text-green-600 py-2"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              About Us
             </Link>
             <Link 
               to="/consultation" 
