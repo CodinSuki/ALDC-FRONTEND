@@ -1,5 +1,7 @@
 import { Card } from '../components/ui/card';
 import { Button } from '../components/ui/button';
+import PublicNav from '../components/PublicNav';
+import Footer from '../components/Footer';
 import { Mail, Phone, MapPin, Clock } from 'lucide-react';
 import { useState } from 'react';
 
@@ -55,12 +57,14 @@ export default function Contact() {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+    <div className="min-h-screen flex flex-col">
+      <PublicNav />
+      <div className="flex-1 bg-gradient-to-br from-gray-50 to-gray-100">
       {/* Hero Section */}
-      <section className="pt-20 pb-12 px-4">
+      <section className="pt-20 pb-12 px-4 bg-gradient-to-br from-green-50 to-green-100">
         <div className="max-w-4xl mx-auto text-center">
-          <h1 className="text-5xl font-bold text-slate-900 mb-6">Get In Touch</h1>
-          <p className="text-xl text-slate-600">
+          <h1 className="text-5xl font-bold text-gray-900 mb-6">Get In Touch</h1>
+          <p className="text-xl text-gray-700">
             Have questions? We're here to help. Reach out to our team anytime.
           </p>
         </div>
@@ -74,11 +78,11 @@ export default function Contact() {
               const Icon = info.icon;
               return (
                 <Card key={index} className="p-6 text-center hover:shadow-lg transition-shadow">
-                  <Icon className="w-12 h-12 text-blue-600 mx-auto mb-4" />
-                  <h3 className="text-lg font-bold text-slate-900 mb-2">{info.title}</h3>
+                  <Icon className="w-12 h-12 text-green-600 mx-auto mb-4" />
+                  <h3 className="text-lg font-bold text-gray-900 mb-2">{info.title}</h3>
                   <a 
                     href={info.link}
-                    className="text-slate-600 hover:text-blue-600 transition-colors"
+                    className="text-gray-700 hover:text-green-600 transition-colors"
                   >
                     {info.value}
                   </a>
@@ -93,11 +97,11 @@ export default function Contact() {
       <section className="py-16 px-4 bg-white">
         <div className="max-w-2xl mx-auto">
           <Card className="p-8">
-            <h2 className="text-2xl font-bold text-slate-900 mb-6">Send us a Message</h2>
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">Send us a Message</h2>
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="grid md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
                     Name
                   </label>
                   <input
@@ -106,7 +110,7 @@ export default function Contact() {
                     value={formData.name}
                     onChange={handleChange}
                     required
-                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-600"
                     placeholder="Your name"
                   />
                 </div>
@@ -141,7 +145,7 @@ export default function Contact() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
                     Subject
                   </label>
                   <select
@@ -149,7 +153,7 @@ export default function Contact() {
                     value={formData.subject}
                     onChange={handleChange}
                     required
-                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-600"
                   >
                     <option value="">Select a subject</option>
                     <option value="general">General Inquiry</option>
@@ -162,7 +166,7 @@ export default function Contact() {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
                   Message
                 </label>
                 <textarea
@@ -171,12 +175,12 @@ export default function Contact() {
                   onChange={handleChange}
                   required
                   rows={5}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-600"
                   placeholder="Your message here..."
                 />
               </div>
 
-              <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3">
+              <Button type="submit" className="w-full bg-green-600 hover:bg-green-700 text-white py-3">
                 Send Message
               </Button>
             </form>
@@ -187,12 +191,14 @@ export default function Contact() {
       {/* Map Placeholder */}
       <section className="py-16 px-4">
         <div className="max-w-6xl mx-auto">
-          <h2 className="text-2xl font-bold text-slate-900 mb-6 text-center">Find Us</h2>
-          <div className="bg-slate-300 rounded-lg h-96 flex items-center justify-center">
-            <p className="text-slate-600 text-lg">Map integration coming soon</p>
+          <h2 className="text-2xl font-bold text-gray-900 mb-6 text-center">Find Us</h2>
+          <div className="bg-gray-300 rounded-lg h-96 flex items-center justify-center">
+            <p className="text-gray-700 text-lg">Map integration coming soon</p>
           </div>
         </div>
       </section>
+      </div>
+      <Footer />
     </div>
   );
 }

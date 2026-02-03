@@ -1,5 +1,7 @@
 import { Card } from '../components/ui/card';
 import { Button } from '../components/ui/button';
+import PublicNav from '../components/PublicNav';
+import Footer from '../components/Footer';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -85,12 +87,14 @@ export default function FAQs() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+    <div className="min-h-screen flex flex-col">
+      <PublicNav />
+      <div className="flex-1 bg-gradient-to-br from-gray-50 to-gray-100">
       {/* Hero Section */}
-      <section className="pt-20 pb-12 px-4">
+      <section className="pt-20 pb-12 px-4 bg-gradient-to-br from-green-50 to-green-100">
         <div className="max-w-4xl mx-auto text-center">
-          <h1 className="text-5xl font-bold text-slate-900 mb-6">Frequently Asked Questions</h1>
-          <p className="text-xl text-slate-600">
+          <h1 className="text-5xl font-bold text-gray-900 mb-6">Frequently Asked Questions</h1>
+          <p className="text-xl text-gray-700">
             Find answers to common questions about buying, selling, and investing in real estate
           </p>
         </div>
@@ -101,7 +105,7 @@ export default function FAQs() {
         <div className="max-w-4xl mx-auto">
           {faqCategories.map((category, categoryIndex) => (
             <div key={categoryIndex} className="mb-12">
-              <h2 className="text-2xl font-bold text-slate-900 mb-6 pb-3 border-b-2 border-blue-600">
+              <h2 className="text-2xl font-bold text-gray-900 mb-6 pb-3 border-b-2 border-green-600">
                 {category.category}
               </h2>
               <div className="space-y-4">
@@ -114,18 +118,18 @@ export default function FAQs() {
                       onClick={() => toggleExpand(faq.id)}
                       className="w-full px-6 py-4 flex items-start justify-between hover:bg-slate-50 transition-colors"
                     >
-                      <h3 className="text-lg font-semibold text-slate-900 text-left pr-4">
+                      <h3 className="text-lg font-semibold text-gray-900 text-left pr-4">
                         {faq.question}
                       </h3>
                       {expandedId === faq.id ? (
-                        <ChevronUp className="w-5 h-5 text-blue-600 flex-shrink-0 mt-1" />
+                          <ChevronUp className="w-5 h-5 text-green-600 flex-shrink-0 mt-1" />
                       ) : (
-                        <ChevronDown className="w-5 h-5 text-slate-400 flex-shrink-0 mt-1" />
+                          <ChevronDown className="w-5 h-5 text-gray-400 flex-shrink-0 mt-1" />
                       )}
                     </button>
                     {expandedId === faq.id && (
-                      <div className="px-6 py-4 bg-slate-50 border-t border-slate-200">
-                        <p className="text-slate-600 leading-relaxed">{faq.answer}</p>
+                      <div className="px-6 py-4 bg-gray-50 border-t border-gray-200">
+                        <p className="text-gray-700 leading-relaxed">{faq.answer}</p>
                       </div>
                     )}
                   </Card>
@@ -139,13 +143,13 @@ export default function FAQs() {
       {/* CTA Section */}
       <section className="py-16 px-4 bg-white">
         <div className="max-w-3xl mx-auto text-center">
-          <h2 className="text-3xl font-bold text-slate-900 mb-6">Didn't find your answer?</h2>
-          <p className="text-slate-600 mb-8 text-lg">
+          <h2 className="text-3xl font-bold text-gray-900 mb-6">Didn't find your answer?</h2>
+          <p className="text-gray-700 mb-8 text-lg">
             We're here to help! Get in touch with our team for personalized guidance.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link to="/contact">
-              <Button className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700">
+              <Button className="w-full sm:w-auto bg-green-600 hover:bg-green-700">
                 Contact Us
               </Button>
             </Link>
@@ -157,6 +161,8 @@ export default function FAQs() {
           </div>
         </div>
       </section>
+      </div>
+      <Footer />
     </div>
   );
 }
