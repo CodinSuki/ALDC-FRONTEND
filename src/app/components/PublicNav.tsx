@@ -26,6 +26,18 @@ export default function PublicNav() {
             <Link to="/properties" className="text-gray-700 hover:text-green-600 transition-colors">
               Properties
             </Link>
+            <Link to="/team" className="text-gray-700 hover:text-green-600 transition-colors">
+              Our Team
+            </Link>
+            <Link to="/resources" className="text-gray-700 hover:text-green-600 transition-colors">
+              Resources
+            </Link>
+            <Link to="/faqs" className="text-gray-700 hover:text-green-600 transition-colors">
+              FAQs
+            </Link>
+            <Link to="/contact" className="text-gray-700 hover:text-green-600 transition-colors">
+              Contact
+            </Link>
             <Link 
               to="/consultation" 
               className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors"
@@ -66,6 +78,34 @@ export default function PublicNav() {
               onClick={() => setMobileMenuOpen(false)}
             >
               Properties
+            </Link>
+            <Link 
+              to="/team" 
+              className="block text-gray-700 hover:text-green-600 py-2"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              Our Team
+            </Link>
+            <Link 
+              to="/resources" 
+              className="block text-gray-700 hover:text-green-600 py-2"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              Resources
+            </Link>
+            <Link 
+              to="/faqs" 
+              className="block text-gray-700 hover:text-green-600 py-2"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              FAQs
+            </Link>
+            <Link 
+              to="/contact" 
+              className="block text-gray-700 hover:text-green-600 py-2"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              Contact
             </Link>
             <Link 
               to="/consultation" 
