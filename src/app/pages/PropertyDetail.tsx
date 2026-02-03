@@ -109,6 +109,10 @@ export default function PropertyDetail() {
                 }`}>
                   {property.status}
                 </span>
+                {/* Payment status badge — shown here for visibility. Real status is available under admin Transactions. */}
+                <div className="mt-2">
+                  <span className={`inline-block px-3 py-1 rounded-full text-xs bg-gray-100 text-gray-800`}>Payment Status: N/A</span>
+                </div>
               </div>
 
               <h1 className="text-gray-900 mb-2">{property.name}</h1>

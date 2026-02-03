@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import AdminLayout from '@/app/components/AdminLayout';
 import { Plus, Edit, Trash2, Search, Eye } from 'lucide-react';
 import {
@@ -93,6 +94,7 @@ const initialProjects: Project[] = [
 ];
 
 export default function AdminProjects() {
+  const navigate = useNavigate();
   const [projects, setProjects] = useState<Project[]>(initialProjects);
   const [locations] = useState<Location[]>(mockLocations);
   const [searchQuery, setSearchQuery] = useState('');
@@ -299,8 +301,9 @@ export default function AdminProjects() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
                       <button 
+                        onClick={() => navigate(`/admin/properties?projectId=${project.project_id}`)}
                         className="text-green-600 hover:text-green-800 mr-3"
-                        title="View"
+                        title="View properties for this project"
                       >
                         <Eye className="w-4 h-4" />
                       </button>

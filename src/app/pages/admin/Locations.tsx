@@ -55,7 +55,29 @@ const initialLocations: Location[] = [
 ];
 
 export default function AdminLocations() {
+  // NOTE: Top-level Locations management is deprecated.
+  // Location fields are now managed inside the Property create/edit form to ensure locations
+  // are always attached to a Property and to avoid dangling reference data being edited
+  // out-of-band. The top-level route has been removed from the sidebar and routing.
   const [locations, setLocations] = useState<Location[]>(initialLocations);
+
+  // Early return: display informative banner to prevent standalone use. The detailed
+  // management UI below is retained for reference and can be re-used inside property flows.
+  if (true) {
+    return (
+      <AdminLayout>
+        <div className="p-6">
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
+            <h2 className="text-lg font-semibold text-yellow-800">Locations Page Deprecated</h2>
+            <p className="text-sm text-yellow-700 mt-2">Locations are now edited as part of Property create/edit flows. This consolidates location management and prevents inconsistencies across projects and properties.</p>
+            <div className="mt-4">
+              <a href="/admin/properties" className="text-sm text-blue-600 underline">Go to Properties</a>
+            </div>
+          </div>
+        </div>
+      </AdminLayout>
+    );
+  }
   const [searchQuery, setSearchQuery] = useState('');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);

@@ -2,15 +2,17 @@ import { Link, useLocation } from 'react-router-dom';
 import { Home, Building2, Users, FileText, DollarSign, Menu, X, FolderKanban, MapPin, UserSearch, MessageSquare, CreditCard, UserCog, BarChart3, Settings } from 'lucide-react';
 import { useState } from 'react';
 
-const navigation = [
+const navigation: Array<{ name: string; path: string; icon: any; disabled?: boolean }> = [
   { name: 'Dashboard', path: '/admin/dashboard', icon: Home },
   { name: 'Projects', path: '/admin/projects', icon: FolderKanban },
   { name: 'Properties', path: '/admin/properties', icon: Building2 },
-  { name: 'Locations', path: '/admin/locations', icon: MapPin },
+  // Top-level Locations: kept for discoverability but disabled — management moved into Property create/edit flows
+  { name: 'Locations', path: '/admin/locations', icon: MapPin, disabled: true },
   { name: 'Clients', path: '/admin/clients', icon: Users },
   { name: 'Inquiries', path: '/admin/inquiries', icon: MessageSquare },
   { name: 'Transactions', path: '/admin/transactions', icon: FileText },
-  { name: 'Payments', path: '/admin/payments', icon: CreditCard },
+  // Top-level Payments: intentionally disabled — payments are accessible via Transactions → Transaction Detail → Payments
+  { name: 'Payments', path: '/admin/payments', icon: CreditCard, disabled: true },
   { name: 'Agents & Brokers', path: '/admin/agents', icon: UserCog },
   { name: 'Reports', path: '/admin/reports', icon: BarChart3 },
   { name: 'Settings', path: '/admin/settings', icon: Settings },
@@ -54,6 +56,21 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         <nav className="p-4 space-y-2">
           {navigation.map((item) => {
             const isActive = location.pathname === item.path;
+            // Render disabled items as inert buttons with reduced opacity and aria-disabled
+            if (item.disabled) {
+              return (
+                <div
+                  key={item.path}
+                  aria-disabled
+                  className={`flex items-center gap-3 px-4 py-3 rounded-lg text-gray-500 cursor-not-allowed opacity-60`}
+                  title={item.name + ' (disabled — managed inside related workflows)'}
+                >
+                  <item.icon className="w-5 h-5" />
+                  <span>{item.name}</span>
+                </div>
+              );
+            }
+
             return (
               <Link
                 key={item.path}

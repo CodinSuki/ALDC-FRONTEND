@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Eye } from 'lucide-react';
 import AdminLayout from '@/app/components/AdminLayout';
 import { Search, AlertCircle, CheckCircle, Clock, Plus, Edit, Trash2, DollarSign } from 'lucide-react';
 import {
@@ -168,6 +169,8 @@ export default function AdminTransactions() {
   const [isDeleteTransactionOpen, setIsDeleteTransactionOpen] = useState(false);
   const [isAddPaymentOpen, setIsAddPaymentOpen] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
+  const [isTransactionDetailOpen, setIsTransactionDetailOpen] = useState(false);
+  const [detailTab, setDetailTab] = useState<'overview' | 'payments'>('overview');
   
   const [transactionForm, setTransactionForm] = useState<Partial<Transaction>>({
     client_id: 0,
@@ -327,6 +330,11 @@ export default function AdminTransactions() {
     setIsEditTransactionOpen(true);
   };
 
+  const openTransactionDetail = (transaction: Transaction) => {
+    setSelectedTransaction(transaction);
+    setIsTransactionDetailOpen(true);
+  };
+
   const openDeleteDialog = (transaction: Transaction) => {
     setSelectedTransaction(transaction);
     setIsDeleteTransactionOpen(true);
@@ -360,6 +368,31 @@ export default function AdminTransactions() {
   const handlePaymentFormChange = (field: string, value: any) => {
     setPaymentForm(prev => ({ ...prev, [field]: value }));
   };
+
+  // Component: payments list scoped to a single transaction
+  function TransactionPayments({ transactionId }: { transactionId: number }) {
+    const paymentsForTx = paymentLogs.filter(p => p.transaction_id === transactionId);
+
+    return (
+      <div className="space-y-4">
+        {paymentsForTx.length === 0 ? (
+          <div className="text-sm text-gray-500">No payments recorded for this transaction.</div>
+        ) : (
+          paymentsForTx.map(p => (
+            <div key={p.payment_log_id} className="flex items-center justify-between p-3 border rounded-lg">
+              <div>
+                <div className="text-sm font-medium">{p.transaction_ref || `TX-${p.transaction_id}`}</div>
+                <div className="text-xs text-gray-600">{p.payment_method} • {p.payment_date}</div>
+              </div>
+              <div className="text-right">
+                <div className="text-sm">₱{parseFloat(p.amount).toLocaleString()}</div>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    );
+  }
 
   return (
     <AdminLayout>
@@ -486,6 +519,13 @@ export default function AdminTransactions() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
                       <button
+                        onClick={() => openTransactionDetail(transaction)}
+                        className="text-green-600 hover:text-green-800 mr-3"
+                        title="View details"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
+                      <button
                         onClick={() => openEditDialog(transaction)}
                         className="text-blue-600 hover:text-blue-800 mr-3"
                       >
@@ -528,6 +568,76 @@ export default function AdminTransactions() {
             ))}
           </div>
         </div>
+      
+      {/* Transaction Detail Dialog (Overview + Payments tab) */}
+      <Dialog open={isTransactionDetailOpen} onOpenChange={setIsTransactionDetailOpen}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Transaction Details</DialogTitle>
+            <DialogDescription>TX-{selectedTransaction?.transaction_id}</DialogDescription>
+          </DialogHeader>
+
+          <div className="pt-4">
+            <div className="flex gap-2 mb-4">
+              <button
+                onClick={() => setDetailTab('overview')}
+                className={`px-4 py-2 rounded-lg ${detailTab === 'overview' ? 'bg-green-600 text-white' : 'text-gray-600 hover:bg-gray-100'}`}
+              >Overview</button>
+              <button
+                onClick={() => setDetailTab('payments')}
+                className={`px-4 py-2 rounded-lg ${detailTab === 'payments' ? 'bg-green-600 text-white' : 'text-gray-600 hover:bg-gray-100'}`}
+              >Payments</button>
+            </div>
+
+            {detailTab === 'overview' ? (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-gray-600">Client</p>
+                    <p className="text-gray-900">{selectedTransaction?.client_name}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600">Property</p>
+                    <p className="text-gray-900">{selectedTransaction?.property_code}</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-gray-600">Total Amount</p>
+                    <p className="text-gray-900">₱{selectedTransaction ? parseFloat(selectedTransaction.total_amount).toLocaleString() : '0'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600">Balance</p>
+                    <p className="text-gray-900">₱{selectedTransaction?.balance_remaining || '0.00'}</p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div>
+                {/* Reuse transaction-scoped payments component */}
+                {selectedTransaction && <TransactionPayments transactionId={selectedTransaction.transaction_id} />}
+                <div className="mt-4">
+                  <button
+                    onClick={() => {
+                      // Prefill payment form transaction id and open the add payment dialog
+                      if (selectedTransaction) {
+                        setPaymentForm(prev => ({ ...prev, transaction_id: selectedTransaction.transaction_id }));
+                        setIsAddPaymentOpen(true);
+                      }
+                    }}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg"
+                  >Record Payment</button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <button onClick={() => setIsTransactionDetailOpen(false)} className="px-4 py-2 border rounded-lg">Close</button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       </div>
 
       {/* Add Transaction Dialog */}

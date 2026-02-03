@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import PropertyLocationForm from '@/app/components/ui/PropertyLocationForm';
+import { useLocation } from 'react-router-dom';
 import AdminLayout from '@/app/components/AdminLayout';
 import { Plus, Edit, Trash2, Search } from 'lucide-react';
 import {
@@ -62,6 +64,10 @@ export default function AdminProperties() {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<'All' | 'Available' | 'Reserved' | 'Sold'>('All');
+  const location = useLocation();
+  const urlParams = new URLSearchParams(location.search);
+  const projectIdParam = urlParams.get('projectId');
+  const projectIdFilter = projectIdParam ? Number(projectIdParam) : null;
 
   const [showModal, setShowModal] = useState(false);
   const [editPropertyId, setEditPropertyId] = useState<number | null>(null);
@@ -143,7 +149,8 @@ export default function AdminProperties() {
       p.project_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       p.location_display?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = filterStatus === 'All' || p.status === filterStatus;
-    return matchesSearch && matchesStatus;
+    const matchesProject = projectIdFilter ? p.project_id === projectIdFilter : true;
+    return matchesSearch && matchesStatus && matchesProject;
   });
 
   const resetForm = () => {
@@ -175,8 +182,8 @@ export default function AdminProperties() {
     setShowModal(true);
   };
 
-  const handleFormChange = (field: keyof Property, value: any) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+  const handleFormChange = (field: string, value: any) => {
+    setFormData(prev => ({ ...prev, [field as keyof Property]: value }));
   };
 
   const handleAddOrUpdateProperty = async () => {
@@ -378,54 +385,15 @@ export default function AdminProperties() {
                 </div>
               </div>
 
-              {/* Location Inputs */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm text-gray-700 mb-1">Region</label>
-                  <input
-                    type="text"
-                    value={formData.region || ''}
-                    onChange={e => handleFormChange('region', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm text-gray-700 mb-1">Province</label>
-                  <input
-                    type="text"
-                    value={formData.province || ''}
-                    onChange={e => handleFormChange('province', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm text-gray-700 mb-1">City <span className="text-red-500">*</span></label>
-                  <input
-                    type="text"
-                    value={formData.city || ''}
-                    onChange={e => handleFormChange('city', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm text-gray-700 mb-1">Barangay</label>
-                  <input
-                    type="text"
-                    value={formData.barangay || ''}
-                    onChange={e => handleFormChange('barangay', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm text-gray-700 mb-1">Street</label>
-                  <input
-                    type="text"
-                    value={formData.street || ''}
-                    onChange={e => handleFormChange('street', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                  />
-                </div>
-              </div>
+              {/* Location Inputs (consolidated) */}
+              <PropertyLocationForm
+                region={formData.region}
+                province={formData.province}
+                city={formData.city}
+                barangay={formData.barangay}
+                street={formData.street}
+                onChange={handleFormChange}
+              />
 
               {/* Landowner, Lot Size, Price, Status, Property type*/}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

@@ -6,6 +6,8 @@ const stats = [
   { label: 'Total Projects', value: '12', change: '+2 this month', icon: FolderKanban, color: 'bg-indigo-500' },
   { label: 'Total Properties', value: '156', change: '87 available', icon: Building2, color: 'bg-blue-500' },
   { label: 'Available Properties', value: '87', change: '56% of total', icon: Building2, color: 'bg-green-500' },
+  { label: 'Payments Due', value: '12', change: 'This month', icon: AlertCircle, color: 'bg-yellow-500' },
+  { label: 'Overdue Payments', value: '3', change: 'Needs attention', icon: AlertCircle, color: 'bg-red-500' },
   { label: 'Active Inquiries', value: '34', change: '12 new this week', icon: MessageSquare, color: 'bg-yellow-500' },
   { label: 'Active Transactions', value: '23', change: '₱45.2M value', icon: TrendingUp, color: 'bg-purple-500' },
   { label: 'Completed Transactions', value: '89', change: 'This year', icon: TrendingUp, color: 'bg-emerald-500' },

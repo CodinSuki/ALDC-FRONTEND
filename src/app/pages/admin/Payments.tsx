@@ -108,7 +108,32 @@ const initialPaymentSchedules: PaymentSchedule[] = [
 ];
 
 export default function AdminPayments() {
+  // NOTE: Top-level Payments page is deprecated.
+  // Payments must belong to a Transaction and should be accessed from:
+  // Transactions → Transaction Detail → Payments tab.
+  // The top-level route has been removed from the admin sidebar and routing.
+  // This component is retained for reference only and should not be used as a standalone page.
+  // RATIONALE: Allowing payments to be created outside the context of a Transaction can produce
+  // orphaned payments and break the invariant: Payments MUST belong to Transactions.
   const [activeTab, setActiveTab] = useState<'logs' | 'schedules'>('logs');
+
+  // Early return: show deprecation notice when accidentally navigated to this page.
+  // The rest of the file contains legacy UI kept for reference and reuse inside Transaction detail.
+  if (true) {
+    return (
+      <AdminLayout>
+        <div className="p-6">
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
+            <h2 className="text-lg font-semibold text-yellow-800">Payments Page Deprecated</h2>
+            <p className="text-sm text-yellow-700 mt-2">Top-level payments are disabled. Manage payments under <strong>Transactions → Transaction Detail → Payments</strong>. This prevents creating payments without an associated transaction.</p>
+            <div className="mt-4">
+              <a href="/admin/transactions" className="text-sm text-blue-600 underline">Go to Transactions</a>
+            </div>
+          </div>
+        </div>
+      </AdminLayout>
+    );
+  }
   const [paymentLogs, setPaymentLogs] = useState<PaymentLog[]>(initialPaymentLogs);
   const [paymentSchedules, setPaymentSchedules] = useState<PaymentSchedule[]>(initialPaymentSchedules);
   const [searchQuery, setSearchQuery] = useState('');
@@ -470,11 +495,11 @@ export default function AdminPayments() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm text-gray-600 mb-1">Client Name</label>
-                  <p className="text-gray-900">{selectedPaymentLog.client_name}</p>
+                  <p className="text-gray-900">{selectedPaymentLog!.client_name}</p>
                 </div>
                 <div>
                   <label className="block text-sm text-gray-600 mb-1">Property Code</label>
-                  <p className="text-gray-900">{selectedPaymentLog.property_code}</p>
+                  <p className="text-gray-900">{selectedPaymentLog!.property_code}</p>
                 </div>
               </div>
 
@@ -482,7 +507,7 @@ export default function AdminPayments() {
                 <div>
                   <label className="block text-sm text-gray-600 mb-1">Payment Date</label>
                   <p className="text-gray-900">
-                    {new Date(selectedPaymentLog.payment_date).toLocaleDateString('en-US', {
+                    {new Date(selectedPaymentLog!.payment_date).toLocaleDateString('en-US', {
                       year: 'numeric',
                       month: 'long',
                       day: 'numeric'
@@ -491,18 +516,18 @@ export default function AdminPayments() {
                 </div>
                 <div>
                   <label className="block text-sm text-gray-600 mb-1">Amount Paid</label>
-                  <p className="text-gray-900">₱{parseFloat(selectedPaymentLog.amount_paid).toLocaleString()}</p>
+                  <p className="text-gray-900">₱{parseFloat(selectedPaymentLog!.amount_paid).toLocaleString()}</p>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm text-gray-600 mb-1">Payment Method</label>
-                  <p className="text-gray-900">{selectedPaymentLog.payment_method}</p>
+                  <p className="text-gray-900">{selectedPaymentLog!.payment_method}</p>
                 </div>
                 <div>
                   <label className="block text-sm text-gray-600 mb-1">Receipt Number</label>
-                  <p className="text-gray-900">{selectedPaymentLog.receipt_number}</p>
+                  <p className="text-gray-900">{selectedPaymentLog!.receipt_number}</p>
                 </div>
               </div>
             </div>
