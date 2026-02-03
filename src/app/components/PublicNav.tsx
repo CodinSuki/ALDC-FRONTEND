@@ -7,7 +7,7 @@ export default function PublicNav() {
 
   return (
     <nav className="bg-white shadow-sm border-b border-gray-200">
-      <div className="w-full px-4 sm:px-6 lg:px-8">
+      <div className="w-full px-6 sm:px-8 lg:px-10">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2">
