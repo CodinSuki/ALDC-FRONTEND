@@ -6,13 +6,9 @@ const navigation: Array<{ name: string; path: string; icon: any; disabled?: bool
   { name: 'Dashboard', path: '/admin/dashboard', icon: Home },
   { name: 'Projects', path: '/admin/projects', icon: FolderKanban },
   { name: 'Properties', path: '/admin/properties', icon: Building2 },
-  // Top-level Locations: kept for discoverability but disabled — management moved into Property create/edit flows
-  { name: 'Locations', path: '/admin/locations', icon: MapPin, disabled: true },
   { name: 'Clients', path: '/admin/clients', icon: Users },
   { name: 'Inquiries', path: '/admin/inquiries', icon: MessageSquare },
   { name: 'Transactions', path: '/admin/transactions', icon: FileText },
-  // Top-level Payments: intentionally disabled — payments are accessible via Transactions → Transaction Detail → Payments
-  { name: 'Payments', path: '/admin/payments', icon: CreditCard, disabled: true },
   { name: 'Agents & Brokers', path: '/admin/agents', icon: UserCog },
   { name: 'Reports', path: '/admin/reports', icon: BarChart3 },
   { name: 'Settings', path: '/admin/settings', icon: Settings },

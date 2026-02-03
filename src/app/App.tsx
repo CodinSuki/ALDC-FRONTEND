@@ -46,13 +46,9 @@ export default function App() {
         <Route path="/admin/dashboard" element={<AdminDashboard />} />
         <Route path="/admin/projects" element={<AdminProjects />} />
         <Route path="/admin/properties" element={<AdminProperties />} />
-        {/* Top-level Locations route removed/disabled: locations are managed inside Property create/edit flows */}
-        {/* <Route path="/admin/locations" element={<AdminLocations />} /> */}
         <Route path="/admin/clients" element={<AdminClients />} />
         <Route path="/admin/inquiries" element={<AdminInquiries />} />
         <Route path="/admin/transactions" element={<AdminTransactions />} />
-        {/* Top-level Payments route removed: payments accessible via Transactions → Transaction Detail → Payments tab */}
-        {/* <Route path="/admin/payments" element={<AdminPayments />} /> */}
         <Route path="/admin/agents" element={<AdminAgents />} />
         <Route path="/admin/reports" element={<AdminReports />} />
         <Route path="/admin/settings" element={<AdminSettings />} />
