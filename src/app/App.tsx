@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Landing from './pages/Landing';
+import About from './pages/About';
 import PropertyListings from './pages/PropertyListings';
 import PropertyDetail from './pages/PropertyDetail';
 import ConsultationForm from './pages/ConsultationForm';
@@ -27,6 +28,7 @@ export default function App() {
       <Routes>
         {/* Public Routes */}
         <Route path="/" element={<Landing />} />
+        <Route path="/about" element={<About />} />
         <Route path="/properties" element={<PropertyListings />} />
         <Route path="/property/:id" element={<PropertyDetail />} />
         <Route path="/property/:id/inquire" element={<BuyerInterestForm />} />
