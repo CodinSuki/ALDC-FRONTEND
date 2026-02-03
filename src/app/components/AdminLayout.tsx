@@ -1,6 +1,7 @@
-import { Link, useLocation } from 'react-router-dom';
-import { Home, Building2, Users, FileText, DollarSign, Menu, X, FolderKanban, MapPin, UserSearch, MessageSquare, CreditCard, UserCog, BarChart3, Settings } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Home, Building2, Users, FileText, DollarSign, Menu, X, FolderKanban, MapPin, UserSearch, MessageSquare, CreditCard, UserCog, BarChart3, Settings, LogOut } from 'lucide-react';
 import { useState } from 'react';
+import { useAuth } from '../context/AuthContext';
 
 const navigation: Array<{ name: string; path: string; icon: any; disabled?: boolean }> = [
   { name: 'Dashboard', path: '/admin/dashboard', icon: Home },
@@ -20,7 +21,14 @@ interface AdminLayoutProps {
 
 export default function AdminLayout({ children }: AdminLayoutProps) {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { logout } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const handleLogout = () => {
+    logout();
+    navigate('/admin/login');
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -87,7 +95,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
 
         {/* User Info */}
         <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-800">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 mb-4">
             <div className="w-10 h-10 rounded-full bg-green-600 flex items-center justify-center text-white">
               A
             </div>
@@ -96,6 +104,13 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
               <div className="text-xs text-gray-400">admin@aldc.ph</div>
             </div>
           </div>
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-gray-300 hover:bg-red-600 hover:text-white transition-colors text-sm"
+          >
+            <LogOut className="w-4 h-4" />
+            <span>Logout</span>
+          </button>
         </div>
       </aside>
 
