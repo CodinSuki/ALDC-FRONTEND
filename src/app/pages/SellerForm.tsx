@@ -1,15 +1,11 @@
-﻿import { useState } from 'react';
+﻿import { useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import PublicNav from '../components/PublicNav';
 import Footer from '../components/Footer';
-import { CheckCircle, ArrowLeft, AlertCircle } from 'lucide-react';
-import RadioGroup from '../components/ui/RadioGroup';
-import CheckboxGrid from '../components/ui/CheckboxGrid';
-import FormSection from '../components/ui/FormSection';
+import { CheckCircle, ArrowLeft, AlertCircle, X, Upload } from 'lucide-react';
 import FormInput from '../components/ui/FormInput';
 import FormTextarea from '../components/ui/FormTextarea';
 import FormSelect from '../components/ui/FormSelect';
-import { submitSellerProperty } from '../services/sellerSubmissionService';
 
 const AGRI_LOT_TYPES = [
   'Crop Farms',
@@ -18,132 +14,217 @@ const AGRI_LOT_TYPES = [
 ];
 
 const AGRI_AMENITIES = [
-  'Farmhouse',
-  'Barns',
-  'Warehouse / Storage',
-  'Rivers / Streams',
-  'Irrigation / Canal',
-  'Lake / Lagoon',
+  { label: 'Farmhouse', field: 'has_farmhouse' },
+  { label: 'Barns', field: 'has_barns' },
+  { label: 'Warehouse / Storage', field: 'has_warehouse_storage' },
+  { label: 'Rivers / Streams', field: 'has_rivers_streams' },
+  { label: 'Irrigation / Canal', field: 'has_irrigation_canal' },
+  { label: 'Lake / Lagoon', field: 'has_lake_lagoon' },
 ];
 
-const URBAN_LOT_TYPES = [
-  'Entire Lot',
-  'Interior Lot',
-  'Key Lot',
-  'Cul-de-sac Lot',
-  'Corner Lot',
-  'Through Lot',
-  'Flag Lot',
-  'T-intersection Lot',
-];
-
-const URBAN_AMENITIES = [
-  'Gated',
-  'Security',
-  'Clubhouse / Function Hall',
-  'Sports & Fitness Center',
-  'Parks & Playgrounds',
-];
-
+const ISLANDS = ['Luzon', 'Visayas', 'Mindanao'];
+const REGIONS = ['Region I', 'Region II', 'Region III', 'NCR', 'CALABARZON', 'MIMAROPA'];
 
 export default function SellerForm() {
   const [submitted, setSubmitted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Form state organized by database table relationships
   const [formData, setFormData] = useState({
-    /* Property Background */
-    ownerName: '',
-    ownerAlive: '',
-    authorityToSell: '',
-    exclusiveBroker: '',
-    brokerExtension: '',
-    taxResponsibility: '',
-    documents: [] as string[],
-    commissionType: '',
-    sellingReason: '',
+    // CLIENT TABLE
+    client: {
+      first_name: '',
+      middle_name: '',
+      last_name: '',
+      email_address: '',
+      contact_number: '',
+      additional_email_address: '',
+      additional_contact_number: '',
+    },
 
-    /* Contact */
-    title: '',
-    firstName: '',
-    middleName: '',
-    lastName: '',
-    phone: '',
-    email: '',
-    phone2: '',
-    email2: '',
-    social: '',
+    // PROPERTY TABLE (minimal data - only required fields)
+    property: {
+      property_name: '',
+      property_type_id: '',
+      property_ownership_id: '',
+      project_id: '',
+    },
 
-    /* Property Basic */
-    propertyName: '',
-    description: '',
-    locationIsland: '',
-    locationRegion: '',
-    locationProvince: '',
-    locationCity: '',
-    locationBarangay: '',
-    locationStreet: '',
-    lotSize: '',
-    propertyType: '',
+    // PROPERTY LOCATION TABLE
+    property_location: {
+      property_island: '',
+      property_region: '',
+      property_province: '',
+      property_city: '',
+      property_barangay: '',
+      property_street: '',
+    },
 
-    /* Agricultural */
-    agriLotTypes: [] as string[],
-    agriAmenities: [] as string[],
+    // PROPERTY UTILITIES TABLE (boolean flags)
+    property_utilities: {
+      property_has_water: false,
+      property_has_electricity: false,
+      property_has_internet: false,
+      property_has_mobile_signal: false,
+    },
 
-    /* Other Lot Types */
-    lotType: '',
-    amenities: [] as string[],
-    titled: '',
-    overlooking: '',
-    topography: '',
+    // PROPERTY ACCESSIBILITY TABLE
+    property_accessibility: {
+      property_by_motorcycle: false,
+      property_by_car: false,
+      property_by_truck: false,
+      property_by_access_road: false,
+      property_by_cemented_road: false,
+      property_by_rough_road: false,
+      property_other_details: '',
+    },
 
-    /* Pricing */
-    price: '',
-    pricingType: '',
+    // AGRICULTURAL PROPERTY AMENITIES (if applicable)
+    agricultural_amenities: {
+      has_farmhouse: false,
+      has_barns: false,
+      has_warehouse_storage: false,
+      has_rivers_streams: false,
+      has_irrigation_canal: false,
+      has_lake_lagoon: false,
+      amenities_notes: '',
+    },
 
-    /* Access & Utilities */
-    access: [] as string[],
-    roads: [] as string[],
-    utilities: [] as string[],
-    /* Property Utilities (normalized) */
-    utilitiesWater: '',
-    utilitiesElectricity: '',
-    utilitiesSIM: '',
-    utilitiesInternet: '',
-    /* Property Facilities & Amenities */
-    facilitiesGated: '',
-    facilitiesSecurity: '',
-    facilitiesClubhouse: '',
-    facilitiesSports: '',
-    facilitiesParks: '',
-    facilitiesPool: '',
-    facilitiesOther: '',
-    /* Property Accessibility & Vicinity */
-    accessMotorcycle: '',
-    accessCar: '',
-    accessTruck: '',
-    accessRoad: '',
-    accessCementedRoad: '',
-    accessRoughRoad: '',
+    // AGRICULTURAL PROPERTY LOT TYPES (if applicable)
+    agricultural_lot_types: [] as string[],
+
+    // PHOTOS (stored separately)
+    photos: [] as string[],
+
+    // ADDITIONAL SELLER INFORMATION (for display/reference)
+    seller_notes: {
+      selling_reason: '',
+      lot_size: '',
+      price: '',
+      price_type: '',
+    },
   });
 
-  const handleChange = (
+  // Handle client field changes
+  const handleClientChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData(prev => ({
+      ...prev,
+      client: { ...prev.client, [name]: value },
+    }));
   };
 
-  const handleCheckbox = (group: string, value: string) => {
-    setFormData(prev => {
-      const list = prev[group as keyof typeof prev] as string[];
-      return {
-        ...prev,
-        [group]: list.includes(value)
-          ? list.filter(v => v !== value)
-          : [...list, value],
+  // Handle property field changes
+  const handlePropertyChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      property: { ...prev.property, [name]: value },
+    }));
+  };
+
+  // Handle location field changes
+  const handleLocationChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      property_location: { ...prev.property_location, [name]: value },
+    }));
+  };
+
+  // Handle generic checkbox changes for boolean tables
+  const handleCheckboxChange = (
+    table: keyof typeof formData,
+    field: string,
+    value: boolean
+  ) => {
+    setFormData(prev => ({
+      ...prev,
+      [table]: { ...prev[table as keyof typeof prev], [field]: value },
+    }));
+  };
+
+  // Handle agricultural lot type toggles
+  const handleAgriculturalLotTypeToggle = (lotType: string) => {
+    setFormData(prev => ({
+      ...prev,
+      agricultural_lot_types: prev.agricultural_lot_types.includes(lotType)
+        ? prev.agricultural_lot_types.filter(t => t !== lotType)
+        : [...prev.agricultural_lot_types, lotType],
+    }));
+  };
+
+  // Handle textarea changes for notes
+  const handleTextAreaChange = (
+    table: keyof typeof formData,
+    field: string,
+    value: string
+  ) => {
+    setFormData(prev => ({
+      ...prev,
+      [table]: { ...prev[table as keyof typeof prev], [field]: value },
+    }));
+  };
+
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+
+    const currentPhotoCount = formData.photos.length;
+    const remainingSlots = 10 - currentPhotoCount;
+
+    if (files.length > remainingSlots) {
+      setError(
+        `You can only upload ${remainingSlots} more photo(s). Maximum is 10.`
+      );
+      return;
+    }
+
+    Array.from(files).forEach(file => {
+      if (!file.type.startsWith('image/')) {
+        setError('Please upload only image files.');
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = event => {
+        const base64 = event.target?.result as string;
+        setFormData(prev => ({
+          ...prev,
+          photos: [...prev.photos, base64],
+        }));
       };
+      reader.readAsDataURL(file);
     });
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const handlePhotoRemove = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      photos: prev.photos.filter((_, i) => i !== index),
+    }));
+  };
+
+  const handleSellerNotesChange = (
+    field: keyof typeof formData.seller_notes,
+    value: string
+  ) => {
+    setFormData(prev => ({
+      ...prev,
+      seller_notes: { ...prev.seller_notes, [field]: value },
+    }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -151,112 +232,68 @@ export default function SellerForm() {
     setError(null);
     setIsLoading(true);
 
-    // Validate required contact fields
-    if (!formData.firstName || !formData.lastName || !formData.email || !formData.phone) {
-      setError('Please fill in all required contact fields.');
-      setIsLoading(false);
-      return;
-    }
-
-    // Validate required property fields
-    if (!formData.propertyName || !formData.locationCity || !formData.lotSize || !formData.propertyType) {
-      setError('Please fill in all required property fields.');
-      setIsLoading(false);
-      return;
-    }
-
-    // Build seller submission payload
-    const payload = {
-      client: {
-        first_name: formData.firstName,
-        middle_name: formData.middleName || null,
-        last_name: formData.lastName,
-        contact_email: formData.email,
-        contact_number: formData.phone,
-        role: 'seller' as const,
-        source: 'seller_form' as const,
-      },
-      property: {
-        // Property Background
-        owner_name: formData.ownerName,
-        owner_alive: formData.ownerAlive,
-        authority_to_sell: formData.authorityToSell,
-        exclusive_broker: formData.exclusiveBroker,
-        broker_extension: formData.brokerExtension,
-        tax_responsibility: formData.taxResponsibility,
-        documents: formData.documents,
-        commission_type: formData.commissionType,
-        selling_reason: formData.sellingReason,
-
-        // Contact (secondary)
-        title: formData.title,
-        phone2: formData.phone2,
-        email2: formData.email2,
-        social: formData.social,
-
-        // Property Basic
-        property_name: formData.propertyName,
-        description: formData.description,
-        location_island: formData.locationIsland,
-        location_region: formData.locationRegion,
-        location_province: formData.locationProvince,
-        location_city: formData.locationCity,
-        location_barangay: formData.locationBarangay,
-        location_street: formData.locationStreet,
-        lot_size: formData.lotSize,
-        property_type: formData.propertyType,
-
-        // Agricultural
-        agri_lot_types: formData.agriLotTypes,
-        agri_amenities: formData.agriAmenities,
-
-        // Other Lot Types
-        lot_type: formData.lotType,
-        amenities: formData.amenities,
-        titled: formData.titled,
-        overlooking: formData.overlooking,
-        topography: formData.topography,
-
-        // Pricing
-        price: formData.price,
-        pricing_type: formData.pricingType,
-
-        // Utilities
-        utilities_water: formData.utilitiesWater,
-        utilities_electricity: formData.utilitiesElectricity,
-        utilities_sim: formData.utilitiesSIM,
-        utilities_internet: formData.utilitiesInternet,
-
-        // Facilities & Amenities
-        facilities_gated: formData.facilitiesGated,
-        facilities_security: formData.facilitiesSecurity,
-        facilities_clubhouse: formData.facilitiesClubhouse,
-        facilities_sports: formData.facilitiesSports,
-        facilities_parks: formData.facilitiesParks,
-        facilities_pool: formData.facilitiesPool,
-        facilities_other: formData.facilitiesOther,
-
-        // Accessibility & Vicinity
-        access_motorcycle: formData.accessMotorcycle,
-        access_car: formData.accessCar,
-        access_truck: formData.accessTruck,
-        access_road: formData.accessRoad,
-        access_cemented_road: formData.accessCementedRoad,
-        access_rough_road: formData.accessRoughRoad,
-      },
-    };
-
     try {
-      const result = await submitSellerProperty(payload);
-
-      if (result.success) {
-        setSubmitted(true);
-      } else {
-        setError(result.error || result.message || 'Failed to submit property');
+      // Validate required client fields
+      if (
+        !formData.client.first_name ||
+        !formData.client.last_name ||
+        !formData.client.email_address ||
+        !formData.client.contact_number
+      ) {
+        throw new Error('Please fill in all required client fields.');
       }
+
+      // Validate required property fields
+      if (
+        !formData.property.property_name ||
+        !formData.property.property_type_id ||
+        !formData.property.property_ownership_id
+      ) {
+        throw new Error('Please fill in all required property fields.');
+      }
+
+      // Validate required location fields
+      if (
+        !formData.property_location.property_city ||
+        !formData.property_location.property_barangay
+      ) {
+        throw new Error('Please fill in property location.');
+      }
+
+      // Build payload matching database structure
+      const payload = {
+        client: formData.client,
+        property: formData.property,
+        property_location: formData.property_location,
+        property_utilities: formData.property_utilities,
+        property_accessibility: formData.property_accessibility,
+        ...(formData.property.property_type_id === '1' && {
+          agricultural_amenities: formData.agricultural_amenities,
+          agricultural_lot_types: formData.agricultural_lot_types,
+        }),
+        photos: formData.photos,
+        seller_notes: formData.seller_notes,
+      };
+
+      // Send to backend
+      const response = await fetch('/api/seller/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to submit property.');
+      }
+
+      const result = await response.json();
+      if (!result.success) {
+        throw new Error(result.error || 'Submission failed.');
+      }
+
+      setSubmitted(true);
     } catch (err) {
-      setError('An unexpected error occurred. Please try again.');
-      console.error('Form submission error:', err);
+      setError((err as Error).message);
     } finally {
       setIsLoading(false);
     }
@@ -270,12 +307,14 @@ export default function SellerForm() {
           <div className="max-w-md w-full mx-4">
             <div className="bg-white rounded-lg shadow-lg p-8 text-center">
               <CheckCircle className="w-16 h-16 text-green-600 mx-auto mb-6" />
-              <h2 className="text-gray-900 mb-4">Submission Received</h2>
+              <h2 className="text-gray-900 mb-4 text-2xl font-semibold">
+                Submission Received
+              </h2>
               <p className="text-gray-600 mb-6">
                 Our team will review your property and contact you shortly.
               </p>
-              <Link 
-                to="/" 
+              <Link
+                to="/"
                 className="inline-block bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors"
               >
                 Return Home
@@ -295,11 +334,14 @@ export default function SellerForm() {
       {/* Header */}
       <div className="bg-green-600 text-white py-12">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
-          <Link to="/" className="inline-flex items-center gap-2 text-green-100 hover:text-white mb-4">
+          <Link
+            to="/"
+            className="inline-flex items-center gap-2 text-green-100 hover:text-white mb-4"
+          >
             <ArrowLeft className="w-4 h-4" />
             Back
           </Link>
-          <h1 className="mb-4">Sell Your Property</h1>
+          <h1 className="mb-4 text-3xl font-bold">Sell Your Property</h1>
           <p className="text-green-100 text-lg">
             Provide your property details for evaluation and listing.
           </p>
@@ -310,7 +352,6 @@ export default function SellerForm() {
       <div className="flex-1 bg-gray-50 py-12">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
           <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-lg p-8 space-y-6">
-
             {/* Error Alert */}
             {error && (
               <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3">
@@ -322,182 +363,33 @@ export default function SellerForm() {
               </div>
             )}
 
-            {/* PROPERTY BACKGROUND */}
+            {/* SELLER INFORMATION */}
             <section>
-              <h2 className="text-gray-900 mb-6 text-xl font-semibold">Property Background</h2>
+              <h2 className="text-gray-900 mb-6 text-xl font-semibold">
+                Seller Information
+              </h2>
 
-              <FormInput
-                label="Property Owner Name"
-                name="ownerName"
-                value={formData.ownerName}
-                onChange={handleChange}
-                required
-                placeholder="Property Owner Name"
-              />
-
-              <div className="mt-6">
-                <RadioGroup
-                  label="Is the owner alive?"
-                  name="ownerAlive"
-                  value={formData.ownerAlive}
-                  options={['Yes', 'No']}
-                  onChange={handleChange}
-                  required
-                />
-              </div>
-
-              <div className="mt-6">
-                <RadioGroup
-                  label="Authority to Sell?"
-                  name="authorityToSell"
-                  value={formData.authorityToSell}
-                  options={['Yes', 'No']}
-                  onChange={handleChange}
-                  required
-                />
-              </div>
-
-              <div className="mt-6">
-                <RadioGroup
-                  label="Exclusive Broker?"
-                  name="exclusiveBroker"
-                  value={formData.exclusiveBroker}
-                  options={['Yes', 'No', 'MisterBroker']}
-                  onChange={handleChange}
-                  required
-                />
-              </div>
-
-              <div className="mt-6">
-                <label className="block text-sm text-gray-700 mb-3">
-                  Broker Extension? *
-                </label>
-                <div className="flex gap-6">
-                  {['Yes', 'No', 'MisterBroker'].map((o) => (
-                    <label key={o} className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="brokerExtension"
-                        value={o}
-                        onChange={handleChange}
-                        className="w-4 h-4"
-                      />
-                      <span className="text-gray-700">{o}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              <div className="mt-6">
-                <label className="block text-sm text-gray-700 mb-3">
-                  Who pays Capital Gains & Doc Tax? *
-                </label>
-                <div className="flex gap-6">
-                  {['Seller', 'Broker'].map((o) => (
-                    <label key={o} className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="taxResponsibility"
-                        value={o}
-                        onChange={handleChange}
-                        className="w-4 h-4"
-                      />
-                      <span className="text-gray-700">{o}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              <div className="mt-6">
-                <label className="block text-sm text-gray-700 mb-3">
-                  Documents Available
-                </label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {['TCT', 'Tax Declaration', 'RPT', 'SPA', 'Valid IDs'].map((o) => (
-                    <label key={o} className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={formData.documents.includes(o)}
-                        onChange={() => handleCheckbox('documents', o)}
-                        className="w-4 h-4"
-                      />
-                      <span className="text-gray-700">{o}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              <div className="mt-6">
-                <label className="block text-sm text-gray-700 mb-3">
-                  Commission *
-                </label>
-                <div className="flex gap-6">
-                  {['5%', 'Net of Commission'].map((o) => (
-                    <label key={o} className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="commissionType"
-                        value={o}
-                        onChange={handleChange}
-                        className="w-4 h-4"
-                      />
-                      <span className="text-gray-700">{o}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              <div className="mt-6">
-                <FormTextarea
-                  label="Reason for Selling"
-                  name="sellingReason"
-                  value={formData.sellingReason}
-                  onChange={handleChange}
-                  rows={3}
-                  placeholder="Tell us why you're selling..."
-                />
-              </div>
-            </section>
-
-            {/* CONTACT INFORMATION */}
-            <section className="border-t border-gray-200 pt-6">
-              <h2 className="text-gray-900 mb-6 text-xl font-semibold">Contact Information</h2>
-
-              <FormSelect
-                label="Title"
-                name="title"
-                value={formData.title}
-                onChange={handleChange}
-                required
-              >
-                <option value="">Select title...</option>
-                <option value="Property Owner">Property Owner</option>
-                <option value="Broker">Broker</option>
-                <option value="Salesperson">Salesperson</option>
-                <option value="Agent">Agent</option>
-              </FormSelect>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <FormInput
                   label="First Name"
-                  name="firstName"
-                  value={formData.firstName}
-                  onChange={handleChange}
+                  name="first_name"
+                  value={formData.client.first_name}
+                  onChange={handleClientChange}
                   required
                   placeholder="First Name"
                 />
                 <FormInput
                   label="Middle Name"
-                  name="middleName"
-                  value={formData.middleName}
-                  onChange={handleChange}
+                  name="middle_name"
+                  value={formData.client.middle_name}
+                  onChange={handleClientChange}
                   placeholder="Middle Name"
                 />
                 <FormInput
                   label="Last Name"
-                  name="lastName"
-                  value={formData.lastName}
-                  onChange={handleChange}
+                  name="last_name"
+                  value={formData.client.last_name}
+                  onChange={handleClientChange}
                   required
                   placeholder="Last Name"
                 />
@@ -505,460 +397,522 @@ export default function SellerForm() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
                 <FormInput
-                  label="Contact Number"
-                  name="phone"
-                  type="tel"
-                  value={formData.phone}
-                  onChange={handleChange}
+                  label="Email Address"
+                  name="email_address"
+                  type="email"
+                  value={formData.client.email_address}
+                  onChange={handleClientChange}
                   required
-                  placeholder="+63 XXX XXX XXXX"
+                  placeholder="Email Address"
                 />
                 <FormInput
-                  label="Email Address"
-                  name="email"
-                  type="email"
-                  value={formData.email}
-                  onChange={handleChange}
+                  label="Contact Number"
+                  name="contact_number"
+                  type="tel"
+                  value={formData.client.contact_number}
+                  onChange={handleClientChange}
                   required
-                  placeholder="email@example.com"
+                  placeholder="Contact Number"
                 />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
                 <FormInput
-                  label="Secondary Contact Number"
-                  name="phone2"
-                  type="tel"
-                  value={formData.phone2}
-                  onChange={handleChange}
-                  placeholder="+63 XXX XXX XXXX"
-                />
-                <FormInput
-                  label="Secondary Email Address"
-                  name="email2"
+                  label="Additional Email (Optional)"
+                  name="additional_email_address"
                   type="email"
-                  value={formData.email2}
-                  onChange={handleChange}
-                  placeholder="email@example.com"
+                  value={formData.client.additional_email_address}
+                  onChange={handleClientChange}
+                  placeholder="Additional Email"
                 />
-              </div>
-
-              <div className="mt-6">
                 <FormInput
-                  label="Social Media / Messenger"
-                  name="social"
-                  value={formData.social}
-                  onChange={handleChange}
-                  placeholder="Facebook, Messenger, etc."
+                  label="Additional Contact (Optional)"
+                  name="additional_contact_number"
+                  type="tel"
+                  value={formData.client.additional_contact_number}
+                  onChange={handleClientChange}
+                  placeholder="Additional Contact"
                 />
               </div>
             </section>
 
-            {/* PROPERTY DETAILS */}
+            {/* PROPERTY INFORMATION */}
             <section className="border-t border-gray-200 pt-6">
-              <h2 className="text-gray-900 mb-6 text-xl font-semibold">Property Details</h2>
+              <h2 className="text-gray-900 mb-6 text-xl font-semibold">
+                Property Information
+              </h2>
 
               <FormInput
-                label="Property Name / Caption"
-                name="propertyName"
-                value={formData.propertyName}
-                onChange={handleChange}
+                label="Property Name"
+                name="property_name"
+                value={formData.property.property_name}
+                onChange={handlePropertyChange}
                 required
-                placeholder="e.g., Beachfront Farmland, Metro Residential Lot"
+                placeholder="Property Name"
               />
 
-              <div className="mt-6">
-                <FormTextarea
-                  label="Property Description"
-                  name="description"
-                  value={formData.description}
-                  onChange={handleChange}
-                  rows={4}
-                  placeholder="Provide detailed information about your property..."
-                />
-              </div>
-
-              <div className="mt-6">
-                <label className="block text-sm text-gray-700 mb-6 font-semibold">Property Location Details</label>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <FormSelect
-                    label="Island"
-                    name="locationIsland"
-                    value={formData.locationIsland}
-                    onChange={handleChange}
-                    required
-                  >
-                    <option value="">Select island...</option>
-                    <option value="Luzon">Luzon</option>
-                    <option value="Visayas">Visayas</option>
-                    <option value="Mindanao">Mindanao</option>
-                  </FormSelect>
-
-                  <FormInput
-                    label="Region"
-                    name="locationRegion"
-                    value={formData.locationRegion}
-                    onChange={handleChange}
-                    placeholder="e.g., CALABARZON"
-                  />
-
-                  <FormInput
-                    label="Province"
-                    name="locationProvince"
-                    value={formData.locationProvince}
-                    onChange={handleChange}
-                    placeholder="e.g., Laguna"
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-                  <FormInput
-                    label="City / Municipality"
-                    name="locationCity"
-                    value={formData.locationCity}
-                    onChange={handleChange}
-                    required
-                    placeholder="e.g., Santa Rosa"
-                  />
-
-                  <FormInput
-                    label="Barangay"
-                    name="locationBarangay"
-                    value={formData.locationBarangay}
-                    onChange={handleChange}
-                    placeholder="e.g., Pacita Complex"
-                  />
-                </div>
-
-                <div className="mt-4">
-                  <FormInput
-                    label="Street / Specific Location"
-                    name="locationStreet"
-                    value={formData.locationStreet}
-                    onChange={handleChange}
-                    placeholder="e.g., Pacita Complex Road"
-                  />
-                </div>
-              </div>
-
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
-                <FormInput
-                  label="Lot Size"
-                  name="lotSize"
-                  value={formData.lotSize}
-                  onChange={handleChange}
-                  required
-                  placeholder="e.g., 1000 sqm or 5 hectares"
-                  helperText="Specify in sqm (square meters) or hectares"
-                />
-
                 <FormSelect
                   label="Property Type"
-                  name="propertyType"
-                  value={formData.propertyType}
-                  onChange={handleChange}
+                  name="property_type_id"
+                  value={formData.property.property_type_id}
+                  onChange={handlePropertyChange}
                   required
                 >
-                  <option value="">Select type...</option>
-                  <option value="Agricultural">Agricultural</option>
-                  <option value="Residential">Residential</option>
-                  <option value="Commercial">Commercial</option>
-                  <option value="Industrial">Industrial</option>
+                  <option value="">Select Property Type</option>
+                  <option value="1">Agricultural</option>
+                  <option value="2">Residential</option>
+                  <option value="3">Commercial</option>
+                </FormSelect>
+
+                <FormSelect
+                  label="Property Ownership"
+                  name="property_ownership_id"
+                  value={formData.property.property_ownership_id}
+                  onChange={handlePropertyChange}
+                  required
+                >
+                  <option value="">Select Property Ownership</option>
+                  <option value="1">Single Ownership</option>
+                  <option value="2">Joint Ownership</option>
                 </FormSelect>
               </div>
 
-              {/* AGRICULTURAL */}
-              {formData.propertyType === 'Agricultural' && (
-                <section className="border border-green-200 bg-green-50 rounded-lg p-6 mt-6 transition-all duration-300">
-                  <h3 className="text-gray-900 font-semibold mb-6">Agricultural Property Details</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6">
+                <FormInput
+                  label="Lot Size"
+                  name="lot_size"
+                  value={formData.seller_notes.lot_size}
+                  onChange={e => handleSellerNotesChange('lot_size', e.target.value)}
+                  placeholder="e.g., 1000 sqm"
+                />
+                <FormInput
+                  label="Price"
+                  name="price"
+                  type="number"
+                  value={formData.seller_notes.price}
+                  onChange={e => handleSellerNotesChange('price', e.target.value)}
+                  placeholder="Property Price"
+                />
+                <FormSelect
+                  label="Price Type"
+                  name="price_type"
+                  value={formData.seller_notes.price_type}
+                  onChange={e => handleSellerNotesChange('price_type', (e.target as HTMLSelectElement).value)}
+                >
+                  <option value="">Select Price Type</option>
+                  <option value="Fixed">Fixed</option>
+                  <option value="Negotiable">Negotiable</option>
+                </FormSelect>
+              </div>
 
-                  <CheckboxGrid
-                    label="Agricultural Lot Type"
-                    options={AGRI_LOT_TYPES}
-                    values={formData.agriLotTypes}
-                    onToggle={(option) => handleCheckbox('agriLotTypes', option)}
-                  />
-
-                  <div className="mt-6">
-                    <CheckboxGrid
-                      label="Facilities & Amenities"
-                      options={AGRI_AMENITIES}
-                      values={formData.agriAmenities}
-                      onToggle={(option) => handleCheckbox('agriAmenities', option)}
-                    />
-                  </div>
-                </section>
-              )}
-
-              {/* RESIDENTIAL / COMMERCIAL / INDUSTRIAL */}
-              {['Residential', 'Commercial', 'Industrial'].includes(formData.propertyType) && (
-                <section className="border border-blue-200 bg-blue-50 rounded-lg p-6 mt-6 transition-all duration-300">
-                  <h3 className="text-gray-900 font-semibold mb-6">Lot Type & Facilities</h3>
-
-                  <FormSelect
-                    label="Lot Type"
-                    name="lotType"
-                    value={formData.lotType}
-                    onChange={handleChange}
-                  >
-                    <option value="">Select lot type...</option>
-                    {URBAN_LOT_TYPES.map((t) => (
-                      <option key={t} value={t}>{t}</option>
-                    ))}
-                  </FormSelect>
-
-                  <div className="mt-6">
-                    <CheckboxGrid
-                      label="Facilities & Amenities"
-                      options={URBAN_AMENITIES}
-                      values={formData.amenities}
-                      onToggle={(option) => handleCheckbox('amenities', option)}
-                    />
-                  </div>
-
-                  <div className="mt-6">
-                    <RadioGroup
-                      label="Land Titled?"
-                      name="titled"
-                      value={formData.titled}
-                      options={['Yes', 'No']}
-                      onChange={handleChange}
-                    />
-                  </div>
-
-                  <div className="mt-6">
-                    <RadioGroup
-                      label="Overlooking?"
-                      name="overlooking"
-                      value={formData.overlooking}
-                      options={['Yes', 'No']}
-                      onChange={handleChange}
-                    />
-                  </div>
-
-                  <div className="mt-6">
-                    <FormSelect
-                      label="Topography"
-                      name="topography"
-                      value={formData.topography}
-                      onChange={handleChange}
-                    >
-                      <option value="">Select topography...</option>
-                      <option value="Flat">Flat</option>
-                      <option value="Rolling">Rolling</option>
-                      <option value="Sloping">Sloping</option>
-                      <option value="Mountainous">Mountainous</option>
-                    </FormSelect>
-                  </div>
-                </section>
-              )}
+              <div className="mt-6">
+                <FormTextarea
+                  label="Reason for Selling"
+                  name="selling_reason"
+                  value={formData.seller_notes.selling_reason}
+                  onChange={e => handleSellerNotesChange('selling_reason', e.target.value)}
+                  rows={3}
+                  placeholder="Tell us why you're selling..."
+                />
+              </div>
             </section>
 
-            {/* PRICING */}
-            <FormSection title="Property Utilities">
-              <RadioGroup
-                label="Water"
-                name="utilitiesWater"
-                value={formData.utilitiesWater}
-                options={['Yes', 'No']}
-                onChange={handleChange}
-                required
-              />
-
-              <div className="mt-6">
-                <RadioGroup
-                  label="Electricity"
-                  name="utilitiesElectricity"
-                  value={formData.utilitiesElectricity}
-                  options={['Yes', 'No']}
-                  onChange={handleChange}
-                  required
-                />
-              </div>
-
-              <div className="mt-6">
-                <RadioGroup
-                  label="SIM Network"
-                  name="utilitiesSIM"
-                  value={formData.utilitiesSIM}
-                  options={['Yes', 'No']}
-                  onChange={handleChange}
-                  required
-                />
-              </div>
-
-              <div className="mt-6">
-                <RadioGroup
-                  label="Internet"
-                  name="utilitiesInternet"
-                  value={formData.utilitiesInternet}
-                  options={['Yes', 'No']}
-                  onChange={handleChange}
-                  required
-                />
-              </div>
-            </FormSection>
-
-            <FormSection title="Property Facilities & Amenities">
-              <RadioGroup
-                label="Gated"
-                name="facilitiesGated"
-                value={formData.facilitiesGated}
-                options={['Yes', 'No']}
-                onChange={handleChange}
-                required
-              />
-
-              <div className="mt-6">
-                <RadioGroup
-                  label="Security"
-                  name="facilitiesSecurity"
-                  value={formData.facilitiesSecurity}
-                  options={['Yes', 'No']}
-                  onChange={handleChange}
-                  required
-                />
-              </div>
-
-              <div className="mt-6">
-                <RadioGroup
-                  label="Clubhouse / Function Hall"
-                  name="facilitiesClubhouse"
-                  value={formData.facilitiesClubhouse}
-                  options={['Yes', 'No']}
-                  onChange={handleChange}
-                  required
-                />
-              </div>
-
-              <div className="mt-6">
-                <RadioGroup
-                  label="Sports and Fitness Center"
-                  name="facilitiesSports"
-                  value={formData.facilitiesSports}
-                  options={['Yes', 'No']}
-                  onChange={handleChange}
-                  required
-                />
-              </div>
-
-              <div className="mt-6">
-                <RadioGroup
-                  label="Parks and Playgrounds"
-                  name="facilitiesParks"
-                  value={formData.facilitiesParks}
-                  options={['Yes', 'No']}
-                  onChange={handleChange}
-                  required
-                />
-              </div>
-
-              <div className="mt-6">
-                <RadioGroup
-                  label="Swimming Pool"
-                  name="facilitiesPool"
-                  value={formData.facilitiesPool}
-                  options={['Yes', 'No']}
-                  onChange={handleChange}
-                  required
-                />
-              </div>
-
-              <div className="mt-6">
-                <label className="block text-sm text-gray-700 mb-2">Other Facilities and Amenities</label>
-                <textarea name="facilitiesOther" value={formData.facilitiesOther} onChange={handleChange} rows={3} placeholder="Describe any other facilities or amenities..." className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent" />
-              </div>
-            </FormSection>
-
-            <FormSection title="Property Accessibility & Vicinity">
-              <RadioGroup
-                label="Accessible by Motorcycle"
-                name="accessMotorcycle"
-                value={formData.accessMotorcycle}
-                options={['Yes', 'No']}
-                onChange={handleChange}
-                required
-              />
-
-              <div className="mt-6">
-                <RadioGroup
-                  label="Accessible by Car"
-                  name="accessCar"
-                  value={formData.accessCar}
-                  options={['Yes', 'No']}
-                  onChange={handleChange}
-                  required
-                />
-              </div>
-
-              <div className="mt-6">
-                <RadioGroup
-                  label="Accessible by Truck"
-                  name="accessTruck"
-                  value={formData.accessTruck}
-                  options={['Yes', 'No']}
-                  onChange={handleChange}
-                  required
-                />
-              </div>
-
-              <div className="mt-6">
-                <RadioGroup
-                  label="Access Road"
-                  name="accessRoad"
-                  value={formData.accessRoad}
-                  options={['Yes', 'No']}
-                  onChange={handleChange}
-                  required
-                />
-              </div>
-
-              <div className="mt-6">
-                <RadioGroup
-                  label="Cemented Road"
-                  name="accessCementedRoad"
-                  value={formData.accessCementedRoad}
-                  options={['Yes', 'No']}
-                  onChange={handleChange}
-                  required
-                />
-              </div>
-
-              <div className="mt-6">
-                <RadioGroup
-                  label="Rough Road"
-                  name="accessRoughRoad"
-                  value={formData.accessRoughRoad}
-                  options={['Yes', 'No']}
-                  onChange={handleChange}
-                  required
-                />
-              </div>
-            </FormSection>
-
+            {/* PROPERTY LOCATION */}
             <section className="border-t border-gray-200 pt-6">
-              <h2 className="text-gray-900 mb-6 text-xl font-semibold">Pricing</h2>
+              <h2 className="text-gray-900 mb-6 text-xl font-semibold">
+                Property Location
+              </h2>
 
-              <FormInput
-                label="Property Price"
-                name="price"
-                value={formData.price}
-                onChange={handleChange}
+              <FormSelect
+                label="Island"
+                name="property_island"
+                value={formData.property_location.property_island}
+                onChange={handleLocationChange}
                 required
-                placeholder="e.g., 5000000"
-              />
+              >
+                <option value="">Select Island</option>
+                {ISLANDS.map(island => (
+                  <option key={island} value={island}>
+                    {island}
+                  </option>
+                ))}
+              </FormSelect>
 
-              <div className="mt-6">
-                <RadioGroup
-                  label="Pricing Type"
-                  name="pricingType"
-                  value={formData.pricingType}
-                  options={['Negotiable', 'Fixed']}
-                  onChange={handleChange}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6">
+                <FormSelect
+                  label="Region"
+                  name="property_region"
+                  value={formData.property_location.property_region}
+                  onChange={handleLocationChange}
                   required
+                >
+                  <option value="">Select Region</option>
+                  {REGIONS.map(region => (
+                    <option key={region} value={region}>
+                      {region}
+                    </option>
+                  ))}
+                </FormSelect>
+
+                <FormInput
+                  label="Province"
+                  name="property_province"
+                  value={formData.property_location.property_province}
+                  onChange={handleLocationChange}
+                  required
+                  placeholder="e.g., Laguna"
+                />
+
+                <FormInput
+                  label="City"
+                  name="property_city"
+                  value={formData.property_location.property_city}
+                  onChange={handleLocationChange}
+                  required
+                  placeholder="e.g., Santa Rosa"
                 />
               </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
+                <FormInput
+                  label="Barangay"
+                  name="property_barangay"
+                  value={formData.property_location.property_barangay}
+                  onChange={handleLocationChange}
+                  required
+                  placeholder="e.g., Pacita Complex"
+                />
+
+                <FormInput
+                  label="Street Address"
+                  name="property_street"
+                  value={formData.property_location.property_street}
+                  onChange={handleLocationChange}
+                  required
+                  placeholder="e.g., Pacita Complex Road"
+                />
+              </div>
+            </section>
+
+            {/* UTILITIES */}
+            <section className="border-t border-gray-200 pt-6">
+              <h2 className="text-gray-900 mb-6 text-xl font-semibold">
+                Utilities Available
+              </h2>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.property_utilities.property_has_water}
+                    onChange={e =>
+                      handleCheckboxChange(
+                        'property_utilities',
+                        'property_has_water',
+                        e.target.checked
+                      )
+                    }
+                    className="w-4 h-4"
+                  />
+                  <span className="text-gray-700">Water</span>
+                </label>
+
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.property_utilities.property_has_electricity}
+                    onChange={e =>
+                      handleCheckboxChange(
+                        'property_utilities',
+                        'property_has_electricity',
+                        e.target.checked
+                      )
+                    }
+                    className="w-4 h-4"
+                  />
+                  <span className="text-gray-700">Electricity</span>
+                </label>
+
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.property_utilities.property_has_internet}
+                    onChange={e =>
+                      handleCheckboxChange(
+                        'property_utilities',
+                        'property_has_internet',
+                        e.target.checked
+                      )
+                    }
+                    className="w-4 h-4"
+                  />
+                  <span className="text-gray-700">Internet</span>
+                </label>
+
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.property_utilities.property_has_mobile_signal}
+                    onChange={e =>
+                      handleCheckboxChange(
+                        'property_utilities',
+                        'property_has_mobile_signal',
+                        e.target.checked
+                      )
+                    }
+                    className="w-4 h-4"
+                  />
+                  <span className="text-gray-700">Mobile Signal</span>
+                </label>
+              </div>
+            </section>
+
+            {/* ACCESSIBILITY */}
+            <section className="border-t border-gray-200 pt-6">
+              <h2 className="text-gray-900 mb-6 text-xl font-semibold">
+                Property Accessibility
+              </h2>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.property_accessibility.property_by_motorcycle}
+                    onChange={e =>
+                      handleCheckboxChange(
+                        'property_accessibility',
+                        'property_by_motorcycle',
+                        e.target.checked
+                      )
+                    }
+                    className="w-4 h-4"
+                  />
+                  <span className="text-gray-700">By Motorcycle</span>
+                </label>
+
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.property_accessibility.property_by_car}
+                    onChange={e =>
+                      handleCheckboxChange(
+                        'property_accessibility',
+                        'property_by_car',
+                        e.target.checked
+                      )
+                    }
+                    className="w-4 h-4"
+                  />
+                  <span className="text-gray-700">By Car</span>
+                </label>
+
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.property_accessibility.property_by_truck}
+                    onChange={e =>
+                      handleCheckboxChange(
+                        'property_accessibility',
+                        'property_by_truck',
+                        e.target.checked
+                      )
+                    }
+                    className="w-4 h-4"
+                  />
+                  <span className="text-gray-700">By Truck</span>
+                </label>
+
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.property_accessibility.property_by_access_road}
+                    onChange={e =>
+                      handleCheckboxChange(
+                        'property_accessibility',
+                        'property_by_access_road',
+                        e.target.checked
+                      )
+                    }
+                    className="w-4 h-4"
+                  />
+                  <span className="text-gray-700">Access Road</span>
+                </label>
+
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.property_accessibility.property_by_cemented_road}
+                    onChange={e =>
+                      handleCheckboxChange(
+                        'property_accessibility',
+                        'property_by_cemented_road',
+                        e.target.checked
+                      )
+                    }
+                    className="w-4 h-4"
+                  />
+                  <span className="text-gray-700">Cemented Road</span>
+                </label>
+
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.property_accessibility.property_by_rough_road}
+                    onChange={e =>
+                      handleCheckboxChange(
+                        'property_accessibility',
+                        'property_by_rough_road',
+                        e.target.checked
+                      )
+                    }
+                    className="w-4 h-4"
+                  />
+                  <span className="text-gray-700">Rough Road</span>
+                </label>
+              </div>
+
+              <div className="mt-6">
+                <FormTextarea
+                  label="Other Accessibility Details"
+                  name="property_other_details"
+                  value={formData.property_accessibility.property_other_details}
+                  onChange={e =>
+                    handleTextAreaChange('property_accessibility', 'property_other_details', e.target.value)
+                  }
+                  rows={3}
+                  placeholder="Any other accessibility information..."
+                />
+              </div>
+            </section>
+
+            {/* AGRICULTURAL SECTION (conditional) */}
+            {formData.property.property_type_id === '1' && (
+              <>
+                <section className="border-t border-green-200 bg-green-50 rounded-lg p-6 pt-6">
+                  <h2 className="text-gray-900 mb-6 text-xl font-semibold">
+                    Agricultural Lot Types
+                  </h2>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    {AGRI_LOT_TYPES.map(lotType => (
+                      <label key={lotType} className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={formData.agricultural_lot_types.includes(lotType)}
+                          onChange={() => handleAgriculturalLotTypeToggle(lotType)}
+                          className="w-4 h-4"
+                        />
+                        <span className="text-gray-700">{lotType}</span>
+                      </label>
+                    ))}
+                  </div>
+                </section>
+
+                <section className="border-t border-green-200 bg-green-50 rounded-lg p-6 pt-6">
+                  <h2 className="text-gray-900 mb-6 text-xl font-semibold">
+                    Agricultural Amenities
+                  </h2>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {AGRI_AMENITIES.map(amenity => (
+                      <label key={amenity.field} className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={
+                            formData.agricultural_amenities[
+                              amenity.field as keyof typeof formData.agricultural_amenities
+                            ] as boolean
+                          }
+                          onChange={e =>
+                            handleCheckboxChange(
+                              'agricultural_amenities',
+                              amenity.field,
+                              e.target.checked
+                            )
+                          }
+                          className="w-4 h-4"
+                        />
+                        <span className="text-gray-700">{amenity.label}</span>
+                      </label>
+                    ))}
+                  </div>
+
+                  <div className="mt-6">
+                    <FormTextarea
+                      label="Amenities Notes"
+                      name="amenities_notes"
+                      value={formData.agricultural_amenities.amenities_notes}
+                      onChange={e =>
+                        handleTextAreaChange('agricultural_amenities', 'amenities_notes', e.target.value)
+                      }
+                      rows={3}
+                      placeholder="Additional information about amenities..."
+                    />
+                  </div>
+                </section>
+              </>
+            )}
+
+            {/* PHOTOS SECTION */}
+            <section className="border-t border-gray-200 pt-6">
+              <h2 className="text-gray-900 mb-6 text-xl font-semibold">Property Photos</h2>
+              <p className="text-gray-600 mb-4">
+                Upload up to 10 photos of your property. These photos will be displayed on the property listing and details pages.
+              </p>
+
+              {/* File Input */}
+              <div className="mb-6">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  accept="image/*"
+                  onChange={handlePhotoUpload}
+                  className="hidden"
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={formData.photos.length >= 10}
+                  className="w-full flex items-center justify-center gap-2 border-2 border-dashed border-green-300 rounded-lg p-8 hover:bg-green-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                >
+                  <Upload className="w-5 h-5 text-green-600" />
+                  <div className="text-left">
+                    <p className="text-green-600 font-medium">
+                      {formData.photos.length >= 10
+                        ? 'Maximum photos reached'
+                        : 'Click to upload photos'}
+                    </p>
+                    <p className="text-sm text-gray-500">
+                      {formData.photos.length}/10 photos uploaded
+                    </p>
+                  </div>
+                </button>
+              </div>
+
+              {/* Photo Gallery */}
+              {formData.photos.length > 0 && (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                  {formData.photos.map((photo, index) => (
+                    <div key={index} className="relative group">
+                      <img
+                        src={photo}
+                        alt={`Property photo ${index + 1}`}
+                        className="w-full h-32 object-cover rounded-lg"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handlePhotoRemove(index)}
+                        className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                      <p className="text-xs text-gray-500 mt-1 text-center">Photo {index + 1}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
             </section>
 
             {/* SUBMIT */}
