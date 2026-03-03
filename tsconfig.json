@@ -9,7 +9,7 @@
     "strict": true,
     "forceConsistentCasingInFileNames": true,
     "module": "ESNext",
-    "moduleResolution": "Bundler",
+    "moduleResolution": "Node",
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
@@ -20,5 +20,5 @@
       "@/*": ["src/*"]      
     }
   },
-  "include": ["src", "api", "vite.config.ts"]
+  "include": ["src"]
 }
