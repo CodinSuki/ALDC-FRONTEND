@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import AdminLayout from '@/app/components/AdminLayout';
 import { Eye, UserPlus, Link2, Search } from 'lucide-react';
-import { supabase } from '@/lib/SupabaseClient';
 import {
   Dialog,
   DialogContent,
@@ -110,6 +109,11 @@ interface IntakeItem {
   scheduledAt?: string | null;
 }
 
+interface InquiriesApiResponse {
+  items: IntakeItem[];
+  staffOptions: StaffOption[];
+}
+
 const normalizeStatus = (value: unknown, fallback: IntakeStatus): IntakeStatus => {
   const text = String(value ?? '').toLowerCase();
   if (text.includes('contact')) return 'Contacted';
@@ -150,7 +154,8 @@ export default function AdminInquiries() {
   const [actionForm, setActionForm] = useState({
     assignedStaffId: '',
     scheduledAt: '',
-    consultationStatus: 'New' as IntakeStatus,
+    status: 'New' as IntakeStatus,
+    notes: '',
   });
 
   const statusOptions = useMemo(() => {
@@ -158,175 +163,36 @@ export default function AdminInquiries() {
     return statuses.sort((a, b) => a.localeCompare(b));
   }, [items]);
   
+  useEffect(() => {
+    const loadIntake = async () => {
+      setLoading(true);
+      setLoadError(null);
 
-useEffect(() => {
-  const loadIntake = async () => {
-    setLoading(true);
-    setLoadError(null);
-
-    try {
-      const [consultationRes, inquiryRes, propertyRes, propertyTypeRes, clientRes, listingStatusRes, staffRes] = await Promise.all([
-        supabase
-          .from('consultationrequest')
-          .select('*')
-          .order('consultationrequestid', { ascending: false }),
-
-        supabase
-          .from('propertyinquiry')
-          .select(`
-            propertyinquiryid,
-            propertyid,
-            clientid,
-            inquirystatus,
-            inquirynotes,
-            createdat
-          `)
-          .order('propertyinquiryid', { ascending: false }),
-
-        supabase
-          .from('property')
-          .select(`
-            propertyid,
-            propertyname,
-            propertytypeid,
-            propertylistingstatusid,
-            sellerclientid,
-            createdat
-          `)
-          .order('propertyid', { ascending: false }),
-
-        supabase.from('propertytype').select('propertytypeid, propertytypename'),
-
-        supabase.from('client').select('clientid, firstname, middlename, lastname, emailaddress, contactnumber'),
-
-        supabase
-          .from('propertylistingstatus')
-          .select('propertylistingstatusid, propertylistingstatusname'),
-
-        supabase
-          .from('staff')
-          .select('staffid, firstname, middlename, lastname')
-          .order('staffid', { ascending: true }),
-      ]);
-
-      const errors: string[] = [];
-      if (consultationRes.error) errors.push(`Consultation: ${consultationRes.error.message}`);
-      if (inquiryRes.error) errors.push(`Buyer Inquiry: ${inquiryRes.error.message}`);
-      if (propertyRes.error) errors.push(`Seller Submission: ${propertyRes.error.message}`);
-      if (propertyTypeRes.error) errors.push(`Property Type: ${propertyTypeRes.error.message}`);
-      if (clientRes.error) errors.push(`Client: ${clientRes.error.message}`);
-      if (listingStatusRes.error) errors.push(`Listing Status: ${listingStatusRes.error.message}`);
-      if (staffRes.error) errors.push(`Staff: ${staffRes.error.message}`);
-
-      const mappedStaffOptions: StaffOption[] = ((staffRes.data ?? []) as StaffRow[]).map((row) => ({
-        staffId: Number(row.staffid),
-        name: formatName(row.firstname, row.middlename, row.lastname) || `Staff #${row.staffid}`,
-      }));
-
-      setStaffOptions(mappedStaffOptions);
-
-      const staffById = new Map<number, StaffOption>(
-        mappedStaffOptions.map((staff) => [staff.staffId, staff])
-      );
-
-      const propertyTypeById = new Map<number, string>(
-        ((propertyTypeRes.data ?? []) as PropertyTypeRow[]).map((r) => [r.propertytypeid, pick(r.propertytypename)])
-      );
-
-      const clientById = new Map<number, ClientRow>(
-        ((clientRes.data ?? []) as ClientRow[]).map((r) => [r.clientid, r])
-      );
-
-      const propertyById = new Map<number, PropertyRow>(
-        ((propertyRes.data ?? []) as PropertyRow[]).map((r) => [r.propertyid, r])
-      );
-
-      const listingStatusById = new Map<number, string>(
-        ((listingStatusRes.data ?? []) as PropertyListingStatusRow[]).map((r) => [r.propertylistingstatusid, pick(r.propertylistingstatusname)])
-      );
-
-      const consultationItems: IntakeItem[] = ((consultationRes.data ?? []) as ConsultationRow[]).map((r) => ({
-        id: `consultation-${r.consultationrequestid}`,
-        source: 'Consultation',
-        sourceId: String(r.consultationrequestid),
-        clientName: pick(r.fullname) || 'Unknown Client',
-        contact: pick(r.contactnumber) || 'N/A',
-        email: pick(r.emailaddress) || 'N/A',
-        reference: propertyTypeById.get(Number(r.preferredpropertytypeid)) || `Property Type #${r.preferredpropertytypeid ?? 'N/A'}`,
-        details: [r.preferredlocation, r.budgetrange].filter(Boolean).join(' • ') || 'No preferences provided',
-        status: normalizeStatus(r.consultationstatus, 'New'),
-        createdAt: r.createdat || new Date().toISOString(),
-        notes: pick(r.additionalrequirements) || 'No additional requirements',
-        assignedStaffId: r.assignedstaffid ? Number(r.assignedstaffid) : null,
-        assignedStaffName: r.assignedstaffid ? staffById.get(Number(r.assignedstaffid))?.name ?? `Staff #${r.assignedstaffid}` : null,
-        scheduledAt: r.scheduledat || null,
-      }));
-
-      const buyerItems: IntakeItem[] = ((inquiryRes.data ?? []) as PropertyInquiryRow[]).map((r) => {
-        const client = r.clientid ? clientById.get(Number(r.clientid)) : undefined;
-        const property = r.propertyid ? propertyById.get(Number(r.propertyid)) : undefined;
-
-        return {
-          id: `buyer-${r.propertyinquiryid}`,
-          source: 'Buyer Inquiry',
-          sourceId: String(r.propertyinquiryid),
-          clientName: formatName(client?.firstname, client?.middlename, client?.lastname) || `Client #${r.clientid ?? 'N/A'}`,
-          contact: pick(client?.contactnumber) || 'N/A',
-          email: pick(client?.emailaddress) || 'N/A',
-          reference:
-            pick(property?.propertyname) ||
-            (property?.propertytypeid ? propertyTypeById.get(Number(property.propertytypeid)) : '') ||
-            `Property #${r.propertyid ?? 'N/A'}`,
-          details: 'Buyer inquiry submitted',
-          status: normalizeStatus(r.inquirystatus, 'New'),
-          createdAt: r.createdat || new Date().toISOString(),
-          notes: pick(r.inquirynotes) || 'No notes',
-        };
-      });
-
-      const toSellerStatus = (propertylistingstatusid: unknown): IntakeStatus => {
-        const name = listingStatusById.get(Number(propertylistingstatusid))?.toLowerCase() ?? '';
-        if (name.includes('draft')) return 'Property Drafted';
-        if (name.includes('pending')) return 'Pending Review';
-        if (name.includes('available') || name.includes('publish') || name.includes('active')) return 'Published';
-        return 'Received';
-      };
-
-      const sellerItems: IntakeItem[] = ((propertyRes.data ?? []) as PropertyRow[])
-        .filter((r) => r.sellerclientid != null)
-        .map((r) => {
-          const seller = r.sellerclientid ? clientById.get(Number(r.sellerclientid)) : undefined;
-
-          return {
-            id: `seller-${r.propertyid}`,
-            source: 'Seller Submission',
-            sourceId: String(r.propertyid),
-            clientName: formatName(seller?.firstname, seller?.middlename, seller?.lastname) || `Seller #${r.sellerclientid ?? 'N/A'}`,
-            contact: pick(seller?.contactnumber) || 'N/A',
-            email: pick(seller?.emailaddress) || 'N/A',
-            reference: pick(r.propertyname) || `Property #${r.propertyid}`,
-            details: 'Property submitted for internal review',
-            status: toSellerStatus(r.propertylistingstatusid),
-            createdAt: r.createdat || new Date().toISOString(),
-            notes: 'Seller onboarding item.',
-          };
+      try {
+        const response = await fetch('/api/admin/inquiries', {
+          method: 'GET',
+          credentials: 'include',
         });
 
-      const merged = [...consultationItems, ...buyerItems, ...sellerItems].sort(
-        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      );
+        const result = (await response.json().catch(() => ({}))) as Partial<InquiriesApiResponse> & {
+          error?: string;
+        };
 
-      setItems(merged);
-      if (errors.length) setLoadError(errors.join(' | '));
-    } catch (err: any) {
-      setLoadError(err?.message || 'Failed to load intake');
-    } finally {
-      setLoading(false);
-    }
-  };
+        if (!response.ok) {
+          throw new Error(result.error ?? 'Failed to load intake');
+        }
 
-  loadIntake();
-}, []);
+        setItems(result.items ?? []);
+        setStaffOptions(result.staffOptions ?? []);
+      } catch (err: any) {
+        setLoadError(err?.message || 'Failed to load intake');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadIntake();
+  }, []);
 
   const filteredItems = items.filter((item) => {
     const query = searchQuery.toLowerCase();
@@ -345,61 +211,57 @@ useEffect(() => {
     setActionForm({
       assignedStaffId: item.assignedStaffId ? String(item.assignedStaffId) : '',
       scheduledAt: item.scheduledAt ? String(item.scheduledAt).slice(0, 16) : '',
-      consultationStatus: item.status,
+      status: item.status,
+      notes: item.notes,
     });
     setIsViewDialogOpen(true);
   };
 
-  const saveConsultationWorkflow = async () => {
-    if (!selectedItem || selectedItem.source !== 'Consultation') {
+  const saveInboxWorkflow = async () => {
+    if (!selectedItem) {
       return;
     }
 
     setActionSaving(true);
 
-    const sourceId = Number(selectedItem.sourceId);
-    const assignedStaffId = actionForm.assignedStaffId ? Number(actionForm.assignedStaffId) : null;
-    const scheduledAt = actionForm.scheduledAt ? new Date(actionForm.scheduledAt).toISOString() : null;
+    try {
+      const payload = {
+        source: selectedItem.source,
+        sourceId: selectedItem.sourceId,
+        status: actionForm.status,
+        assignedStaffId: actionForm.assignedStaffId ? Number(actionForm.assignedStaffId) : null,
+        scheduledAt: actionForm.scheduledAt ? new Date(actionForm.scheduledAt).toISOString() : null,
+        notes: actionForm.notes,
+      };
 
-    const fullPayload = {
-      consultationstatus: actionForm.consultationStatus,
-      assignedstaffid: assignedStaffId,
-      scheduledat: scheduledAt,
-    } as Record<string, unknown>;
+      const response = await fetch('/api/admin/inquiries', {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
 
-    const { error: fullUpdateError } = await supabase
-      .from('consultationrequest')
-      .update(fullPayload)
-      .eq('consultationrequestid', sourceId);
+      const result = (await response.json().catch(() => ({}))) as {
+        success?: boolean;
+        item?: IntakeItem | null;
+        error?: string;
+      };
 
-    if (fullUpdateError) {
-      const { error: statusOnlyError } = await supabase
-        .from('consultationrequest')
-        .update({ consultationstatus: actionForm.consultationStatus })
-        .eq('consultationrequestid', sourceId);
-
-      if (statusOnlyError) {
-        setActionSaving(false);
-        alert(statusOnlyError.message || 'Failed to update consultation workflow');
-        return;
+      if (!response.ok || !result.success) {
+        throw new Error(result.error ?? 'Failed to update inbox workflow');
       }
+
+      if (result.item) {
+        setItems((prev) => prev.map((item) => (item.id === result.item!.id ? result.item! : item)));
+        setSelectedItem(result.item);
+      }
+    } catch (error: any) {
+      alert(error?.message || 'Failed to update inbox workflow');
+    } finally {
+      setActionSaving(false);
     }
-
-    const assignedStaffName = assignedStaffId
-      ? staffOptions.find((staff) => staff.staffId === assignedStaffId)?.name ?? `Staff #${assignedStaffId}`
-      : null;
-
-    const updatedItem: IntakeItem = {
-      ...selectedItem,
-      status: actionForm.consultationStatus,
-      assignedStaffId,
-      assignedStaffName,
-      scheduledAt,
-    };
-
-    setItems((prev) => prev.map((item) => (item.id === selectedItem.id ? updatedItem : item)));
-    setSelectedItem(updatedItem);
-    setActionSaving(false);
   };
 
   const sourceBadgeClass = (source: IntakeSource) => {
@@ -623,7 +485,7 @@ useEffect(() => {
 
               <div>
                 <label className="block text-sm text-gray-600 mb-1">Status</label>
-                <p className="text-gray-900 p-3 bg-gray-50 rounded-lg">{selectedItem.status}</p>
+                <p className="text-gray-900 p-3 bg-gray-50 rounded-lg">{actionForm.status}</p>
               </div>
 
               {selectedItem.source === 'Consultation' && (
@@ -657,8 +519,8 @@ useEffect(() => {
                   <div>
                     <label className="block text-sm text-gray-600 mb-1">Consultation Status</label>
                     <select
-                      value={actionForm.consultationStatus}
-                      onChange={(e) => setActionForm((prev) => ({ ...prev, consultationStatus: e.target.value as IntakeStatus }))}
+                      value={actionForm.status}
+                      onChange={(e) => setActionForm((prev) => ({ ...prev, status: e.target.value as IntakeStatus }))}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                     >
                       <option value="New">New</option>
@@ -671,21 +533,65 @@ useEffect(() => {
                 </>
               )}
 
+              {selectedItem.source === 'Buyer Inquiry' && (
+                <>
+                  <div>
+                    <label className="block text-sm text-gray-600 mb-1">Inquiry Status</label>
+                    <select
+                      value={actionForm.status}
+                      onChange={(e) => setActionForm((prev) => ({ ...prev, status: e.target.value as IntakeStatus }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    >
+                      <option value="New">New</option>
+                      <option value="Contacted">Contacted</option>
+                      <option value="Qualified">Qualified</option>
+                      <option value="Converted">Converted</option>
+                      <option value="Closed">Closed</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm text-gray-600 mb-1">Notes</label>
+                    <textarea
+                      value={actionForm.notes}
+                      onChange={(e) => setActionForm((prev) => ({ ...prev, notes: e.target.value }))}
+                      rows={4}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    />
+                  </div>
+                </>
+              )}
+
+              {selectedItem.source === 'Seller Submission' && (
+                <div>
+                  <label className="block text-sm text-gray-600 mb-1">Submission Status</label>
+                  <select
+                    value={actionForm.status}
+                    onChange={(e) => setActionForm((prev) => ({ ...prev, status: e.target.value as IntakeStatus }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  >
+                    <option value="Received">Received</option>
+                    <option value="Pending Review">Pending Review</option>
+                    <option value="Published">Published</option>
+                  </select>
+                </div>
+              )}
+
               <div>
                 <label className="block text-sm text-gray-600 mb-1">Notes</label>
-                <p className="text-gray-900 p-3 bg-gray-50 rounded-lg">{selectedItem.notes}</p>
+                <p className="text-gray-900 p-3 bg-gray-50 rounded-lg">{actionForm.notes || 'No notes'}</p>
               </div>
             </div>
           )}
 
           <DialogFooter>
-            {selectedItem?.source === 'Consultation' && (
+            {selectedItem && (
               <button
-                onClick={saveConsultationWorkflow}
+                onClick={saveInboxWorkflow}
                 disabled={actionSaving}
                 className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-60"
               >
-                {actionSaving ? 'Saving...' : 'Save Consultation Workflow'}
+                {actionSaving ? 'Saving...' : 'Save Workflow'}
               </button>
             )}
             <button

@@ -402,154 +402,19 @@ const uploadPropertyPhotos = async (propertyId: number, photos: SellerDraftPhoto
 };
 
 export const submitSellerDraftProperty = async (formData: SellerDraftFormData): Promise<number> => {
-  const [pendingStatusId, propertyTypeId, propertyOwnershipId, sellerClientId] = await Promise.all([
-    resolvePendingStatusId(),
-    resolvePropertyTypeId(formData.propertyType),
-    resolvePropertyOwnershipId(),
-    resolveSellerClientId(formData),
-  ]);
+  const response = await fetch('/api/public/seller-draft', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(formData),
+  });
 
-  const { data: propertyRow, error: propertyError } = await supabase
-    .from('property')
-    .insert([
-      {
-        propertyname: formData.propertyName,
-        projectid: null,
-        propertyownershipid: propertyOwnershipId,
-        propertylistingstatusid: pendingStatusId,
-        propertytypeid: propertyTypeId,
-        sellerclientid: sellerClientId,
-      },
-    ])
-    .select('propertyid')
-    .single();
+  const payload = await response.json().catch(() => ({}));
 
-  if (propertyError || !propertyRow) {
-    throw propertyError ?? new Error('Failed to create property draft.');
+  if (!response.ok) {
+    throw new Error(payload?.error ?? 'Failed to submit property draft.');
   }
 
-  const propertyId = Number((propertyRow as { propertyid: number }).propertyid);
-
-  const [locationRes, utilitiesRes, accessibilityRes] = await Promise.all([
-    supabase.from('propertylocation').insert([
-      {
-        propertyid: propertyId,
-        propertyisland: formData.locationIsland || 'Luzon',
-        propertyregion: formData.locationRegion || '',
-        propertyprovince: formData.locationProvince || '',
-        propertycity: formData.locationCity || '',
-        propertybarangay: formData.locationBarangay || '',
-        propertystreet: formData.locationStreet || '',
-        propertysize: parseLotSize(formData.lotSize),
-      },
-    ]),
-    supabase.from('propertyutilities').insert([
-      {
-        propertyid: propertyId,
-        propertyhaswater: toBool(formData.utilitiesWater),
-        propertyhaselectricity: toBool(formData.utilitiesElectricity),
-        propertyhasmobilesignal: toBool(formData.utilitiesSIM),
-        propertyhasinternet: toBool(formData.utilitiesInternet),
-      },
-    ]),
-    supabase.from('propertyaccessibility').insert([
-      {
-        propertyid: propertyId,
-        propertybymotorcycle: toBool(formData.accessMotorcycle),
-        propertybycar: toBool(formData.accessCar),
-        propertybytruck: toBool(formData.accessTruck),
-        propertybyaccessroad: toBool(formData.accessRoad),
-        propertybycementedroad: toBool(formData.accessCementedRoad),
-        propertybyroughroad: toBool(formData.accessRoughRoad),
-      },
-    ]),
-  ]);
-
-  if (locationRes.error) throw locationRes.error;
-  if (utilitiesRes.error) throw utilitiesRes.error;
-  if (accessibilityRes.error) throw accessibilityRes.error;
-
-  if (isAgriculturalSelection(formData.propertyType)) {
-    const agriAmenities = {
-      propertyid: propertyId,
-      hasfarmhouse: formData.agriAmenities.includes('Farmhouse'),
-      hasbarns: formData.agriAmenities.includes('Barns'),
-      haswarehousestorage: formData.agriAmenities.includes('Warehouse / Storage'),
-      hasriversstreams: formData.agriAmenities.includes('Rivers / Streams'),
-      hasirrigationcanal: formData.agriAmenities.includes('Irrigation / Canal'),
-      haslakelagoon: formData.agriAmenities.includes('Lake / Lagoon'),
-      amenitiesnotes: formData.facilitiesOther || null,
-    };
-
-    const { error: agriAmenitiesError } = await supabase
-      .from('agriculturalpropertyamenities')
-      .insert([agriAmenities]);
-
-    if (agriAmenitiesError) throw agriAmenitiesError;
-
-    const lotTypeIds = await getManyAgriculturalLotTypeIds(formData.agriLotTypes);
-
-    if (lotTypeIds.length > 0) {
-      const { data: agriDetails, error: agriDetailsError } = await supabase
-        .from('agriculturalpropertydetails')
-        .insert([{ propertyid: propertyId }])
-        .select('agriculturalpropertydetailsid')
-        .single();
-
-      if (agriDetailsError || !agriDetails) {
-        throw agriDetailsError ?? new Error('Failed to create agricultural property detail.');
-      }
-
-      const detailsId = Number((agriDetails as { agriculturalpropertydetailsid: number }).agriculturalpropertydetailsid);
-      const lotTypeRows = lotTypeIds.map((lotTypeId) => ({
-        agriculturalpropertydetailsid: detailsId,
-        agriculturalreflottypeid: lotTypeId,
-      }));
-
-      const { error: lotTypeBridgeError } = await supabase
-        .from('agriculturalpropertylottype')
-        .insert(lotTypeRows);
-
-      if (lotTypeBridgeError) throw lotTypeBridgeError;
-    }
-
-      await uploadPropertyPhotos(propertyId, formData.photos ?? []);
-
-    return propertyId;
-  }
-
-  const urbanAmenities = {
-    propertyid: propertyId,
-    hasgated: toBool(formData.facilitiesGated),
-    hassecurity: toBool(formData.facilitiesSecurity),
-    hasclubhouse: toBool(formData.facilitiesClubhouse),
-    hassportsfitnesscenter: toBool(formData.facilitiesSports),
-    hasparksplaygrounds: toBool(formData.facilitiesParks),
-    amenitiesnotes: formData.facilitiesOther || null,
-  };
-
-  const { error: urbanAmenitiesError } = await supabase
-    .from('urbanpropertyamenities')
-    .insert([urbanAmenities]);
-
-  if (urbanAmenitiesError) throw urbanAmenitiesError;
-
-  const urbanLotTypeId = await getSingleRelationIdByName(
-    'urbanreflottype',
-    'urbanreflottypeid',
-    'urbanreflottypename',
-    formData.lotType
-  );
-
-  if (urbanLotTypeId) {
-    const { error: urbanDetailsError } = await supabase
-      .from('urbanpropertydetails')
-      .insert([{ propertyid: propertyId, urbanreflottypeid: urbanLotTypeId }]);
-
-    if (urbanDetailsError) throw urbanDetailsError;
-  }
-
-  await uploadPropertyPhotos(propertyId, formData.photos ?? []);
-
-  return propertyId;
+  return Number(payload.propertyId);
 };
