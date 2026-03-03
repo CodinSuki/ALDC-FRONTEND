@@ -1,4 +1,4 @@
-import { createAdminSessionToken, setAdminSessionCookie } from './_utils/auth';
+import { createAdminSessionToken, setAdminSessionCookie } from './_utils/auth.js';
 
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') {

@@ -1,4 +1,4 @@
-import { getAdminSessionFromRequest } from './_utils/auth';
+import { getAdminSessionFromRequest } from './_utils/auth.js';
 
 export default async function handler(req: any, res: any) {
   if (req.method !== 'GET') {

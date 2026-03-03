@@ -1,5 +1,5 @@
-import { requireAdminSession } from './_utils/auth';
-import { supabaseAdmin } from './_utils/supabaseAdmin';
+import { requireAdminSession } from './_utils/auth.js';
+import { supabaseAdmin } from './_utils/supabaseAdmin.js';
 
 type IntakeSource = 'Consultation' | 'Buyer Inquiry' | 'Seller Submission';
 type IntakeStatus =
