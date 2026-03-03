@@ -1,49 +1,36 @@
-﻿import { useState } from 'react';
+﻿import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import PublicNav from '../PublicNav';
 import Footer from '../Footer';
-import { CheckCircle, ArrowLeft } from 'lucide-react';
+import { CheckCircle, ArrowLeft, Upload, X } from 'lucide-react';
 import RadioGroup from './RadioGroup';
 import CheckboxGrid from './CheckboxGrid';
 import FormSection from './FormSection';
+import {
+  fetchSellerFormOptions,
+  submitSellerDraftProperty,
+  type SellerDraftPhoto,
+  type SellerFormOptions,
+} from '@/app/services/sellerDraftSubmissionService';
 
-const AGRI_LOT_TYPES = [
-  'Crop Farms',
-  'Mixed Farms',
-  'Livestock Farms',
-];
-
-const AGRI_AMENITIES = [
-  'Farmhouse',
-  'Barns',
-  'Warehouse / Storage',
-  'Rivers / Streams',
-  'Irrigation / Canal',
-  'Lake / Lagoon',
-];
-
-const URBAN_LOT_TYPES = [
-  'Entire Lot',
-  'Interior Lot',
-  'Key Lot',
-  'Cul-de-sac Lot',
-  'Corner Lot',
-  'Through Lot',
-  'Flag Lot',
-  'T-intersection Lot',
-];
-
-const URBAN_AMENITIES = [
-  'Gated',
-  'Security',
-  'Clubhouse / Function Hall',
-  'Sports & Fitness Center',
-  'Parks & Playgrounds',
-];
+const INITIAL_FORM_OPTIONS: SellerFormOptions = {
+  propertyTypes: ['Agricultural', 'Residential', 'Commercial', 'Industrial'],
+  urbanLotTypes: ['Entire Lot', 'Interior Lot', 'Key Lot', 'Cul-de-sac Lot', 'Corner Lot', 'Through Lot', 'Flag Lot', 'T-intersection Lot'],
+  agriculturalLotTypes: ['Crop Farms', 'Mixed Farms', 'Livestock Farms'],
+  agriculturalAmenities: ['Farmhouse', 'Barns', 'Warehouse / Storage', 'Rivers / Streams', 'Irrigation / Canal', 'Lake / Lagoon'],
+  urbanAmenities: ['Gated', 'Security', 'Clubhouse / Function Hall', 'Sports & Fitness Center', 'Parks & Playgrounds'],
+  islands: ['Luzon', 'Visayas', 'Mindanao'],
+  regions: ['Region I', 'Region II', 'Region III', 'NCR', 'CALABARZON', 'MIMAROPA'],
+};
 
 
 export default function SellerForm() {
   const [submitted, setSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoadingOptions, setIsLoadingOptions] = useState(true);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [formOptions, setFormOptions] = useState<SellerFormOptions>(INITIAL_FORM_OPTIONS);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [formData, setFormData] = useState({
     /* Property Background */
@@ -119,7 +106,35 @@ export default function SellerForm() {
     accessRoad: '',
     accessCementedRoad: '',
     accessRoughRoad: '',
+    photos: [] as SellerDraftPhoto[],
   });
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadOptions = async () => {
+      try {
+        const options = await fetchSellerFormOptions();
+        if (!mounted) return;
+        setFormOptions(options);
+      } catch (error) {
+        console.error('Failed to load seller form options:', error);
+      } finally {
+        if (mounted) {
+          setIsLoadingOptions(false);
+        }
+      }
+    };
+
+    loadOptions();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const isAgriculturalType = formData.propertyType.trim().toLowerCase().includes('agri');
+  const isUrbanType = formData.propertyType.trim().length > 0 && !isAgriculturalType;
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
@@ -140,10 +155,83 @@ export default function SellerForm() {
     });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = Array.from(event.target.files ?? []);
+    if (selectedFiles.length === 0) return;
+
+    const imageFiles = selectedFiles.filter((file) => file.type.startsWith('image/'));
+    if (imageFiles.length !== selectedFiles.length) {
+      setSubmitError('Only image files are allowed for photo uploads.');
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+
+    const availableSlots = 10 - formData.photos.length;
+    if (imageFiles.length > availableSlots) {
+      setSubmitError(`You can upload ${availableSlots} more photo(s). Maximum is 10.`);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+
+    try {
+      const encodedPhotos = await Promise.all(
+        imageFiles.map(
+          (file) =>
+            new Promise<SellerDraftPhoto>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = () => {
+                resolve({
+                  dataUrl: String(reader.result ?? ''),
+                  fileName: file.name,
+                  mimeType: file.type,
+                  fileSize: file.size,
+                });
+              };
+              reader.onerror = () => reject(new Error(`Failed to read file: ${file.name}`));
+              reader.readAsDataURL(file);
+            })
+        )
+      );
+
+      setFormData((prev) => ({
+        ...prev,
+        photos: [...prev.photos, ...encodedPhotos],
+      }));
+
+      setSubmitError(null);
+    } catch (error: any) {
+      setSubmitError(error?.message || 'Failed to process selected photos.');
+    } finally {
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const removePhoto = (photoIndex: number) => {
+    setFormData((prev) => ({
+      ...prev,
+      photos: prev.photos.filter((_, index) => index !== photoIndex),
+    }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log(formData); // frontend-only
-    setSubmitted(true);
+
+    setSubmitError(null);
+    setIsSubmitting(true);
+
+    try {
+      if (formData.photos.length < 5 || formData.photos.length > 10) {
+        throw new Error('Please upload at least 5 photos and at most 10 photos.');
+      }
+
+      await submitSellerDraftProperty(formData);
+      setSubmitted(true);
+    } catch (error: any) {
+      console.error('Seller draft submission error:', error);
+      setSubmitError(error?.message || 'Failed to submit property draft. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (submitted) {
@@ -157,6 +245,9 @@ export default function SellerForm() {
               <h2 className="text-gray-900 mb-4">Submission Received</h2>
               <p className="text-gray-600 mb-6">
                 Our team will review your property and contact you shortly.
+              </p>
+              <p className="text-sm text-gray-500 mb-6">
+                Your property is in Pending Review.
               </p>
               <Link 
                 to="/" 
@@ -194,6 +285,9 @@ export default function SellerForm() {
       <div className="flex-1 bg-gray-50 py-12">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
           <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-lg p-8 space-y-6">
+            {isLoadingOptions && (
+              <p className="text-sm text-gray-500">Loading form options...</p>
+            )}
 
             {/* PROPERTY BACKGROUND */}
             <section>
@@ -530,15 +624,25 @@ export default function SellerForm() {
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                     >
                       <option value="">Select island...</option>
-                      <option value="Luzon">Luzon</option>
-                      <option value="Visayas">Visayas</option>
-                      <option value="Mindanao">Mindanao</option>
+                      {formOptions.islands.map((island) => (
+                        <option key={island} value={island}>{island}</option>
+                      ))}
                     </select>
                   </div>
 
                   <div>
                     <label className="block text-sm text-gray-700 mb-2">Region</label>
-                    <input type="text" name="locationRegion" value={formData.locationRegion} onChange={handleChange} placeholder="e.g., CALABARZON" className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent" />
+                    <select
+                      name="locationRegion"
+                      value={formData.locationRegion}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    >
+                      <option value="">Select region...</option>
+                      {formOptions.regions.map((region) => (
+                        <option key={region} value={region}>{region}</option>
+                      ))}
+                    </select>
                   </div>
 
                   <div>
@@ -594,22 +698,21 @@ export default function SellerForm() {
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                   >
                     <option value="">Select type...</option>
-                    <option value="Agricultural">Agricultural</option>
-                    <option value="Residential">Residential</option>
-                    <option value="Commercial">Commercial</option>
-                    <option value="Industrial">Industrial</option>
+                    {formOptions.propertyTypes.map((propertyType) => (
+                      <option key={propertyType} value={propertyType}>{propertyType}</option>
+                    ))}
                   </select>
                 </div>
               </div>
 
               {/* AGRICULTURAL */}
-              {formData.propertyType === 'Agricultural' && (
+              {isAgriculturalType && (
                 <section className="border border-green-200 bg-green-50 rounded-lg p-6 mt-6 transition-all duration-300">
                   <h3 className="text-gray-900 font-semibold mb-6">Agricultural Property Details</h3>
 
                   <CheckboxGrid
                     label="Agricultural Lot Type"
-                    options={AGRI_LOT_TYPES}
+                    options={formOptions.agriculturalLotTypes}
                     values={formData.agriLotTypes}
                     onToggle={(option) => handleCheckbox('agriLotTypes', option)}
                   />
@@ -617,7 +720,7 @@ export default function SellerForm() {
                   <div className="mt-6">
                     <CheckboxGrid
                       label="Facilities & Amenities"
-                      options={AGRI_AMENITIES}
+                      options={formOptions.agriculturalAmenities}
                       values={formData.agriAmenities}
                       onToggle={(option) => handleCheckbox('agriAmenities', option)}
                     />
@@ -626,7 +729,7 @@ export default function SellerForm() {
               )}
 
               {/* RESIDENTIAL / COMMERCIAL / INDUSTRIAL */}
-              {['Residential', 'Commercial', 'Industrial'].includes(formData.propertyType) && (
+              {isUrbanType && (
                 <section className="border border-blue-200 bg-blue-50 rounded-lg p-6 mt-6 transition-all duration-300">
                   <h3 className="text-gray-900 font-semibold mb-6">Lot Type & Facilities</h3>
 
@@ -641,7 +744,7 @@ export default function SellerForm() {
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                     >
                       <option value="">Select lot type...</option>
-                      {URBAN_LOT_TYPES.map((t) => (
+                      {formOptions.urbanLotTypes.map((t) => (
                         <option key={t} value={t}>{t}</option>
                       ))}
                     </select>
@@ -650,7 +753,7 @@ export default function SellerForm() {
                   <div className="mt-6">
                     <CheckboxGrid
                       label="Facilities & Amenities"
-                      options={URBAN_AMENITIES}
+                      options={formOptions.urbanAmenities}
                       values={formData.amenities}
                       onToggle={(option) => handleCheckbox('amenities', option)}
                     />
@@ -909,13 +1012,70 @@ export default function SellerForm() {
               </div>
             </section>
 
+            <section className="border-t border-gray-200 pt-6">
+              <h2 className="text-gray-900 mb-6 text-xl font-semibold">Property Photos</h2>
+
+              <div className="border border-dashed border-gray-300 rounded-lg p-6 bg-gray-50">
+                <label className="block text-sm text-gray-700 mb-2">
+                  Upload 5 to 10 photos (JPG/PNG/WebP)
+                </label>
+                <div className="flex items-center gap-3">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={handlePhotoUpload}
+                    className="hidden"
+                    id="seller-photo-upload"
+                  />
+                  <label
+                    htmlFor="seller-photo-upload"
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-100 cursor-pointer"
+                  >
+                    <Upload className="w-4 h-4" />
+                    Add Photos
+                  </label>
+                  <span className="text-sm text-gray-600">
+                    {formData.photos.length}/10 selected
+                  </span>
+                </div>
+              </div>
+
+              {formData.photos.length > 0 && (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-4">
+                  {formData.photos.map((photo, index) => (
+                    <div key={`${photo.fileName}-${index}`} className="relative rounded-lg overflow-hidden border border-gray-200 bg-white">
+                      <img
+                        src={photo.dataUrl}
+                        alt={photo.fileName}
+                        className="w-full h-32 object-cover"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removePhoto(index)}
+                        className="absolute top-2 right-2 inline-flex items-center justify-center w-7 h-7 rounded-full bg-black/60 text-white hover:bg-black/80"
+                        aria-label="Remove photo"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+
             {/* SUBMIT */}
             <section className="border-t border-gray-200 pt-6">
+              {submitError && (
+                <p className="text-sm text-red-600 mb-3">{submitError}</p>
+              )}
               <button
                 type="submit"
-                className="w-full bg-green-600 text-white px-6 py-4 rounded-lg hover:bg-green-700 transition-colors font-medium"
+                disabled={isSubmitting || isLoadingOptions}
+                className="w-full bg-green-600 text-white px-6 py-4 rounded-lg hover:bg-green-700 transition-colors font-medium disabled:opacity-60"
               >
-                Submit Property
+                {isSubmitting ? 'Submitting...' : 'Submit Property'}
               </button>
               <p className="text-sm text-gray-500 text-center mt-4">
                 By submitting this form, you confirm that all information provided is accurate.

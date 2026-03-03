@@ -4,7 +4,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -13,45 +13,55 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Check if user is already logged in on mount
   useEffect(() => {
-    const storedAuth = localStorage.getItem('adminAuth');
-    if (storedAuth) {
+    const checkSession = async () => {
       try {
-        const authData = JSON.parse(storedAuth);
-        // Optional: Validate token expiration here if you add timestamps
-        setIsAuthenticated(true);
-      } catch (e) {
-        localStorage.removeItem('adminAuth');
+        const response = await fetch('/api/admin/session', {
+          method: 'GET',
+          credentials: 'include',
+        });
+
+        if (!response.ok) {
+          setIsAuthenticated(false);
+          return;
+        }
+
+        const result = (await response.json()) as { authenticated?: boolean };
+        setIsAuthenticated(Boolean(result.authenticated));
+      } catch {
+        setIsAuthenticated(false);
+      } finally {
+        setIsLoading(false);
       }
-    }
-    setIsLoading(false);
+    };
+
+    checkSession();
   }, []);
 
   const login = async (email: string, password: string): Promise<void> => {
-    // TODO: Replace with actual API call to your backend
-    // This is a simple demo implementation
-    return new Promise((resolve, reject) => {
-      setTimeout(() => {
-        // Demo credentials - replace with real authentication
-        if (email && password.length >= 6) {
-          const authData = {
-            email,
-            timestamp: new Date().toISOString(),
-            // In production, you'd store a JWT token here instead
-          };
-          localStorage.setItem('adminAuth', JSON.stringify(authData));
-          setIsAuthenticated(true);
-          resolve();
-        } else {
-          reject(new Error('Invalid credentials'));
-        }
-      }, 500);
+    const response = await fetch('/api/admin/login', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+      body: JSON.stringify({ email, password }),
     });
+
+    if (!response.ok) {
+      const result = await response.json().catch(() => ({ error: 'Login failed' }));
+      throw new Error(result.error ?? 'Login failed');
+    }
+
+    setIsAuthenticated(true);
   };
 
-  const logout = () => {
-    localStorage.removeItem('adminAuth');
+  const logout = async () => {
+    await fetch('/api/admin/logout', {
+      method: 'POST',
+      credentials: 'include',
+    }).catch(() => null);
+
     setIsAuthenticated(false);
   };
 

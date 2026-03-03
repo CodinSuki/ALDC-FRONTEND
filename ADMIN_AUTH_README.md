@@ -2,24 +2,25 @@
 
 ## Overview
 
-A protected authentication system has been implemented for the admin panel. All admin routes (`/admin/*`) now require login. If a user tries to access any admin route without being authenticated, they will be redirected to `/admin/login`.
+A protected authentication system is implemented for the admin panel. All admin routes (`/admin/*`) require login, and privileged Supabase operations now run on server-side API routes.
 
 ## Features
 
 ✅ **Protected Routes** - All admin routes require authentication
 ✅ **Login Page** - Professional login interface at `/admin/login`
-✅ **Session Persistence** - Login state persists across browser refreshes using localStorage
+✅ **Server Session** - Login state is stored in an HTTP-only cookie
 ✅ **Logout Functionality** - Logout button in the admin sidebar
 ✅ **Auto-Redirect** - Unauthenticated users are redirected to login
 ✅ **Loading State** - Loading spinner while checking authentication status
+✅ **Privileged API Protection** - Seller submission admin operations run through protected server endpoints
 
 ## How It Works
 
 ### 1. **AuthContext** (`src/app/context/AuthContext.tsx`)
 - Manages authentication state globally using React Context
 - Provides `useAuth()` hook to access auth functions
-- Stores authentication data in browser's localStorage
-- Handles login and logout operations
+- Calls `/api/admin/login`, `/api/admin/session`, and `/api/admin/logout`
+- Sends requests with `credentials: 'include'` so session cookies are used
 
 ### 2. **ProtectedRoute** (`src/app/components/ProtectedRoute.tsx`)
 - Wrapper component that guards admin routes
@@ -28,13 +29,23 @@ A protected authentication system has been implemented for the admin panel. All 
 
 ### 3. **Login Page** (`src/app/pages/admin/Login.tsx`)
 - Professional login form with email and password fields
-- Form validation (email format, password minimum 6 characters)
+- Form validation and backend credential verification
 - Error handling and user feedback
 - Redirects to dashboard on successful login
 
 ### 4. **Admin Layout** (`src/app/components/AdminLayout.tsx`)
 - Added logout button in the user info section
 - Logout removes session and redirects to login page
+
+### 5. **Server Admin Auth APIs** (`api/admin/*`)
+- `POST /api/admin/login`: verifies `ADMIN_EMAIL` + `ADMIN_PASSWORD`, then sets HTTP-only session cookie
+- `GET /api/admin/session`: checks whether an admin session cookie is valid
+- `POST /api/admin/logout`: clears session cookie
+
+### 6. **Protected Seller Submission API** (`api/admin/seller-submissions.ts`)
+- Uses `SUPABASE_SERVICE_ROLE_KEY` on server only
+- Requires valid admin session cookie
+- Handles list/detail/status update/delete operations that were previously browser-side Supabase calls
 
 ## Usage
 
@@ -80,56 +91,38 @@ New unprotected login route:
 1. User visits `/admin/dashboard` or any admin route
 2. If not authenticated, `ProtectedRoute` redirects to `/admin/login`
 3. User enters email and password
-4. On successful login, authentication state is saved
+4. On successful login, server issues an HTTP-only cookie session
 5. User is redirected to the dashboard
-6. Login persists until user clicks logout or clears localStorage
+6. Login persists until cookie expires or user logs out
 
-## Demo Credentials
+## Environment Variables
 
-Currently set to **demo mode**. Any email and password (minimum 6 characters) will work:
-- **Email:** any email
-- **Password:** any password (min 6 characters)
+Set these in your deployment environment (e.g. Vercel Environment Variables):
 
-## Integration with Backend
-
-To connect to your actual authentication backend:
-
-1. Open `src/app/context/AuthContext.tsx`
-2. Update the `login()` function to call your backend API:
-
-```typescript
-const login = async (email: string, password: string): Promise<void> => {
-  const response = await fetch('/api/auth/login', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password })
-  });
-  
-  if (!response.ok) throw new Error('Login failed');
-  
-  const data = await response.json();
-  localStorage.setItem('adminAuth', JSON.stringify(data)); // Store token
-  setIsAuthenticated(true);
-};
-```
+- `SUPABASE_URL` (or fallback `VITE_SUPABASE_URL`)
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `ADMIN_EMAIL`
+- `ADMIN_PASSWORD`
+- `ADMIN_SESSION_SECRET`
 
 ## Security Notes
 
-⚠️ **Important for Production:**
-- Replace demo authentication with real API calls
-- Use JWT tokens instead of storing email
-- Add token expiration/refresh logic
-- Use HTTP-only cookies for tokens (if possible with your backend)
-- Implement CSRF protection
-- Add rate limiting to login endpoint
+- Keep `SUPABASE_SERVICE_ROLE_KEY` server-side only (never `VITE_*`).
+- Keep `ADMIN_SESSION_SECRET` long and random.
+- Rotate credentials immediately if leaked.
+- Consider adding rate limiting on `POST /api/admin/login`.
 
-## Files Created/Modified
+## Files Added
 
-**New Files:**
-- `src/app/context/AuthContext.tsx` - Authentication context
-- `src/app/components/ProtectedRoute.tsx` - Route protection wrapper
-- `src/app/pages/admin/Login.tsx` - Login page
+- `api/admin/_utils/auth.ts`
+- `api/admin/_utils/supabaseAdmin.ts`
+- `api/admin/login.ts`
+- `api/admin/logout.ts`
+- `api/admin/session.ts`
+- `api/admin/seller-submissions.ts`
 
-**Modified Files:**
-- `src/app/App.tsx` - Added AuthProvider and ProtectedRoute wrappers
-- `src/app/components/AdminLayout.tsx` - Added logout button
+## Files Updated
+
+- `src/app/context/AuthContext.tsx`
+- `src/app/services/sellerSubmissionsService.ts`
+- `src/app/pages/admin/Login.tsx`

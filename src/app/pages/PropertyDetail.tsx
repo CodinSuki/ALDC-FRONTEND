@@ -1,64 +1,51 @@
 import { useParams, Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
 import PublicNav from '../components/PublicNav';
 import Footer from '../components/Footer';
 import { MapPin, Home, Ruler, ArrowLeft, Calendar } from 'lucide-react';
 import { ImageWithFallback } from '../components/figma/ImageWithFallback';
 import SpecRow from '../components/ui/SpecRow';
-
-const mockPropertyData: Record<string, any> = {
-  '1': {
-    name: 'Vista Verde Subdivision',
-    type: 'Residential',
-    location: 'Laguna',
-    province: 'Laguna',
-    city: 'Santa Rosa',
-    size: '120 sqm',
-    status: 'Available',
-    images: [
-      'https://images.unsplash.com/photo-1756435292384-1bf32eff7baf?w=800',
-      'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800',
-      'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800'
-    ],
-    description: 'A premium residential subdivision offering modern living spaces with excellent connectivity and amenities.',
-    // Property Specifications
-    property_type: 'Residential',
-    lot_size: '120 sqm',
-    titled: true,
-    overlooking: false,
-    lot_type: 'Corner Lot',
-    topography: 'Flat',
-    // Utilities
-    utilities: {
-      water: true,
-      electricity: true,
-      sim: true,
-      internet: true,
-    },
-    // Facilities & Amenities
-    facilities: {
-      gated: true,
-      security: true,
-      clubhouse: true,
-      sports: true,
-      parks: true,
-      pool: false,
-      other: 'Basketball court, Multi-purpose hall',
-    },
-    // Accessibility & Vicinity
-    accessibility: {
-      motorcycle: true,
-      car: true,
-      truck: false,
-      access_road: true,
-      cemented_road: true,
-      rough_road: false,
-    },
-  }
-};
+import { fetchPropertyDetails } from '../services/propertyService';
+import type { MappedPropertyDetail } from '../services/propertyService';
 
 export default function PropertyDetail() {
   const { id } = useParams();
-  const property = mockPropertyData[id || '1'] || mockPropertyData['1'];
+  const [propertyDetails, setPropertyDetails] = useState<MappedPropertyDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadPropertyDetails = async () => {
+      if (!id) return;
+      
+      try {
+        setLoading(true);
+        const propertyId = parseInt(id, 10);
+        const data = await fetchPropertyDetails(propertyId);
+        setPropertyDetails(data);
+      } catch (error) {
+        console.error('Error loading property details:', error);
+        setPropertyDetails(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadPropertyDetails();
+  }, [id]);
+
+  if (loading || !propertyDetails) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <PublicNav />
+        <div className="flex-1 flex items-center justify-center">
+          <p className="text-gray-600">Loading property details...</p>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
+  const property = propertyDetails;
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -79,15 +66,17 @@ export default function PropertyDetail() {
           <div className="grid lg:grid-cols-2 gap-12">
             {/* Images */}
             <div className="space-y-4">
-              <div className="rounded-lg overflow-hidden h-96">
-                <ImageWithFallback 
-                  src={property.images[0]}
-                  alt={property.name}
-                  className="w-full h-full object-cover"
-                />
-              </div>
-              <div className="grid grid-cols-3 gap-4">
-                {property.images.slice(1).map((img: string, index: number) => (
+              {property.images && property.images.length > 0 && (
+                <>
+                  <div className="rounded-lg overflow-hidden h-96">
+                    <ImageWithFallback 
+                      src={property.images[0]}
+                      alt={property.name}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <div className="grid grid-cols-3 gap-4">
+                    {property.images.slice(1).map((img: string, index: number) => (
                   <div key={index} className="rounded-lg overflow-hidden h-24">
                     <ImageWithFallback 
                       src={img}
@@ -95,8 +84,10 @@ export default function PropertyDetail() {
                       className="w-full h-full object-cover hover:scale-105 transition-transform cursor-pointer"
                     />
                   </div>
-                ))}
-              </div>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Details */}

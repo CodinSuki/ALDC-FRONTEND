@@ -12,6 +12,7 @@ import PropertyDetail from './pages/PropertyDetail';
 import ConsultationForm from './pages/ConsultationForm';
 import BuyerInterestForm from './pages/BuyerInterestForm';
 import SellerForm from './components/ui/SellerForm';
+import Chatbot from './components/Chatbot';
 
 import AdminLogin from './pages/admin/Login';
 import AdminDashboard from './pages/admin/Dashboard';
@@ -24,6 +25,7 @@ import AdminAgents from './pages/admin/Agents';
 import AdminReports from './pages/admin/Reports';
 import AdminSettings from './pages/admin/Settings';
 import AdminCommissions from './pages/admin/Commissions';
+import AdminSellerSubmissions from './pages/admin/SellerSubmissions';
 
 
 
@@ -55,12 +57,14 @@ export default function App() {
           <Route path="/admin/properties" element={<ProtectedRoute><AdminProperties /></ProtectedRoute>} />
           <Route path="/admin/clients" element={<ProtectedRoute><AdminClients /></ProtectedRoute>} />
           <Route path="/admin/inquiries" element={<ProtectedRoute><AdminInquiries /></ProtectedRoute>} />
+          <Route path="/admin/seller-submissions" element={<ProtectedRoute><AdminSellerSubmissions /></ProtectedRoute>} />
           <Route path="/admin/transactions" element={<ProtectedRoute><AdminTransactions /></ProtectedRoute>} />
           <Route path="/admin/agents" element={<ProtectedRoute><AdminAgents /></ProtectedRoute>} />
           <Route path="/admin/reports" element={<ProtectedRoute><AdminReports /></ProtectedRoute>} />
           <Route path="/admin/settings" element={<ProtectedRoute><AdminSettings /></ProtectedRoute>} />
           <Route path="/admin/commissions" element={<ProtectedRoute><AdminCommissions /></ProtectedRoute>} />
         </Routes>
+        <Chatbot />
       </AuthProvider>
     </BrowserRouter>
   );

@@ -9,6 +9,7 @@ const navigation: Array<{ name: string; path: string; icon: any; disabled?: bool
   { name: 'Properties', path: '/admin/properties', icon: Building2 },
   { name: 'Clients', path: '/admin/clients', icon: Users },
   { name: 'Inquiries', path: '/admin/inquiries', icon: MessageSquare },
+  { name: 'Seller Submissions', path: '/admin/seller-submissions', icon: UserSearch },
   { name: 'Transactions', path: '/admin/transactions', icon: FileText },
   { name: 'Agents & Brokers', path: '/admin/agents', icon: UserCog },
   { name: 'Reports', path: '/admin/reports', icon: BarChart3 },
@@ -25,8 +26,8 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   const { logout } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     navigate('/admin/login');
   };
 

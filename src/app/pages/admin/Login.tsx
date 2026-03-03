@@ -95,10 +95,10 @@ export default function AdminLogin() {
             </button>
           </form>
 
-          {/* Demo Credentials Note */}
+          {/* Credentials Note */}
           <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
             <p className="text-sm text-blue-900">
-              <strong>Demo:</strong> Use any email and password (minimum 6 characters) to login
+              <strong>Note:</strong> Use your configured admin credentials.
             </p>
           </div>
         </div>

@@ -1,24 +1,68 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import PublicNav from '../components/PublicNav';
 import Footer from '../components/Footer';
 import { CheckCircle, ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { supabase } from '@/lib/SupabaseClient';
+import { submitConsultationRequest } from '@/app/services/consultationService';
+
+type PropertyTypeRow = {
+  propertytypeid: number;
+  propertytypename: string;
+};
 
 export default function ConsultationForm() {
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [propertyTypes, setPropertyTypes] = useState<PropertyTypeRow[]>([]);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     phone: '',
-    propertyType: '',
+    propertytypeid: '',
     location: '',
     budgetRange: '',
     requirements: ''
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    const loadPropertyTypes = async () => {
+      const { data, error } = await supabase
+        .from('propertytype')
+        .select('propertytypeid, propertytypename')
+        .order('propertytypename', { ascending: true });
+
+      if (!error) {
+        setPropertyTypes((data ?? []) as PropertyTypeRow[]);
+      }
+    };
+
+    loadPropertyTypes();
+  }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSubmitted(true);
+    setSubmitting(true);
+    setSubmitError(null);
+
+    try {
+      await submitConsultationRequest({
+        fullName: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+        preferredPropertyTypeId: Number(formData.propertytypeid),
+        preferredLocation: formData.location,
+        budgetRange: formData.budgetRange,
+        additionalRequirements: formData.requirements || null,
+      });
+
+      setSubmitted(true);
+    } catch (error: any) {
+      setSubmitError(error?.message || 'Failed to submit consultation request');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -137,17 +181,18 @@ export default function ConsultationForm() {
                     Property Type *
                   </label>
                   <select
-                    name="propertyType"
+                    name="propertytypeid"
                     required
-                    value={formData.propertyType}
+                    value={formData.propertytypeid}
                     onChange={handleChange}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                   >
                     <option value="">Select type...</option>
-                    <option value="Residential">Residential</option>
-                    <option value="Agricultural">Agricultural</option>
-                    <option value="Commercial">Commercial</option>
-                    <option value="Industrial">Industrial</option>
+                    {propertyTypes.map((propertytype) => (
+                      <option key={propertytype.propertytypeid} value={String(propertytype.propertytypeid)}>
+                        {propertytype.propertytypename}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
@@ -204,11 +249,15 @@ export default function ConsultationForm() {
 
             {/* Submit */}
             <div className="border-t border-gray-200 pt-6">
+              {submitError && (
+                <p className="text-sm text-red-600 mb-3">{submitError}</p>
+              )}
               <button
                 type="submit"
-                className="w-full bg-green-600 text-white px-6 py-4 rounded-lg hover:bg-green-700 transition-colors"
+                disabled={submitting}
+                className="w-full bg-green-600 text-white px-6 py-4 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-60"
               >
-                Submit Consultation Request
+                {submitting ? 'Submitting...' : 'Submit Consultation Request'}
               </button>
               <p className="text-sm text-gray-500 text-center mt-4">
                 By submitting this form, you agree to be contacted by our team regarding your property inquiry.

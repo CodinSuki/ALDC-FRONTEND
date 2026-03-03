@@ -1,7 +1,14 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AdminLayout from '@/app/components/AdminLayout';
 import { Plus, Edit, Trash2, Search, Eye } from 'lucide-react';
+import {
+  createProject,
+  deleteProject,
+  fetchProjects,
+  updateProject,
+  type Project,
+} from '@/app/services/projectService';
 import {
   Dialog,
   DialogContent,
@@ -21,162 +28,136 @@ import {
   AlertDialogTitle,
 } from '@/app/components/ui/alert-dialog';
 
-// Database-aligned interfaces
-interface Project {
-  project_id: number;
-  project_name: string;
-  project_type: 'Subdivision' | 'Farm' | 'Resort' | 'Other';
-  location_id: number;
-  // Joined data for display
-  location_display?: string;
-  property_count?: number;
-}
-
-interface Location {
-  location_id: number;
-  region: string;
-  province: string;
-  city: string;
-  barangay: string;
-  street: string;
-}
-
-// Mock data
-const mockLocations: Location[] = [
-  { location_id: 1, region: 'CALABARZON', province: 'Laguna', city: 'Santa Rosa', barangay: 'Balibago', street: 'Main Road' },
-  { location_id: 2, region: 'CALABARZON', province: 'Batangas', city: 'Lipa', barangay: 'Tambo', street: 'Highway' },
-  { location_id: 3, region: 'NCR', province: 'Metro Manila', city: 'Makati', barangay: 'Poblacion', street: 'Ayala Avenue' },
-  { location_id: 4, region: 'Central Luzon', province: 'Bataan', city: 'Morong', barangay: 'Sabang', street: 'Beach Road' },
-  { location_id: 5, region: 'CALABARZON', province: 'Cavite', city: 'General Trias', barangay: 'San Francisco', street: 'Industrial Ave' },
-];
-
-const initialProjects: Project[] = [
-  { 
-    project_id: 1, 
-    project_name: 'Vista Verde Subdivision', 
-    project_type: 'Subdivision', 
-    location_id: 1,
-    location_display: 'Santa Rosa, Laguna',
-    property_count: 45
-  },
-  { 
-    project_id: 2, 
-    project_name: 'Greenfield Agricultural Estate', 
-    project_type: 'Farm', 
-    location_id: 2,
-    location_display: 'Lipa, Batangas',
-    property_count: 28
-  },
-  { 
-    project_id: 3, 
-    project_name: 'Metro Business Center', 
-    project_type: 'Other', 
-    location_id: 3,
-    location_display: 'Makati, Metro Manila',
-    property_count: 52
-  },
-  { 
-    project_id: 4, 
-    project_name: 'Sunrise Beach Resort', 
-    project_type: 'Resort', 
-    location_id: 4,
-    location_display: 'Morong, Bataan',
-    property_count: 18
-  },
-  { 
-    project_id: 5, 
-    project_name: 'Industrial Park Zone', 
-    project_type: 'Other', 
-    location_id: 5,
-    location_display: 'General Trias, Cavite',
-    property_count: 13
-  },
-];
-
 export default function AdminProjects() {
   const navigate = useNavigate();
-  const [projects, setProjects] = useState<Project[]>(initialProjects);
-  const [locations] = useState<Location[]>(mockLocations);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterType, setFilterType] = useState('All');
+  const [filterStatus, setFilterStatus] = useState('All');
+  const [isLoading, setIsLoading] = useState(true);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [formData, setFormData] = useState<Partial<Project>>({
     project_name: '',
-    project_type: 'Subdivision',
-    location_id: 0,
+    project_description: '',
   });
+
+  useEffect(() => {
+    const loadProjects = async () => {
+      setIsLoading(true);
+
+      try {
+        const data = await fetchProjects();
+        setProjects(data);
+      } catch (error) {
+        console.error('Error loading projects:', error);
+        alert('Failed to load projects');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadProjects();
+  }, []);
+
+  const projectStatuses = useMemo(
+    () => Array.from(new Set(projects.map((project) => project.project_status))).sort(),
+    [projects]
+  );
 
   const filteredProjects = projects.filter(project => {
     const matchesSearch = 
       project.project_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      project.project_code.toLowerCase().includes(searchQuery.toLowerCase()) ||
       project.location_display?.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesType = filterType === 'All' || project.project_type === filterType;
-    return matchesSearch && matchesType;
+    const matchesStatus = filterStatus === 'All' || project.project_status === filterStatus;
+    return matchesSearch && matchesStatus;
   });
 
-  const getLocationDisplay = (locationId: number): string => {
-    const location = locations.find(l => l.location_id === locationId);
-    return location ? `${location.city}, ${location.province}` : 'Unknown';
+  const generateProjectCode = () => {
+    const suffix = `${Date.now()}`.slice(-6);
+    return `PRJ-${suffix}`;
   };
 
-  const handleAddProject = () => {
-    if (!formData.project_name || !formData.location_id) {
+  const handleAddProject = async () => {
+    if (!formData.project_name) {
       alert('Please fill in all required fields');
       return;
     }
-    
-    const newProject: Project = {
-      project_id: Math.max(...projects.map(p => p.project_id), 0) + 1,
-      project_name: formData.project_name!,
-      project_type: formData.project_type || 'Subdivision',
-      location_id: formData.location_id!,
-      location_display: getLocationDisplay(formData.location_id!),
-      property_count: 0,
-    };
-    
-    setProjects([...projects, newProject]);
-    setIsAddDialogOpen(false);
-    resetForm();
+
+    try {
+      const createdProject = await createProject({
+        projectcode: generateProjectCode(),
+        projectname: formData.project_name,
+        projectdescription: formData.project_description || null,
+      });
+
+      setProjects((prev) => [...prev, createdProject]);
+      setIsAddDialogOpen(false);
+      resetForm();
+
+      alert('Project created. Add at least one property now to complete setup.');
+      navigate(`/admin/properties?projectId=${createdProject.project_id}`);
+    } catch (error) {
+      console.error('Error creating project:', error);
+      alert('Failed to create project');
+    }
   };
 
-  const handleEditProject = () => {
-    if (!formData.project_name || !formData.location_id) {
+  const handleEditProject = async () => {
+    if (!selectedProject || !formData.project_name) {
       alert('Please fill in all required fields');
       return;
     }
-    
-    const updatedProject: Project = {
-      project_id: selectedProject!.project_id,
-      project_name: formData.project_name!,
-      project_type: formData.project_type || 'Subdivision',
-      location_id: formData.location_id!,
-      location_display: getLocationDisplay(formData.location_id!),
-      property_count: selectedProject!.property_count,
-    };
-    
-    setProjects(projects.map(p => 
-      p.project_id === selectedProject!.project_id ? updatedProject : p
-    ));
-    setIsEditDialogOpen(false);
-    resetForm();
+
+    try {
+      const updatedProject = await updateProject(selectedProject.project_id, {
+        projectname: formData.project_name,
+        projectdescription: formData.project_description || null,
+      });
+
+      setProjects((prev) =>
+        prev.map((project) =>
+          project.project_id === selectedProject.project_id ? updatedProject : project
+        )
+      );
+      setIsEditDialogOpen(false);
+      resetForm();
+    } catch (error) {
+      console.error('Error updating project:', error);
+      alert('Failed to update project');
+    }
   };
 
-  const handleDeleteProject = () => {
-    if (selectedProject) {
-      setProjects(projects.filter(p => p.project_id !== selectedProject.project_id));
+  const handleDeleteProject = async () => {
+    if (!selectedProject) {
+      return;
+    }
+
+    if (selectedProject.property_count > 0) {
+      alert('Cannot delete a project with linked properties.');
       setIsDeleteDialogOpen(false);
       setSelectedProject(null);
+      return;
+    }
+
+    try {
+      await deleteProject(selectedProject.project_id);
+
+      setProjects((prev) => prev.filter((project) => project.project_id !== selectedProject.project_id));
+      setIsDeleteDialogOpen(false);
+      setSelectedProject(null);
+    } catch (error) {
+      console.error('Error deleting project:', error);
+      alert('Failed to delete project');
     }
   };
 
   const openEditDialog = (project: Project) => {
     setFormData({
       project_name: project.project_name,
-      project_type: project.project_type,
-      location_id: project.location_id,
+      project_description: project.project_description,
     });
     setSelectedProject(project);
     setIsEditDialogOpen(true);
@@ -190,13 +171,12 @@ export default function AdminProjects() {
   const resetForm = () => {
     setFormData({
       project_name: '',
-      project_type: 'Subdivision',
-      location_id: 0,
+      project_description: '',
     });
     setSelectedProject(null);
   };
 
-  const handleFormChange = (field: keyof Project, value: any) => {
+  const handleFormChange = (field: keyof Project | 'project_description', value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
@@ -207,7 +187,7 @@ export default function AdminProjects() {
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
             <h2 className="text-gray-900">Projects Management</h2>
-            <p className="text-gray-600">Manage all real estate projects</p>
+            <p className="text-gray-600">Manage project folders for grouped properties</p>
           </div>
           <button 
             onClick={() => setIsAddDialogOpen(true)}
@@ -226,24 +206,25 @@ export default function AdminProjects() {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
               <input
                 type="text"
-                placeholder="Search by project name or location..."
+                placeholder="Search by project code, name, or location..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
               />
             </div>
 
-            {/* Type Filter */}
+            {/* Status Filter */}
             <select
-              value={filterType}
-              onChange={(e) => setFilterType(e.target.value)}
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
               className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
             >
-              <option value="All">All Types</option>
-              <option value="Subdivision">Subdivision</option>
-              <option value="Farm">Farm</option>
-              <option value="Resort">Resort</option>
-              <option value="Other">Other</option>
+              <option value="All">All Statuses</option>
+              {projectStatuses.map((status) => (
+                <option key={status} value={status}>
+                  {status}
+                </option>
+              ))}
             </select>
           </div>
         </div>
@@ -258,10 +239,13 @@ export default function AdminProjects() {
                     Project ID
                   </th>
                   <th className="px-6 py-3 text-left text-xs text-gray-600 uppercase tracking-wider">
+                    Project Code
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs text-gray-600 uppercase tracking-wider">
                     Project Name
                   </th>
                   <th className="px-6 py-3 text-left text-xs text-gray-600 uppercase tracking-wider">
-                    Project Type
+                    Status
                   </th>
                   <th className="px-6 py-3 text-left text-xs text-gray-600 uppercase tracking-wider">
                     Location
@@ -275,22 +259,27 @@ export default function AdminProjects() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {filteredProjects.map((project) => (
+                {isLoading ? (
+                  <tr>
+                    <td colSpan={7} className="px-6 py-12 text-center text-gray-500">
+                      Loading projects...
+                    </td>
+                  </tr>
+                ) : (
+                  filteredProjects.map((project) => (
                   <tr key={project.project_id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                       #{project.project_id}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                      {project.project_code}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-gray-900">
                       {project.project_name}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex px-2 py-1 text-xs rounded-full ${
-                        project.project_type === 'Subdivision' ? 'bg-blue-100 text-blue-800' :
-                        project.project_type === 'Farm' ? 'bg-green-100 text-green-800' :
-                        project.project_type === 'Resort' ? 'bg-purple-100 text-purple-800' :
-                        'bg-gray-100 text-gray-800'
-                      }`}>
-                        {project.project_type}
+                      <span className="inline-flex px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-800">
+                        {project.project_status}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
@@ -315,18 +304,21 @@ export default function AdminProjects() {
                       </button>
                       <button 
                         onClick={() => openDeleteDialog(project)}
-                        className="text-red-600 hover:text-red-800"
+                        className={`text-red-600 hover:text-red-800 ${project.property_count > 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        disabled={project.property_count > 0}
+                        title={project.property_count > 0 ? 'Cannot delete projects with linked properties' : 'Delete project'}
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </td>
                   </tr>
-                ))}
+                  ))
+                )}
               </tbody>
             </table>
           </div>
 
-          {filteredProjects.length === 0 && (
+          {!isLoading && filteredProjects.length === 0 && (
             <div className="text-center py-12 text-gray-500">
               No projects found matching your criteria
             </div>
@@ -340,7 +332,7 @@ export default function AdminProjects() {
           <DialogHeader>
             <DialogTitle>Add New Project</DialogTitle>
             <DialogDescription>
-              Fill in the details to add a new project to the system
+              Create a project folder, then add at least one property under it.
             </DialogDescription>
           </DialogHeader>
           
@@ -360,36 +352,15 @@ export default function AdminProjects() {
 
             <div>
               <label className="block text-sm text-gray-700 mb-1">
-                Project Type <span className="text-red-500">*</span>
+                Description
               </label>
-              <select
-                value={formData.project_type}
-                onChange={(e) => handleFormChange('project_type', e.target.value)}
+              <textarea
+                value={formData.project_description || ''}
+                onChange={(e) => handleFormChange('project_description', e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-              >
-                <option value="Subdivision">Subdivision</option>
-                <option value="Farm">Farm</option>
-                <option value="Resort">Resort</option>
-                <option value="Other">Other</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm text-gray-700 mb-1">
-                Location <span className="text-red-500">*</span>
-              </label>
-              <select
-                value={formData.location_id || ''}
-                onChange={(e) => handleFormChange('location_id', parseInt(e.target.value))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-              >
-                <option value="">Select Location</option>
-                {locations.map(location => (
-                  <option key={location.location_id} value={location.location_id}>
-                    {location.city}, {location.province} - {location.region}
-                  </option>
-                ))}
-              </select>
+                rows={4}
+                placeholder="Optional project description"
+              />
             </div>
           </div>
 
@@ -407,7 +378,7 @@ export default function AdminProjects() {
               onClick={handleAddProject}
               className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
             >
-              Add Project
+              Save Project
             </button>
           </DialogFooter>
         </DialogContent>
@@ -419,7 +390,7 @@ export default function AdminProjects() {
           <DialogHeader>
             <DialogTitle>Edit Project</DialogTitle>
             <DialogDescription>
-              Update the project details
+              Update project details
             </DialogDescription>
           </DialogHeader>
           
@@ -438,36 +409,15 @@ export default function AdminProjects() {
 
             <div>
               <label className="block text-sm text-gray-700 mb-1">
-                Project Type <span className="text-red-500">*</span>
+                Description
               </label>
-              <select
-                value={formData.project_type}
-                onChange={(e) => handleFormChange('project_type', e.target.value)}
+              <textarea
+                value={formData.project_description || ''}
+                onChange={(e) => handleFormChange('project_description', e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-              >
-                <option value="Subdivision">Subdivision</option>
-                <option value="Farm">Farm</option>
-                <option value="Resort">Resort</option>
-                <option value="Other">Other</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm text-gray-700 mb-1">
-                Location <span className="text-red-500">*</span>
-              </label>
-              <select
-                value={formData.location_id || ''}
-                onChange={(e) => handleFormChange('location_id', parseInt(e.target.value))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-              >
-                <option value="">Select Location</option>
-                {locations.map(location => (
-                  <option key={location.location_id} value={location.location_id}>
-                    {location.city}, {location.province} - {location.region}
-                  </option>
-                ))}
-              </select>
+                rows={4}
+                placeholder="Optional project description"
+              />
             </div>
           </div>
 
@@ -498,7 +448,7 @@ export default function AdminProjects() {
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
               This will permanently delete the project "{selectedProject?.project_name}".
-              This action cannot be undone.
+              Projects with linked properties cannot be deleted.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

@@ -1,75 +1,55 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import PublicNav from '../components/PublicNav';
 import Footer from '../components/Footer';
 import { Search, Filter, MapPin, Home } from 'lucide-react';
 import { ImageWithFallback } from '../components/figma/ImageWithFallback';
-
-const mockProperties = [
-  {
-    id: '1',
-    name: 'Vista Verde Subdivision',
-    type: 'Residential',
-    location: 'Laguna',
-    size: '120 sqm',
-    status: 'Available',
-    image: 'https://images.unsplash.com/photo-1756435292384-1bf32eff7baf?w=600'
-  },
-  {
-    id: '2',
-    name: 'Greenfield Agricultural Estate',
-    type: 'Agricultural',
-    location: 'Batangas',
-    size: '5 hectares',
-    status: 'Available',
-    image: 'https://images.unsplash.com/photo-1653251135161-08703c56be5d?w=600'
-  },
-  {
-    id: '3',
-    name: 'Metro Business Center',
-    type: 'Commercial',
-    location: 'Makati',
-    size: '500 sqm',
-    status: 'Reserved',
-    image: 'https://images.unsplash.com/photo-1677324574457-645566fea332?w=600'
-  },
-  {
-    id: '4',
-    name: 'Sunrise Beach Resort',
-    type: 'Residential',
-    location: 'Bataan',
-    size: '200 sqm',
-    status: 'Available',
-    image: 'https://images.unsplash.com/photo-1571003123894-1f0594d2b5d9?w=600'
-  },
-  {
-    id: '5',
-    name: 'Industrial Park Zone',
-    type: 'Industrial',
-    location: 'Cavite',
-    size: '1000 sqm',
-    status: 'Sold',
-    image: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=600'
-  },
-  {
-    id: '6',
-    name: 'Mango Farm Estate',
-    type: 'Agricultural',
-    location: 'Zambales',
-    size: '3 hectares',
-    status: 'Available',
-    image: 'https://images.unsplash.com/photo-1625246333195-78d9c38ad449?w=600'
-  }
-];
+import { fetchProperties } from '../services/propertyService';
 
 export default function PropertyListings() {
+  const [properties, setProperties] = useState<Array<{ id: number; name: string; type: string; location: string; size: number; status: string; image: string; }>>([]);
+  const [loading, setLoading] = useState(true);
   const [selectedType, setSelectedType] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
 
-  const filteredProperties = mockProperties.filter(property => {
-    const matchesType = selectedType === 'All' || property.type === selectedType;
-    const matchesSearch = property.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         property.location.toLowerCase().includes(searchQuery.toLowerCase());
+  useEffect(() => {
+    const loadProperties = async () => {
+      try {
+        const data = await fetchProperties();
+        const transformedData = data.map(property => ({
+          id: property.propertyid,
+          name: property.propertyname ?? 'Untitled Property',
+          type: property.propertytype?.propertytypename ?? 'Unknown',
+          location: property.propertylocation?.propertycity ?? 'N/A',
+          size: Number(property.propertylocation?.propertysize ?? 0),
+          status: property.propertylistingstatus?.propertylistingstatusname ?? 'Unknown',
+          image: 'https://images.unsplash.com/photo-1756435292384-1bf32eff7baf?w=600'
+        }));
+        setProperties(transformedData);
+      } catch (error) {
+        console.error('Error loading properties:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadProperties();
+  }, []);
+
+  const filteredProperties = properties.filter(property => {
+    const normalizedType = (property.type || '').toLowerCase();
+    const matchesType =
+      selectedType === 'All' ||
+      normalizedType === selectedType.toLowerCase() ||
+      normalizedType.includes(selectedType.toLowerCase());
+
+    const normalizedName = (property.name || '').toLowerCase();
+    const normalizedLocation = (property.location || '').toLowerCase();
+    const normalizedSearch = searchQuery.toLowerCase();
+    const matchesSearch =
+      normalizedName.includes(normalizedSearch) ||
+      normalizedLocation.includes(normalizedSearch);
+
     return matchesType && matchesSearch;
   });
 
@@ -126,11 +106,17 @@ export default function PropertyListings() {
       {/* Properties Grid */}
       <div className="flex-1 bg-gray-50 py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="mb-6 text-gray-600">
-            Showing {filteredProperties.length} {filteredProperties.length === 1 ? 'property' : 'properties'}
-          </div>
+          {loading ? (
+            <div className="text-center py-20">
+              <p className="text-gray-600 text-lg">Loading properties...</p>
+            </div>
+          ) : (
+            <>
+              <div className="mb-6 text-gray-600">
+                Showing {filteredProperties.length} {filteredProperties.length === 1 ? 'property' : 'properties'}
+              </div>
 
-          {filteredProperties.length === 0 ? (
+              {filteredProperties.length === 0 ? (
             <div className="text-center py-20">
               <Filter className="w-16 h-16 text-gray-400 mx-auto mb-4" />
               <h3 className="text-gray-900 mb-2">No properties found</h3>
@@ -176,7 +162,7 @@ export default function PropertyListings() {
                       </div>
                       <div className="flex items-center gap-2">
                         <Filter className="w-4 h-4 text-gray-400" />
-                        <span>{property.size}</span>
+                        <span>{property.size ? `${property.size} sqm` : 'N/A'}</span>
                       </div>
                     </div>
                     
@@ -189,6 +175,8 @@ export default function PropertyListings() {
                 </Link>
               ))}
             </div>
+          )}
+            </>
           )}
         </div>
       </div>
