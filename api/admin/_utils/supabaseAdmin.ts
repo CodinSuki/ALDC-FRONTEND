@@ -3,17 +3,28 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-if (!supabaseUrl) {
-  throw new Error('Missing SUPABASE_URL (or VITE_SUPABASE_URL) environment variable.');
+const missingConfigMessage =
+  'Missing SUPABASE_URL (or VITE_SUPABASE_URL) and/or SUPABASE_SERVICE_ROLE_KEY environment variables.';
+
+const client =
+  supabaseUrl && serviceRoleKey
+    ? createClient(supabaseUrl, serviceRoleKey, {
+        auth: {
+          persistSession: false,
+          autoRefreshToken: false,
+        },
+      })
+    : null;
+
+if (!client) {
+  console.warn(missingConfigMessage);
 }
 
-if (!serviceRoleKey) {
-  throw new Error('Missing SUPABASE_SERVICE_ROLE_KEY environment variable.');
-}
-
-export const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
-  auth: {
-    persistSession: false,
-    autoRefreshToken: false,
+export const supabaseAdmin = new Proxy((client ?? {}) as ReturnType<typeof createClient>, {
+  get(target, prop, receiver) {
+    if (!client) {
+      throw new Error(missingConfigMessage);
+    }
+    return Reflect.get(target, prop, receiver);
   },
 });
