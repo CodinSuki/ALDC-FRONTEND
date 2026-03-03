@@ -132,7 +132,7 @@ export const fetchAdminDashboardData = async (): Promise<AdminDashboardData> => 
     propertyTypes.map((row) => [toNumber(row.propertytypeid), asText(row.propertytypename, 'Unknown')])
   );
 
-  const activeProperties = properties.filter((row) => !Boolean(row.is_archived ?? row.isarchived));
+  const activeProperties = properties.filter((row) => !(row.is_archived ?? row.isarchived));
 
   const availableProperties = activeProperties.filter((row) => {
     const statusId = toNumber(row.propertylistingstatusid);
