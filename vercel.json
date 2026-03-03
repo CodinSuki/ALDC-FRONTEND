@@ -2,10 +2,6 @@
   "framework": "vite",
   "routes": [
     {
-      "src": "/api/(.*)",
-      "dest": "/api/$1"
-    },
-    {
       "handle": "filesystem"
     },
     {
