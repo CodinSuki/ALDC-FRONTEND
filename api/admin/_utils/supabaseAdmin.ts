@@ -20,7 +20,7 @@ if (!client) {
   console.warn(missingConfigMessage);
 }
 
-export const supabaseAdmin = new Proxy((client ?? {}) as ReturnType<typeof createClient>, {
+export const supabaseAdmin: any = new Proxy((client ?? {}) as any, {
   get(target, prop, receiver) {
     if (!client) {
       throw new Error(missingConfigMessage);

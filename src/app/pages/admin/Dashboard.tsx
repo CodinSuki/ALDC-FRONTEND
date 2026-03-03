@@ -1,38 +1,180 @@
+import { useEffect, useMemo, useState } from 'react';
 import AdminLayout from '../../components/AdminLayout';
-import { Building2, Users, TrendingUp, AlertCircle, FolderKanban, MessageSquare } from 'lucide-react';
+import { Building2, TrendingUp, AlertCircle, FolderKanban, MessageSquare } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { fetchAdminDashboardData, type AdminDashboardData } from '@/app/services/adminDashboardService';
 
-const stats = [
-  { label: 'Total Projects', value: '12', change: '+2 this month', icon: FolderKanban, color: 'bg-indigo-500' },
-  { label: 'Total Properties', value: '156', change: '87 available', icon: Building2, color: 'bg-blue-500' },
-  { label: 'Available Properties', value: '87', change: '56% of total', icon: Building2, color: 'bg-green-500' },
-  { label: 'Payments Due', value: '12', change: 'This month', icon: AlertCircle, color: 'bg-yellow-500' },
-  { label: 'Overdue Payments', value: '3', change: 'Needs attention', icon: AlertCircle, color: 'bg-red-500' },
-  { label: 'Active Inquiries', value: '34', change: '12 new this week', icon: MessageSquare, color: 'bg-yellow-500' },
-  { label: 'Active Transactions', value: '23', change: '₱45.2M value', icon: TrendingUp, color: 'bg-purple-500' },
-  { label: 'Completed Transactions', value: '89', change: 'This year', icon: TrendingUp, color: 'bg-emerald-500' },
-];
+const INITIAL_DATA: AdminDashboardData = {
+  stats: {
+    totalProjects: 0,
+    totalProperties: 0,
+    availableProperties: 0,
+    paymentsDue: 0,
+    overduePayments: 0,
+    activeInquiries: 0,
+    activeTransactions: 0,
+    completedTransactions: 0,
+    activeTransactionValue: 0,
+  },
+  monthlyData: [
+    { month: 'Jan', sold: 0, reserved: 0 },
+    { month: 'Feb', sold: 0, reserved: 0 },
+    { month: 'Mar', sold: 0, reserved: 0 },
+    { month: 'Apr', sold: 0, reserved: 0 },
+    { month: 'May', sold: 0, reserved: 0 },
+    { month: 'Jun', sold: 0, reserved: 0 },
+    { month: 'Jul', sold: 0, reserved: 0 },
+    { month: 'Aug', sold: 0, reserved: 0 },
+    { month: 'Sep', sold: 0, reserved: 0 },
+    { month: 'Oct', sold: 0, reserved: 0 },
+    { month: 'Nov', sold: 0, reserved: 0 },
+    { month: 'Dec', sold: 0, reserved: 0 },
+  ],
+  propertyTypeData: [],
+  recentInquiries: [],
+  recentTransactions: [],
+};
 
-const monthlyData = [
-  { month: 'Jan', sold: 12, reserved: 8 },
-  { month: 'Feb', sold: 15, reserved: 10 },
-  { month: 'Mar', sold: 10, reserved: 6 },
-  { month: 'Apr', sold: 18, reserved: 12 },
-  { month: 'May', sold: 14, reserved: 9 },
-  { month: 'Jun', sold: 20, reserved: 15 },
-];
+const formatCurrency = (value: number): string =>
+  new Intl.NumberFormat('en-PH', {
+    style: 'currency',
+    currency: 'PHP',
+    maximumFractionDigits: 1,
+    notation: value >= 1000000 ? 'compact' : 'standard',
+  }).format(value);
 
-const propertyTypeData = [
-  { name: 'Residential', value: 65, color: '#10b981' },
-  { name: 'Agricultural', value: 42, color: '#3b82f6' },
-  { name: 'Commercial', value: 30, color: '#8b5cf6' },
-  { name: 'Industrial', value: 19, color: '#f59e0b' },
-];
+const inquiryStatusClass = (status: string): string => {
+  if (status === 'Pending') return 'bg-yellow-100 text-yellow-800';
+  if (status === 'Converted' || status === 'Published') return 'bg-green-100 text-green-800';
+  if (status === 'Closed') return 'bg-gray-100 text-gray-800';
+  return 'bg-blue-100 text-blue-800';
+};
+
+const transactionStatusClass = (status: string): string => {
+  const normalized = status.toLowerCase();
+  if (normalized.includes('complete') || normalized.includes('paid')) return 'bg-green-100 text-green-800';
+  if (normalized.includes('overdue')) return 'bg-red-100 text-red-800';
+  return 'bg-blue-100 text-blue-800';
+};
 
 export default function Dashboard() {
+  const [dashboardData, setDashboardData] = useState<AdminDashboardData>(INITIAL_DATA);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
+
+  const loadDashboard = async () => {
+    setIsLoading(true);
+    setLoadError(null);
+
+    try {
+      const data = await fetchAdminDashboardData();
+      setDashboardData(data);
+      setLastUpdatedAt(new Date());
+    } catch (error: unknown) {
+      setLoadError(error instanceof Error ? error.message : 'Failed to load dashboard data');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadDashboard();
+  }, []);
+
+  const stats = useMemo(
+    () => [
+      {
+        label: 'Total Projects',
+        value: String(dashboardData.stats.totalProjects),
+        change: 'Live from database',
+        icon: FolderKanban,
+        color: 'bg-indigo-500',
+      },
+      {
+        label: 'Total Properties',
+        value: String(dashboardData.stats.totalProperties),
+        change: `${dashboardData.stats.availableProperties} available`,
+        icon: Building2,
+        color: 'bg-blue-500',
+      },
+      {
+        label: 'Available Properties',
+        value: String(dashboardData.stats.availableProperties),
+        change:
+          dashboardData.stats.totalProperties > 0
+            ? `${Math.round((dashboardData.stats.availableProperties / dashboardData.stats.totalProperties) * 100)}% of total`
+            : '0% of total',
+        icon: Building2,
+        color: 'bg-green-500',
+      },
+      {
+        label: 'Payments Due',
+        value: String(dashboardData.stats.paymentsDue),
+        change: 'From transaction statuses',
+        icon: AlertCircle,
+        color: 'bg-yellow-500',
+      },
+      {
+        label: 'Overdue Payments',
+        value: String(dashboardData.stats.overduePayments),
+        change: 'Needs attention',
+        icon: AlertCircle,
+        color: 'bg-red-500',
+      },
+      {
+        label: 'Active Inquiries',
+        value: String(dashboardData.stats.activeInquiries),
+        change: 'Across unified inbox',
+        icon: MessageSquare,
+        color: 'bg-yellow-500',
+      },
+      {
+        label: 'Active Transactions',
+        value: String(dashboardData.stats.activeTransactions),
+        change: `${formatCurrency(dashboardData.stats.activeTransactionValue)} value`,
+        icon: TrendingUp,
+        color: 'bg-purple-500',
+      },
+      {
+        label: 'Completed Transactions',
+        value: String(dashboardData.stats.completedTransactions),
+        change: 'From transaction records',
+        icon: TrendingUp,
+        color: 'bg-emerald-500',
+      },
+    ],
+    [dashboardData]
+  );
+
   return (
     <AdminLayout>
       <div className="space-y-8">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <h2 className="text-gray-900">Dashboard</h2>
+            <p className="text-sm text-gray-500">
+              Last updated: {lastUpdatedAt ? lastUpdatedAt.toLocaleString() : 'Not loaded yet'}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={loadDashboard}
+            disabled={isLoading}
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {isLoading ? 'Refreshing...' : 'Refresh'}
+          </button>
+        </div>
+
+        {isLoading && (
+          <div className="bg-white rounded-lg shadow-sm p-4 text-sm text-gray-500">Loading dashboard data...</div>
+        )}
+
+        {loadError && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-sm text-red-700">{loadError}</div>
+        )}
+
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {stats.map((stat, index) => (
@@ -57,7 +199,7 @@ export default function Dashboard() {
           <div className="bg-white rounded-lg shadow-sm p-6">
             <h2 className="text-gray-900 mb-6">Monthly Property Performance</h2>
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={monthlyData}>
+              <BarChart data={dashboardData.monthlyData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis dataKey="month" stroke="#666" />
                 <YAxis stroke="#666" />
@@ -86,7 +228,7 @@ export default function Dashboard() {
             <ResponsiveContainer width="100%" height={300}>
               <PieChart>
                 <Pie
-                  data={propertyTypeData}
+                  data={dashboardData.propertyTypeData}
                   cx="50%"
                   cy="50%"
                   labelLine={false}
@@ -95,7 +237,7 @@ export default function Dashboard() {
                   fill="#8884d8"
                   dataKey="value"
                 >
-                  {propertyTypeData.map((entry, index) => (
+                  {dashboardData.propertyTypeData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
@@ -128,13 +270,7 @@ export default function Dashboard() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {[
-                    { client: 'Juan Santos', property: 'Vista Verde - Lot 5', status: 'Pending' },
-                    { client: 'Maria Garcia', property: 'Greenfield Farm', status: 'Pending' },
-                    { client: 'Carlos Reyes', property: 'Metro Business Center', status: 'Converted' },
-                    { client: 'Ana Lopez', property: 'Sunrise Beach Resort', status: 'Pending' },
-                    { client: 'Pedro Cruz', property: 'Industrial Park', status: 'Closed' },
-                  ].map((inquiry, index) => (
+                  {dashboardData.recentInquiries.map((inquiry, index) => (
                     <tr key={index} className="hover:bg-gray-50">
                       <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900">
                         {inquiry.client}
@@ -144,15 +280,18 @@ export default function Dashboard() {
                       </td>
                       <td className="px-6 py-3 whitespace-nowrap">
                         <span className={`inline-flex px-2 py-1 text-xs rounded-full ${
-                          inquiry.status === 'Pending' ? 'bg-yellow-100 text-yellow-800' :
-                          inquiry.status === 'Converted' ? 'bg-green-100 text-green-800' :
-                          'bg-gray-100 text-gray-800'
+                          inquiryStatusClass(inquiry.status)
                         }`}>
                           {inquiry.status}
                         </span>
                       </td>
                     </tr>
                   ))}
+                  {dashboardData.recentInquiries.length === 0 && (
+                    <tr>
+                      <td className="px-6 py-4 text-sm text-gray-500" colSpan={3}>No inquiry data available.</td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -179,13 +318,7 @@ export default function Dashboard() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {[
-                    { property: 'VV-BLK1-LOT5', amount: '₱5,500,000', status: 'In Progress' },
-                    { property: 'MBC-FL5-U501', amount: '₱12,000,000', status: 'Completed' },
-                    { property: 'GF-FARM-A12', amount: '₱8,500,000', status: 'In Progress' },
-                    { property: 'SBR-LOT-B8', amount: '₱7,200,000', status: 'In Progress' },
-                    { property: 'IPZ-WARE-W3', amount: '₱15,000,000', status: 'Completed' },
-                  ].map((transaction, index) => (
+                  {dashboardData.recentTransactions.map((transaction, index) => (
                     <tr key={index} className="hover:bg-gray-50">
                       <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900">
                         {transaction.property}
@@ -195,14 +328,18 @@ export default function Dashboard() {
                       </td>
                       <td className="px-6 py-3 whitespace-nowrap">
                         <span className={`inline-flex px-2 py-1 text-xs rounded-full ${
-                          transaction.status === 'Completed' ? 'bg-green-100 text-green-800' :
-                          'bg-blue-100 text-blue-800'
+                          transactionStatusClass(transaction.status)
                         }`}>
                           {transaction.status}
                         </span>
                       </td>
                     </tr>
                   ))}
+                  {dashboardData.recentTransactions.length === 0 && (
+                    <tr>
+                      <td className="px-6 py-4 text-sm text-gray-500" colSpan={3}>No transaction data available.</td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
