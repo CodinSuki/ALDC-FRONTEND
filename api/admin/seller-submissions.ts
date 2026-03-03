@@ -26,6 +26,60 @@ type ClientRow = {
   contactnumber: string | null;
 };
 
+type StatusIdRow = {
+  propertylistingstatusid: number;
+};
+
+type LocationRow = {
+  propertyisland: string | null;
+  propertyregion: string | null;
+  propertyprovince: string | null;
+  propertycity: string | null;
+  propertybarangay: string | null;
+  propertystreet: string | null;
+  propertysize: number | null;
+};
+
+type UtilitiesRow = {
+  propertyhaswater: boolean | null;
+  propertyhaselectricity: boolean | null;
+  propertyhasmobilesignal: boolean | null;
+  propertyhasinternet: boolean | null;
+};
+
+type AccessibilityRow = {
+  propertybymotorcycle: boolean | null;
+  propertybycar: boolean | null;
+  propertybytruck: boolean | null;
+  propertybyaccessroad: boolean | null;
+  propertybycementedroad: boolean | null;
+  propertybyroughroad: boolean | null;
+  propertyotherdetails: string | null;
+};
+
+type UrbanAmenitiesRow = {
+  hasgated: boolean | null;
+  hassecurity: boolean | null;
+  hasclubhouse: boolean | null;
+  hassportsfitnesscenter: boolean | null;
+  hasparksplaygrounds: boolean | null;
+  amenitiesnotes: string | null;
+};
+
+type AgriculturalAmenitiesRow = {
+  hasfarmhouse: boolean | null;
+  hasbarns: boolean | null;
+  haswarehousestorage: boolean | null;
+  hasriversstreams: boolean | null;
+  hasirrigationcanal: boolean | null;
+  haslakelagoon: boolean | null;
+  amenitiesnotes: string | null;
+};
+
+type AgriculturalDetailsRow = {
+  agriculturalpropertydetailsid: number;
+};
+
 const REVIEW_CODES: SellerSubmissionStatusCode[] = ['PND', 'REV', 'ACC'];
 
 const formatName = (first?: string | null, middle?: string | null, last?: string | null): string =>
@@ -73,7 +127,8 @@ const getStatusIdByCode = async (code: SellerSubmissionStatusCode): Promise<numb
     throw error ?? new Error(`Status code not found: ${code}`);
   }
 
-  return Number(data.propertylistingstatusid);
+  const statusRow = data as StatusIdRow;
+  return Number(statusRow.propertylistingstatusid);
 };
 
 const fetchSellerSubmissions = async () => {
@@ -140,8 +195,7 @@ const fetchSellerSubmissions = async () => {
 const setSubmissionStatus = async (propertyId: number, code: SellerSubmissionStatusCode): Promise<void> => {
   const statusId = await getStatusIdByCode(code);
 
-  const { error } = await supabaseAdmin
-    .from('property')
+  const { error } = await (supabaseAdmin.from('property') as any)
     .update({ propertylistingstatusid: statusId })
     .eq('propertyid', propertyId);
 
@@ -229,10 +283,17 @@ const fetchSellerSubmissionDetail = async (propertyId: number) => {
   if (agriDetailsRes.error) throw agriDetailsRes.error;
   if (photosRes.error) throw photosRes.error;
 
+  const locationData = locationRes.data as LocationRow | null;
+  const utilitiesData = utilitiesRes.data as UtilitiesRow | null;
+  const accessibilityData = accessibilityRes.data as AccessibilityRow | null;
+  const urbanAmenitiesData = urbanAmenitiesRes.data as UrbanAmenitiesRow | null;
+  const agriculturalAmenitiesData = agriAmenitiesRes.data as AgriculturalAmenitiesRow | null;
+  const agriculturalDetailsData = agriDetailsRes.data as AgriculturalDetailsRow | null;
+
   let agriculturalLotTypes: string[] = [];
 
-  const detailsId = agriDetailsRes.data?.agriculturalpropertydetailsid
-    ? Number(agriDetailsRes.data.agriculturalpropertydetailsid)
+  const detailsId = agriculturalDetailsData?.agriculturalpropertydetailsid
+    ? Number(agriculturalDetailsData.agriculturalpropertydetailsid)
     : null;
 
   if (detailsId) {
@@ -265,57 +326,57 @@ const fetchSellerSubmissionDetail = async (propertyId: number) => {
     sellerName: formatName(seller?.firstname, seller?.middlename, seller?.lastname) || `Seller #${sellerClientId ?? 'N/A'}`,
     sellerEmail: seller?.emailaddress ?? null,
     sellerContact: seller?.contactnumber ?? null,
-    location: locationRes.data
+    location: locationData
       ? {
-          island: locationRes.data.propertyisland ?? null,
-          region: locationRes.data.propertyregion ?? null,
-          province: locationRes.data.propertyprovince ?? null,
-          city: locationRes.data.propertycity ?? null,
-          barangay: locationRes.data.propertybarangay ?? null,
-          street: locationRes.data.propertystreet ?? null,
-          size: locationRes.data.propertysize ?? null,
+          island: locationData.propertyisland ?? null,
+          region: locationData.propertyregion ?? null,
+          province: locationData.propertyprovince ?? null,
+          city: locationData.propertycity ?? null,
+          barangay: locationData.propertybarangay ?? null,
+          street: locationData.propertystreet ?? null,
+          size: locationData.propertysize ?? null,
         }
       : null,
-    utilities: utilitiesRes.data
+    utilities: utilitiesData
       ? {
-          hasWater: Boolean(utilitiesRes.data.propertyhaswater),
-          hasElectricity: Boolean(utilitiesRes.data.propertyhaselectricity),
-          hasMobileSignal: Boolean(utilitiesRes.data.propertyhasmobilesignal),
-          hasInternet: Boolean(utilitiesRes.data.propertyhasinternet),
+          hasWater: Boolean(utilitiesData.propertyhaswater),
+          hasElectricity: Boolean(utilitiesData.propertyhaselectricity),
+          hasMobileSignal: Boolean(utilitiesData.propertyhasmobilesignal),
+          hasInternet: Boolean(utilitiesData.propertyhasinternet),
         }
       : null,
-    accessibility: accessibilityRes.data
+    accessibility: accessibilityData
       ? {
-          byMotorcycle: Boolean(accessibilityRes.data.propertybymotorcycle),
-          byCar: Boolean(accessibilityRes.data.propertybycar),
-          byTruck: Boolean(accessibilityRes.data.propertybytruck),
-          byAccessRoad: Boolean(accessibilityRes.data.propertybyaccessroad),
-          byCementedRoad: Boolean(accessibilityRes.data.propertybycementedroad),
-          byRoughRoad: Boolean(accessibilityRes.data.propertybyroughroad),
-          otherDetails: accessibilityRes.data.propertyotherdetails ?? null,
+          byMotorcycle: Boolean(accessibilityData.propertybymotorcycle),
+          byCar: Boolean(accessibilityData.propertybycar),
+          byTruck: Boolean(accessibilityData.propertybytruck),
+          byAccessRoad: Boolean(accessibilityData.propertybyaccessroad),
+          byCementedRoad: Boolean(accessibilityData.propertybycementedroad),
+          byRoughRoad: Boolean(accessibilityData.propertybyroughroad),
+          otherDetails: accessibilityData.propertyotherdetails ?? null,
         }
       : null,
     urbanLotType: urbanLotTypeName,
-    urbanAmenities: urbanAmenitiesRes.data
+    urbanAmenities: urbanAmenitiesData
       ? {
-          hasGated: Boolean(urbanAmenitiesRes.data.hasgated),
-          hasSecurity: Boolean(urbanAmenitiesRes.data.hassecurity),
-          hasClubhouse: Boolean(urbanAmenitiesRes.data.hasclubhouse),
-          hasSportsFitnessCenter: Boolean(urbanAmenitiesRes.data.hassportsfitnesscenter),
-          hasParksPlaygrounds: Boolean(urbanAmenitiesRes.data.hasparksplaygrounds),
-          amenitiesNotes: urbanAmenitiesRes.data.amenitiesnotes ?? null,
+          hasGated: Boolean(urbanAmenitiesData.hasgated),
+          hasSecurity: Boolean(urbanAmenitiesData.hassecurity),
+          hasClubhouse: Boolean(urbanAmenitiesData.hasclubhouse),
+          hasSportsFitnessCenter: Boolean(urbanAmenitiesData.hassportsfitnesscenter),
+          hasParksPlaygrounds: Boolean(urbanAmenitiesData.hasparksplaygrounds),
+          amenitiesNotes: urbanAmenitiesData.amenitiesnotes ?? null,
         }
       : null,
     agriculturalLotTypes,
-    agriculturalAmenities: agriAmenitiesRes.data
+    agriculturalAmenities: agriculturalAmenitiesData
       ? {
-          hasFarmhouse: Boolean(agriAmenitiesRes.data.hasfarmhouse),
-          hasBarns: Boolean(agriAmenitiesRes.data.hasbarns),
-          hasWarehouseStorage: Boolean(agriAmenitiesRes.data.haswarehousestorage),
-          hasRiversStreams: Boolean(agriAmenitiesRes.data.hasriversstreams),
-          hasIrrigationCanal: Boolean(agriAmenitiesRes.data.hasirrigationcanal),
-          hasLakeLagoon: Boolean(agriAmenitiesRes.data.haslakelagoon),
-          amenitiesNotes: agriAmenitiesRes.data.amenitiesnotes ?? null,
+          hasFarmhouse: Boolean(agriculturalAmenitiesData.hasfarmhouse),
+          hasBarns: Boolean(agriculturalAmenitiesData.hasbarns),
+          hasWarehouseStorage: Boolean(agriculturalAmenitiesData.haswarehousestorage),
+          hasRiversStreams: Boolean(agriculturalAmenitiesData.hasriversstreams),
+          hasIrrigationCanal: Boolean(agriculturalAmenitiesData.hasirrigationcanal),
+          hasLakeLagoon: Boolean(agriculturalAmenitiesData.haslakelagoon),
+          amenitiesNotes: agriculturalAmenitiesData.amenitiesnotes ?? null,
         }
       : null,
     photos: (photosRes.data ?? []).map((photo: any) => ({
@@ -330,7 +391,7 @@ const fetchSellerSubmissionDetail = async (propertyId: number) => {
 };
 
 const deleteSubmissionProperty = async (propertyId: number): Promise<void> => {
-  const { error } = await supabaseAdmin.rpc('delete_property_cascade', {
+  const { error } = await (supabaseAdmin as any).rpc('delete_property_cascade', {
     p_propertyid: propertyId,
   });
 

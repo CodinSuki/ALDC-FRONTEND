@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import AdminLayout from '@/app/components/AdminLayout';
-import { Plus, Edit, Trash2, Search } from 'lucide-react';
+import ConfirmActionDialog from '@/app/components/ConfirmActionDialog';
+import { Plus, Edit, Trash2, Search, Archive } from 'lucide-react';
 import PropertyDialog from './components/property/PropertyDialog';
 import {
+  archiveAdminProperty,
   createAdminProperty,
   deleteAdminProperty,
   fetchAdminPropertyData,
@@ -21,6 +23,8 @@ import {
 } from '@/app/services/adminPropertyService';
 
 export default function AdminProperties() {
+  type ConfirmMode = 'delete' | 'archive';
+
   const [properties, setProperties] = useState<AdminProperty[]>([]);
   const [projects, setProjects] = useState<ProjectOption[]>([]);
   const [sellers, setSellers] = useState<SellerOption[]>([]);
@@ -38,6 +42,11 @@ export default function AdminProperties() {
   const [propertyTypes, setPropertyTypes] = useState<PropertyTypeOption[]>([]);
   const [urbanLotTypes, setUrbanLotTypes] = useState<UrbanLotTypeOption[]>([]);
   const [agriculturalLotTypes, setAgriculturalLotTypes] = useState<AgriculturalLotTypeOption[]>([]);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmMode, setConfirmMode] = useState<ConfirmMode>('delete');
+  const [confirmDescription, setConfirmDescription] = useState('');
+  const [confirmTarget, setConfirmTarget] = useState<AdminProperty | null>(null);
+  const [isActionSubmitting, setIsActionSubmitting] = useState(false);
 
 
   const [formData, setFormData] = useState<Partial<AdminProperty>>({
@@ -77,6 +86,7 @@ export default function AdminProperties() {
     agri_hasriversstreams: false,
     agri_hasirrigationcanal: false,
     agri_haslakelagoon: false,
+    photos: [],
   });
 
   const buildPayload = (): PropertyPayload => ({
@@ -142,6 +152,8 @@ export default function AdminProperties() {
   }, []);
 
   const filteredProperties = properties.filter(p => {
+    if (p.is_archived) return false;
+
     const matchesSearch =
       p.propertyname?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       p.project_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -190,6 +202,7 @@ export default function AdminProperties() {
       agri_hasriversstreams: false,
       agri_hasirrigationcanal: false,
       agri_haslakelagoon: false,
+      photos: [],
     });
     setEditPropertyId(null);
   };
@@ -213,6 +226,7 @@ export default function AdminProperties() {
         sellerclientid: property.sellerclientid ?? null,
         propertylistingstatusid: property.propertylistingstatusid,
         propertyownershipid: property.propertyownershipid ?? null,
+        photos: [],
       });
       setEditPropertyId(property.propertyid);
       setShowModal(true);
@@ -253,8 +267,8 @@ export default function AdminProperties() {
 
     try {
       const newProp = editPropertyId
-        ? await updateAdminProperty(editPropertyId, payload, detailPayload, lookup)
-        : await createAdminProperty(payload, detailPayload, lookup);
+        ? await updateAdminProperty(editPropertyId, payload, detailPayload, lookup, formData.photos ?? [])
+        : await createAdminProperty(payload, detailPayload, lookup, formData.photos ?? []);
 
       setProperties(prev => {
         if (editPropertyId) {
@@ -271,14 +285,73 @@ export default function AdminProperties() {
     }
   };
 
-  const handleDeleteProperty = async (property_id: number) => {
-    if (!confirm('Are you sure you want to delete this property?')) return;
+  const requestDeleteProperty = (property: AdminProperty) => {
+    setConfirmMode('delete');
+    setConfirmTarget(property);
+    setConfirmDescription('This action permanently deletes the property and related records. This cannot be undone. Continue?');
+    setConfirmOpen(true);
+  };
+
+  const requestArchiveProperty = (property: AdminProperty, customDescription?: string) => {
+    setConfirmMode('archive');
+    setConfirmTarget(property);
+    setConfirmDescription(
+      customDescription ?? 'Archive this property? It will be hidden from listings and active admin tables.'
+    );
+    setConfirmOpen(true);
+  };
+
+  const handleArchiveProperty = async (propertyId: number) => {
+    const lookup = {
+      projects,
+      sellers,
+      propertyTypes,
+      listingStatuses,
+    };
 
     try {
-      await deleteAdminProperty(property_id);
-      setProperties(prev => prev.filter(p => p.propertyid !== property_id));
-    } catch {
-      alert('Error deleting property');
+      const archived = await archiveAdminProperty(propertyId, lookup);
+      setProperties((prev) => prev.map((entry) => (entry.propertyid === propertyId ? archived : entry)));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Error archiving property';
+      alert(`Error archiving property: ${message}`);
+    }
+  };
+
+  const handleConfirmAction = async () => {
+    if (!confirmTarget) {
+      setConfirmOpen(false);
+      return;
+    }
+
+    setIsActionSubmitting(true);
+
+    try {
+      if (confirmMode === 'delete') {
+        await deleteAdminProperty(confirmTarget.propertyid);
+        setProperties((prev) => prev.filter((entry) => entry.propertyid !== confirmTarget.propertyid));
+        setConfirmOpen(false);
+        setConfirmTarget(null);
+        return;
+      }
+
+      await handleArchiveProperty(confirmTarget.propertyid);
+      setConfirmOpen(false);
+      setConfirmTarget(null);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Error deleting property';
+
+      if (confirmMode === 'delete' && message.toLowerCase().includes('fk_transaction_property')) {
+        requestArchiveProperty(
+          confirmTarget,
+          'This property has linked transactions and cannot be deleted. Archive it instead?'
+        );
+        return;
+      }
+
+      alert(`Error deleting property: ${message}`);
+    } finally {
+      setIsActionSubmitting(false);
     }
   };
 
@@ -291,13 +364,22 @@ export default function AdminProperties() {
             <h2 className="text-gray-900">Property Management</h2>
             <p className="text-gray-600">Manage all properties in the system</p>
           </div>
-          <button
-            onClick={openAddModal}
-            className="flex items-center gap-2 bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors"
-          >
-            <Plus className="w-5 h-5" />
-            Add Property
-          </button>
+          <div className="flex items-center gap-2">
+            <Link
+              to="/admin/properties/archived"
+              className="flex items-center gap-2 border border-gray-300 text-gray-700 px-4 py-3 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              <Archive className="w-5 h-5" />
+              Archived
+            </Link>
+            <button
+              onClick={openAddModal}
+              className="flex items-center gap-2 bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors"
+            >
+              <Plus className="w-5 h-5" />
+              Add Property
+            </button>
+          </div>
         </div>
 
         {/* Filters */}
@@ -362,7 +444,10 @@ export default function AdminProperties() {
                       <button onClick={() => openEditModal(p)} className="text-blue-600 hover:text-blue-800 mr-3">
                         <Edit className="w-4 h-4" />
                       </button>
-                      <button onClick={() => handleDeleteProperty(p.propertyid)} className="text-red-600 hover:text-red-800">
+                      <button onClick={() => requestArchiveProperty(p)} className="text-amber-600 hover:text-amber-800 mr-3">
+                        <Archive className="w-4 h-4" />
+                      </button>
+                      <button onClick={() => requestDeleteProperty(p)} className="text-red-600 hover:text-red-800">
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </td>
@@ -391,6 +476,17 @@ export default function AdminProperties() {
           onSubmit={handleAddOrUpdateProperty}
           onCancel={() => setShowModal(false)}
           isEditMode={Boolean(editPropertyId)}
+        />
+
+        <ConfirmActionDialog
+          open={confirmOpen}
+          onOpenChange={setConfirmOpen}
+          title={confirmMode === 'delete' ? 'Confirm Permanent Delete' : 'Confirm Archive'}
+          description={confirmDescription}
+          confirmLabel={confirmMode === 'delete' ? 'Delete Permanently' : 'Archive Property'}
+          confirmVariant={confirmMode === 'delete' ? 'danger' : 'default'}
+          isSubmitting={isActionSubmitting}
+          onConfirm={handleConfirmAction}
         />
       </div>
     </AdminLayout>

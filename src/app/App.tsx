@@ -18,6 +18,7 @@ import AdminLogin from './pages/admin/Login';
 import AdminDashboard from './pages/admin/Dashboard';
 import AdminProjects from './pages/admin/Projects';
 import AdminProperties from './pages/admin/Properties';
+import AdminArchivedProperties from './pages/admin/ArchivedProperties';
 import AdminClients from './pages/admin/Clients';
 import AdminInquiries from './pages/admin/Inquiries';
 import AdminTransactions from './pages/admin/Transactions';
@@ -55,6 +56,7 @@ export default function App() {
           <Route path="/admin/dashboard" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
           <Route path="/admin/projects" element={<ProtectedRoute><AdminProjects /></ProtectedRoute>} />
           <Route path="/admin/properties" element={<ProtectedRoute><AdminProperties /></ProtectedRoute>} />
+          <Route path="/admin/properties/archived" element={<ProtectedRoute><AdminArchivedProperties /></ProtectedRoute>} />
           <Route path="/admin/clients" element={<ProtectedRoute><AdminClients /></ProtectedRoute>} />
           <Route path="/admin/inquiries" element={<ProtectedRoute><AdminInquiries /></ProtectedRoute>} />
           <Route path="/admin/seller-submissions" element={<ProtectedRoute><AdminSellerSubmissions /></ProtectedRoute>} />

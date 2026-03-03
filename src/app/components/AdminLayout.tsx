@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Home, Building2, Users, FileText, DollarSign, Menu, X, FolderKanban, MapPin, UserSearch, MessageSquare, CreditCard, UserCog, BarChart3, Settings, LogOut } from 'lucide-react';
+import { Home, Building2, Archive, Users, FileText, DollarSign, Menu, X, FolderKanban, MapPin, UserSearch, MessageSquare, CreditCard, UserCog, BarChart3, Settings, LogOut } from 'lucide-react';
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 
@@ -7,6 +7,7 @@ const navigation: Array<{ name: string; path: string; icon: any; disabled?: bool
   { name: 'Dashboard', path: '/admin/dashboard', icon: Home },
   { name: 'Projects', path: '/admin/projects', icon: FolderKanban },
   { name: 'Properties', path: '/admin/properties', icon: Building2 },
+  { name: 'Archived Properties', path: '/admin/properties/archived', icon: Archive },
   { name: 'Clients', path: '/admin/clients', icon: Users },
   { name: 'Inquiries', path: '/admin/inquiries', icon: MessageSquare },
   { name: 'Seller Submissions', path: '/admin/seller-submissions', icon: UserSearch },

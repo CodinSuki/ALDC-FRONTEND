@@ -23,7 +23,7 @@ export default function PropertyListings() {
           location: property.propertylocation?.propertycity ?? 'N/A',
           size: Number(property.propertylocation?.propertysize ?? 0),
           status: property.propertylistingstatus?.propertylistingstatusname ?? 'Unknown',
-          image: 'https://images.unsplash.com/photo-1756435292384-1bf32eff7baf?w=600'
+          image: property.imageUrl || 'https://images.unsplash.com/photo-1756435292384-1bf32eff7baf?w=600'
         }));
         setProperties(transformedData);
       } catch (error) {

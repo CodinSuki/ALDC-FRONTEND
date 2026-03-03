@@ -6,9 +6,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/app/components/ui/dialog';
+import type { ChangeEvent } from 'react';
+import { Upload, X } from 'lucide-react';
 import PropertyIdentityForm from './PropertyIdentityForm';
 import PropertyOwnershipForm from './PropertyOwnershipForm';
 import PropertyFinancialForm from './PropertyFinancialForm';
+import type { AdminPropertyPhotoUpload } from '@/app/services/adminPropertyService';
 
 type Project = {
   projectid: number;
@@ -77,6 +80,7 @@ type PropertyDialogFormData = {
   agri_hasriversstreams?: boolean;
   agri_hasirrigationcanal?: boolean;
   agri_haslakelagoon?: boolean;
+  photos?: AdminPropertyPhotoUpload[];
 };
 
 type PropertyDialogProps = {
@@ -123,6 +127,62 @@ export default function PropertyDialog({
       ? current.filter((id) => id !== lotTypeId)
       : [...current, lotTypeId];
     onChange('agriculturalreflottypeids', next);
+  };
+
+  const handlePhotoUpload = async (event: ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = Array.from(event.target.files ?? []);
+    if (selectedFiles.length === 0) return;
+
+    const currentPhotos = formData.photos ?? [];
+    const imageFiles = selectedFiles.filter((file) => file.type.startsWith('image/'));
+
+    if (imageFiles.length !== selectedFiles.length) {
+      alert('Only image files are allowed.');
+      event.target.value = '';
+      return;
+    }
+
+    const availableSlots = 10 - currentPhotos.length;
+    if (imageFiles.length > availableSlots) {
+      alert(`You can upload ${availableSlots} more photo(s). Maximum is 10.`);
+      event.target.value = '';
+      return;
+    }
+
+    try {
+      const encodedPhotos = await Promise.all(
+        imageFiles.map(
+          (file) =>
+            new Promise<AdminPropertyPhotoUpload>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = () => {
+                resolve({
+                  dataUrl: String(reader.result ?? ''),
+                  fileName: file.name,
+                  mimeType: file.type,
+                  fileSize: file.size,
+                });
+              };
+              reader.onerror = () => reject(new Error(`Failed to read file: ${file.name}`));
+              reader.readAsDataURL(file);
+            })
+        )
+      );
+
+      onChange('photos', [...currentPhotos, ...encodedPhotos]);
+    } catch (error: unknown) {
+      alert(error instanceof Error ? error.message : 'Failed to process selected photos.');
+    } finally {
+      event.target.value = '';
+    }
+  };
+
+  const removePhoto = (photoIndex: number) => {
+    const currentPhotos = formData.photos ?? [];
+    onChange(
+      'photos',
+      currentPhotos.filter((_, index) => index !== photoIndex)
+    );
   };
 
   return (
@@ -338,6 +398,46 @@ export default function PropertyDialog({
                 </label>
               ))}
             </div>
+          </div>
+
+          <div className="border-t pt-4">
+            <h3 className="text-sm font-semibold text-gray-900 mb-2">Photos</h3>
+            <p className="text-xs text-gray-500 mb-3">
+              Upload up to 10 images. In edit mode, uploaded photos replace the existing photo set.
+            </p>
+            <label className="inline-flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 cursor-pointer text-sm">
+              <Upload className="w-4 h-4" />
+              Select Photos
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={handlePhotoUpload}
+              />
+            </label>
+
+            {(formData.photos ?? []).length > 0 && (
+              <div className="mt-4 grid grid-cols-2 md:grid-cols-3 gap-3">
+                {(formData.photos ?? []).map((photo, index) => (
+                  <div key={`${photo.fileName}-${index}`} className="relative rounded-lg border border-gray-200 overflow-hidden bg-white">
+                    <img
+                      src={photo.dataUrl}
+                      alt={photo.fileName}
+                      className="w-full h-28 object-cover"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removePhoto(index)}
+                      className="absolute top-1 right-1 bg-black/60 text-white rounded-full p-1 hover:bg-black/80"
+                      aria-label="Remove photo"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 

@@ -30,9 +30,17 @@ export interface AgriculturalLotTypeOption {
   agriculturalreflottypename: string;
 }
 
+export interface AdminPropertyPhotoUpload {
+  dataUrl: string;
+  fileName: string;
+  mimeType: string;
+  fileSize: number;
+}
+
 export interface AdminProperty {
   propertyid: number;
   propertyname: string;
+  is_archived?: boolean;
   projectid: number;
   propertytypeid?: number | null;
   sellerclientid?: number | null;
@@ -73,6 +81,7 @@ export interface AdminProperty {
   agri_hasriversstreams: boolean;
   agri_hasirrigationcanal: boolean;
   agri_haslakelagoon: boolean;
+  photos?: AdminPropertyPhotoUpload[];
 }
 
 interface SellerDbRow {
@@ -250,6 +259,7 @@ const mapPropertyRow = (item: any, lookup: PropertyLookup): AdminProperty => {
   return {
     propertyid: Number(item.propertyid),
     propertyname: item.propertyname,
+    is_archived: Boolean(item.is_archived ?? item.isarchived ?? false),
     projectid: Number(item.projectid),
     propertytypeid: item.propertytypeid ? Number(item.propertytypeid) : null,
     sellerclientid: item.sellerclientid ? Number(item.sellerclientid) : null,
@@ -453,6 +463,43 @@ const savePropertyDetailRowsByType = async (
   }
 };
 
+const savePropertyPhotos = async (
+  propertyId: number,
+  photos: AdminPropertyPhotoUpload[],
+  options: { replaceExisting: boolean }
+): Promise<void> => {
+  if (photos.length === 0) return;
+
+  if (photos.length > 10) {
+    throw new Error('You can upload up to 10 photos only.');
+  }
+
+  if (options.replaceExisting) {
+    const { error: deleteError } = await supabase
+      .from('propertyphoto')
+      .delete()
+      .eq('propertyid', propertyId);
+
+    if (deleteError) throw deleteError;
+  }
+
+  for (let index = 0; index < photos.length; index += 1) {
+    const photo = photos[index];
+
+    const { error } = await supabase.rpc('insert_property_photo_base64', {
+      p_propertyid: propertyId,
+      p_photo_data_url: photo.dataUrl,
+      p_filename: photo.fileName,
+      p_mimetype: photo.mimeType,
+      p_photoorder: index + 1,
+    });
+
+    if (error) {
+      throw error;
+    }
+  }
+};
+
 export const fetchAdminPropertyDetails = async (
   propertyId: number
 ): Promise<Pick<AdminProperty,
@@ -640,7 +687,8 @@ export const fetchAdminPropertyData = async (): Promise<AdminPropertyLoadResult>
 export const createAdminProperty = async (
   payload: PropertyPayload,
   detailPayload: PropertyDetailPayload,
-  lookup: PropertyLookup
+  lookup: PropertyLookup,
+  photos: AdminPropertyPhotoUpload[] = []
 ): Promise<AdminProperty> => {
   const { data, error } = await supabase
     .from('property')
@@ -653,6 +701,7 @@ export const createAdminProperty = async (
   }
 
   await savePropertyDetailRowsByType(Number(data.propertyid), payload.propertytypeid, detailPayload, lookup);
+  await savePropertyPhotos(Number(data.propertyid), photos, { replaceExisting: false });
 
   const { data: refreshedData, error: refreshError } = await supabase
     .from('property')
@@ -671,7 +720,8 @@ export const updateAdminProperty = async (
   propertyId: number,
   payload: PropertyPayload,
   detailPayload: PropertyDetailPayload,
-  lookup: PropertyLookup
+  lookup: PropertyLookup,
+  photos: AdminPropertyPhotoUpload[] = []
 ): Promise<AdminProperty> => {
   const { data, error } = await supabase
     .from('property')
@@ -685,6 +735,7 @@ export const updateAdminProperty = async (
   }
 
   await savePropertyDetailRowsByType(propertyId, payload.propertytypeid, detailPayload, lookup);
+  await savePropertyPhotos(propertyId, photos, { replaceExisting: true });
 
   const { data: refreshedData, error: refreshError } = await supabase
     .from('property')
@@ -705,6 +756,45 @@ export const deleteAdminProperty = async (propertyId: number): Promise<void> => 
   });
 
   if (error) {
-    throw error;
+    if (error.message?.includes('fk_transaction_property')) {
+      throw new Error('fk_transaction_property: Property has linked transactions');
+    }
+    throw new Error(error.message ?? 'Failed to delete property');
   }
+};
+
+export const archiveAdminProperty = async (
+  propertyId: number,
+  lookup: PropertyLookup
+): Promise<AdminProperty> => {
+  const { data, error } = await supabase
+    .from('property')
+    .update({ is_archived: true })
+    .eq('propertyid', propertyId)
+    .select(PROPERTY_SELECT)
+    .single();
+
+  if (error || !data) {
+    throw new Error(error?.message ?? 'Failed to archive property');
+  }
+
+  return mapPropertyRow(data, lookup);
+};
+
+export const unarchiveAdminProperty = async (
+  propertyId: number,
+  lookup: PropertyLookup
+): Promise<AdminProperty> => {
+  const { data, error } = await supabase
+    .from('property')
+    .update({ is_archived: false })
+    .eq('propertyid', propertyId)
+    .select(PROPERTY_SELECT)
+    .single();
+
+  if (error || !data) {
+    throw new Error(error?.message ?? 'Failed to restore property');
+  }
+
+  return mapPropertyRow(data, lookup);
 };

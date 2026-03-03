@@ -8,17 +8,50 @@ type PropertyRow = {
   propertylocation: { propertycity: string; propertysize: number } | { propertycity: string; propertysize: number }[];
 };
 
+type PropertyPhotoRow = {
+  propertyid: number;
+  photoorder: number | null;
+  photomimetype: string | null;
+  photodata: string | null;
+};
+
 export type PublicPropertyListItem = {
   propertyid: number;
   propertyname: string;
   propertytype: { propertytypename: string };
   propertylistingstatus: { propertylistingstatusname: string };
   propertylocation: { propertycity: string; propertysize: number };
+  imageUrl?: string;
 };
 
 const getSingleRelation = <T>(value: T | T[] | null | undefined): T | null => {
   if (!value) return null;
   return Array.isArray(value) ? (value[0] ?? null) : value;
+};
+
+const hexToBase64 = (hexValue: string | null | undefined): string | null => {
+  if (!hexValue) return null;
+
+  try {
+    const normalizedHex = hexValue.startsWith('\\x') ? hexValue.slice(2) : hexValue;
+    if (!normalizedHex || normalizedHex.length % 2 !== 0) return null;
+    return Buffer.from(normalizedHex, 'hex').toString('base64');
+  } catch {
+    return null;
+  }
+};
+
+const buildPhotoDataUrl = (
+  photoData: string | null | undefined,
+  mimeType: string | null | undefined
+): string | null => {
+  if (!photoData) return null;
+  if (photoData.startsWith('data:')) return photoData;
+
+  const base64Data = hexToBase64(photoData);
+  if (!base64Data) return null;
+
+  return `data:${mimeType || 'image/jpeg'};base64,${base64Data}`;
 };
 
 type PropertyDetailRow = {
@@ -126,11 +159,36 @@ export const fetchProperties = async (): Promise<PublicPropertyListItem[]> => {
       propertytype!inner(propertytypename),
       propertylocation!fk_propertylocation_property(propertycity,propertysize)
     `)
-    .eq('propertylistingstatusid', Number(publishedStatus.propertylistingstatusid));
+    .eq('propertylistingstatusid', Number(publishedStatus.propertylistingstatusid))
+    .eq('is_archived', false);
 
   if (error) throw error;
 
   const rows = (data ?? []) as unknown as PropertyRow[];
+
+  const propertyIds = rows.map((row) => Number(row.propertyid)).filter((value) => Number.isFinite(value));
+
+  let firstPhotoByPropertyId = new Map<number, string>();
+
+  if (propertyIds.length > 0) {
+    const { data: photoData, error: photoError } = await supabase
+      .from('propertyphoto')
+      .select('propertyid, photoorder, photomimetype, photodata')
+      .in('propertyid', propertyIds)
+      .order('photoorder', { ascending: true });
+
+    if (photoError) throw photoError;
+
+    for (const photo of (photoData ?? []) as PropertyPhotoRow[]) {
+      const propertyId = Number(photo.propertyid);
+      if (firstPhotoByPropertyId.has(propertyId)) continue;
+
+      const dataUrl = buildPhotoDataUrl(photo.photodata, photo.photomimetype);
+      if (dataUrl) {
+        firstPhotoByPropertyId.set(propertyId, dataUrl);
+      }
+    }
+  }
 
   return rows.map((row) => {
     const propertyType = getSingleRelation<{ propertytypename: string }>(row.propertytype);
@@ -150,14 +208,16 @@ export const fetchProperties = async (): Promise<PublicPropertyListItem[]> => {
         propertycity: propertyLocation?.propertycity ?? 'N/A',
         propertysize: Number(propertyLocation?.propertysize ?? 0),
       },
+      imageUrl: firstPhotoByPropertyId.get(Number(row.propertyid)),
     };
   });
 };
 
 export const fetchPropertyDetails = async (propertyId: number): Promise<MappedPropertyDetail> => {
-  const { data, error } = await supabase
-    .from('property')
-    .select(`
+  const [propertyRes, photoRes] = await Promise.all([
+    supabase
+      .from('property')
+      .select(`
         propertyid,
         propertyname,
         propertylocation!fk_propertylocation_property(propertycity,propertysize),
@@ -168,12 +228,23 @@ export const fetchPropertyDetails = async (propertyId: number): Promise<MappedPr
         urbanpropertyamenities(hasgated,hassecurity,hasclubhouse,hassportsfitnesscenter,hasparksplaygrounds),
         urbanpropertydetails(urbanreflottype(urbanreflottypename))
       `)
-    .eq('propertyid', propertyId)
-    .single();
+      .eq('propertyid', propertyId)
+      .eq('is_archived', false)
+      .single(),
+    supabase
+      .from('propertyphoto')
+      .select('propertyid, photoorder, photomimetype, photodata')
+      .eq('propertyid', propertyId)
+      .order('photoorder', { ascending: true }),
+  ]);
 
-    if (error) throw error;
+  if (propertyRes.error || !propertyRes.data) throw propertyRes.error;
+  if (photoRes.error) throw photoRes.error;
 
-const row = data as unknown as PropertyDetailRow;
+const row = propertyRes.data as unknown as PropertyDetailRow;
+const images = ((photoRes.data ?? []) as PropertyPhotoRow[])
+  .map((photo) => buildPhotoDataUrl(photo.photodata, photo.photomimetype))
+  .filter((image): image is string => Boolean(image));
 
     return {
     name: row.propertyname,
@@ -190,9 +261,7 @@ const row = data as unknown as PropertyDetailRow;
 
     description: "Full property details available upon consultation.",
 
-    images: [
-      "https://images.unsplash.com/photo-1756435292384-1bf32eff7baf?w=800"
-    ],
+    images,
 
     lot_type: row.urbanpropertydetails?.[0]?.urbanreflottype?.urbanreflottypename,
 
