@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Eye } from 'lucide-react';
 import AdminLayout from '@/app/components/AdminLayout';
-import { Search, AlertCircle, CheckCircle, Clock, Plus, Edit, Trash2, DollarSign } from 'lucide-react';
+import { Search, AlertCircle, CheckCircle, Clock, Plus, Edit, Trash2, DollarSign, Loader } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -10,32 +10,20 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/app/components/ui/dialog';
+import { Transaction as TransactionType, TransactionStatus, createTransaction, fetchTransactions, updateTransactionStatus, cancelTransaction } from '@/app/services/transactionService';
+import { Payment, recordPayment, fetchPaymentSchedule, fetchPayments } from '@/app/services/paymentService';
 
-// Database-aligned interfaces
-interface Transaction {
-  transaction_id: number;
-  inquiry_id: number | null;
-  client_id: number;
-  property_id: number;
-  agent_id: number | null;
-  transaction_date: string;
-  payment_type: 'Cash' | 'Installment';
-  total_amount: string;
+// Enhanced interfaces with API data
+interface Transaction extends TransactionType {
   // Joined data for display
   client_name?: string;
   property_code?: string;
+  project_name?: string;
   agent_name?: string;
-  amount_paid?: string;
-  balance_remaining?: string;
-  payment_status?: string;
+  paymentStatus?: 'On Track' | 'Overdue' | 'Completed';
 }
 
-interface PaymentLog {
-  payment_log_id: number;
-  transaction_id: number;
-  payment_date: string;
-  amount: string;
-  payment_method: string;
+interface PaymentLog extends Payment {
   // For display
   transaction_ref?: string;
 }
@@ -55,14 +43,7 @@ interface Property {
   project_name: string;
 }
 
-interface Agent {
-  agent_id: number;
-  first_name: string;
-  middle_name: string | null;
-  last_name: string;
-}
-
-// Mock data
+// Mock data (clients, properties, agents - consider fetching from /api/admin/clients, etc.)
 const mockClients: Client[] = [
   { client_id: 1, first_name: 'Maria', middle_name: 'C.', last_name: 'Santos', contact_email: 'maria.santos@email.com', contact_number: '09171234567' },
   { client_id: 2, first_name: 'John', middle_name: 'D.', last_name: 'Reyes', contact_email: 'john.reyes@email.com', contact_number: '09181234567' },
@@ -78,91 +59,11 @@ const mockProperties: Property[] = [
   { property_id: 5, property_code: 'IPZ-WARE-W3', project_name: 'Industrial Park Zone' },
 ];
 
-const mockAgents: Agent[] = [
-  { agent_id: 1, first_name: 'Roberto', middle_name: 'A.', last_name: 'Martinez' },
-  { agent_id: 2, first_name: 'Sofia', middle_name: 'B.', last_name: 'Reyes' },
-  { agent_id: 3, first_name: 'Miguel', middle_name: null, last_name: 'Santos' },
-];
-
-const initialTransactions: Transaction[] = [
-  {
-    transaction_id: 45,
-    inquiry_id: null,
-    client_id: 1,
-    property_id: 1,
-    agent_id: 1,
-    transaction_date: '2024-06-15',
-    payment_type: 'Installment',
-    total_amount: '5500000.00',
-    client_name: 'Maria C. Santos',
-    property_code: 'VV-BLK1-LOT5',
-    agent_name: 'Roberto A. Martinez',
-    amount_paid: '2200000.00',
-    balance_remaining: '3300000.00',
-    payment_status: 'On Track',
-  },
-  {
-    transaction_id: 46,
-    inquiry_id: null,
-    client_id: 2,
-    property_id: 3,
-    agent_id: 2,
-    transaction_date: '2024-08-22',
-    payment_type: 'Cash',
-    total_amount: '12000000.00',
-    client_name: 'John D. Reyes',
-    property_code: 'MBC-FL5-U501',
-    agent_name: 'Sofia B. Reyes',
-    amount_paid: '12000000.00',
-    balance_remaining: '0.00',
-    payment_status: 'Completed',
-  },
-  {
-    transaction_id: 47,
-    inquiry_id: null,
-    client_id: 3,
-    property_id: 2,
-    agent_id: 1,
-    transaction_date: '2024-05-10',
-    payment_type: 'Installment',
-    total_amount: '8500000.00',
-    client_name: 'Ana Cruz',
-    property_code: 'GF-FARM-A12',
-    agent_name: 'Roberto A. Martinez',
-    amount_paid: '3400000.00',
-    balance_remaining: '5100000.00',
-    payment_status: 'Overdue',
-  },
-  {
-    transaction_id: 48,
-    inquiry_id: null,
-    client_id: 4,
-    property_id: 4,
-    agent_id: 3,
-    transaction_date: '2024-11-05',
-    payment_type: 'Cash',
-    total_amount: '7200000.00',
-    client_name: 'Pedro L. Garcia',
-    property_code: 'SBR-LOT-B8',
-    agent_name: 'Miguel Santos',
-    amount_paid: '7200000.00',
-    balance_remaining: '0.00',
-    payment_status: 'Completed',
-  },
-];
-
-const initialPaymentLogs: PaymentLog[] = [
-  { payment_log_id: 1, transaction_id: 45, payment_date: '2025-01-03', amount: '500000.00', payment_method: 'Bank Transfer', transaction_ref: 'TX-45' },
-  { payment_log_id: 2, transaction_id: 48, payment_date: '2025-01-02', amount: '7200000.00', payment_method: 'Bank Transfer', transaction_ref: 'TX-48' },
-  { payment_log_id: 3, transaction_id: 45, payment_date: '2024-12-28', amount: '500000.00', payment_method: 'Cash', transaction_ref: 'TX-45' },
-];
-
 export default function AdminTransactions() {
-  const [transactions, setTransactions] = useState<Transaction[]>(initialTransactions);
-  const [paymentLogs, setPaymentLogs] = useState<PaymentLog[]>(initialPaymentLogs);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [paymentsByTransaction, setPaymentsByTransaction] = useState<Record<number, PaymentLog[]>>({});
   const [clients] = useState<Client[]>(mockClients);
   const [properties] = useState<Property[]>(mockProperties);
-  const [agents] = useState<Agent[]>(mockAgents);
   const [searchQuery, setSearchQuery] = useState('');
   const [isAddTransactionOpen, setIsAddTransactionOpen] = useState(false);
   const [isEditTransactionOpen, setIsEditTransactionOpen] = useState(false);
@@ -172,25 +73,75 @@ export default function AdminTransactions() {
   const [isTransactionDetailOpen, setIsTransactionDetailOpen] = useState(false);
   const [detailTab, setDetailTab] = useState<'overview' | 'payments'>('overview');
   
+  // Loading states
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  
   const [transactionForm, setTransactionForm] = useState<Partial<Transaction>>({
-    client_id: 0,
-    property_id: 0,
-    agent_id: null,
-    transaction_date: new Date().toISOString().split('T')[0],
-    payment_type: 'Cash',
-    total_amount: '',
+    buyerclientid: 0,
+    propertyid: 0,
+    negotiatedprice: 0,
+    transactionstatus: 'Draft',
   });
 
   const [paymentForm, setPaymentForm] = useState({
-    transaction_id: 0,
-    payment_date: new Date().toISOString().split('T')[0],
-    amount: '',
-    payment_method: 'Cash',
+    paymentscheduleid: 0,
+    paymentdate: new Date().toISOString().split('T')[0],
+    amountpaid: '',
+    paymentmethod: 'Cash' as const,
+    paymentstatus: 'Confirmed' as const,
   });
+
+  // Fetch transactions on mount
+  useEffect(() => {
+    const loadTransactions = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const data = await fetchTransactions();
+        const enriched = await Promise.all(data.map(async (tx) => {
+          const client = clients.find(c => c.client_id === tx.buyerclientid);
+          const property = properties.find(p => p.property_id === tx.propertyid);
+          
+          // Fetch payment schedule and summary for this transaction
+          const schedule = await fetchPaymentSchedule(tx.transactionid);
+          let paymentStatus: 'On Track' | 'Overdue' | 'Completed' = 'On Track';
+          if (tx.transactionstatus === 'Completed') {
+            paymentStatus = 'Completed';
+          }
+          
+          const paymentLogs = schedule ? await fetchPayments(schedule.paymentscheduleid) : [];
+          setPaymentsByTransaction(prev => ({
+            ...prev,
+            [tx.transactionid]: paymentLogs.map(p => ({
+              ...p,
+              transaction_ref: `TX-${tx.transactionid}`
+            }))
+          }));
+          
+          return {
+            ...tx,
+            client_name: client ? `${client.first_name} ${client.middle_name ? client.middle_name + ' ' : ''}${client.last_name}` : 'Unknown',
+            property_code: property?.property_code || 'Unknown',
+            project_name: property?.project_name || 'Unknown',
+            paymentStatus,
+          } as Transaction;
+        }));
+        setTransactions(enriched);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load transactions');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    loadTransactions();
+  }, [clients, properties]);
 
   const filteredTransactions = transactions.filter(transaction => {
     const matchesSearch = 
-      transaction.transaction_id.toString().includes(searchQuery) ||
+      transaction.transactionid.toString().includes(searchQuery) ||
       transaction.client_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       transaction.property_code?.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesSearch;
@@ -206,125 +157,143 @@ export default function AdminTransactions() {
     return properties.find(p => p.property_id === propertyId)?.property_code || 'Unknown';
   };
 
-  const getAgentName = (agentId: number | null): string => {
-    if (!agentId) return 'N/A';
-    const agent = agents.find(a => a.agent_id === agentId);
-    if (!agent) return 'Unknown';
-    return `${agent.first_name} ${agent.middle_name ? agent.middle_name + ' ' : ''}${agent.last_name}`;
-  };
-
-  const handleAddTransaction = () => {
-    if (!transactionForm.client_id || !transactionForm.property_id || !transactionForm.total_amount) {
-      alert('Please fill in all required fields');
+  const handleAddTransaction = async () => {
+    if (!transactionForm.buyerclientid || !transactionForm.propertyid || !transactionForm.negotiatedprice) {
+      setError('Please fill in all required fields');
       return;
     }
 
-    const newTransaction: Transaction = {
-      transaction_id: Math.max(...transactions.map(t => t.transaction_id), 0) + 1,
-      inquiry_id: null,
-      client_id: transactionForm.client_id!,
-      property_id: transactionForm.property_id!,
-      agent_id: transactionForm.agent_id || null,
-      transaction_date: transactionForm.transaction_date!,
-      payment_type: transactionForm.payment_type!,
-      total_amount: transactionForm.total_amount!,
-      client_name: getClientName(transactionForm.client_id!),
-      property_code: getPropertyCode(transactionForm.property_id!),
-      agent_name: getAgentName(transactionForm.agent_id || null),
-      amount_paid: '0.00',
-      balance_remaining: transactionForm.total_amount!,
-      payment_status: 'On Track',
-    };
-
-    setTransactions([...transactions, newTransaction]);
-    setIsAddTransactionOpen(false);
-    resetTransactionForm();
+    setIsSaving(true);
+    setError(null);
+    try {
+      const newTx = await createTransaction({
+        propertyId: transactionForm.propertyid,
+        buyerClientId: transactionForm.buyerclientid,
+        negotiatedPrice: transactionForm.negotiatedprice,
+        transactionStatus: 'Draft',
+      });
+      
+      const enrichedTx = {
+        ...newTx,
+        client_name: getClientName(newTx.buyerclientid),
+        property_code: getPropertyCode(newTx.propertyid),
+        project_name: properties.find(p => p.property_id === newTx.propertyid)?.project_name || 'Unknown',
+        paymentStatus: 'On Track' as const,
+      };
+      
+      setTransactions([...transactions, enrichedTx]);
+      setIsAddTransactionOpen(false);
+      resetTransactionForm();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create transaction');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const handleEditTransaction = () => {
-    if (!transactionForm.client_id || !transactionForm.property_id || !transactionForm.total_amount) {
-      alert('Please fill in all required fields');
+  const handleEditTransaction = async () => {
+    if (!transactionForm.buyerclientid || !transactionForm.propertyid || !transactionForm.negotiatedprice) {
+      setError('Please fill in all required fields');
       return;
     }
 
-    const updatedTransaction: Transaction = {
-      ...selectedTransaction!,
-      client_id: transactionForm.client_id!,
-      property_id: transactionForm.property_id!,
-      agent_id: transactionForm.agent_id || null,
-      transaction_date: transactionForm.transaction_date!,
-      payment_type: transactionForm.payment_type!,
-      total_amount: transactionForm.total_amount!,
-      client_name: getClientName(transactionForm.client_id!),
-      property_code: getPropertyCode(transactionForm.property_id!),
-      agent_name: getAgentName(transactionForm.agent_id || null),
-    };
+    if (!selectedTransaction) return;
 
-    setTransactions(transactions.map(t =>
-      t.transaction_id === selectedTransaction!.transaction_id ? updatedTransaction : t
-    ));
-    setIsEditTransactionOpen(false);
-    resetTransactionForm();
-  };
-
-  const handleDeleteTransaction = () => {
-    if (selectedTransaction) {
-      setTransactions(transactions.filter(t => t.transaction_id !== selectedTransaction.transaction_id));
-      setPaymentLogs(paymentLogs.filter(p => p.transaction_id !== selectedTransaction.transaction_id));
-      setIsDeleteTransactionOpen(false);
-      setSelectedTransaction(null);
-    }
-  };
-
-  const handleAddPayment = () => {
-    if (!paymentForm.transaction_id || !paymentForm.amount || !paymentForm.payment_date) {
-      alert('Please fill in all required fields');
-      return;
-    }
-
-    const transaction = transactions.find(t => t.transaction_id === paymentForm.transaction_id);
-    const newPaymentLog: PaymentLog = {
-      payment_log_id: Math.max(...paymentLogs.map(p => p.payment_log_id), 0) + 1,
-      transaction_id: paymentForm.transaction_id,
-      payment_date: paymentForm.payment_date,
-      amount: paymentForm.amount,
-      payment_method: paymentForm.payment_method,
-      transaction_ref: `TX-${paymentForm.transaction_id}`,
-    };
-
-    setPaymentLogs([newPaymentLog, ...paymentLogs]);
-    
-    // Update transaction amounts (simplified logic - in real app this would be calculated from all payment_logs)
-    if (transaction) {
-      const currentPaid = parseFloat(transaction.amount_paid || '0');
-      const newPaid = currentPaid + parseFloat(paymentForm.amount);
-      const totalAmount = parseFloat(transaction.total_amount);
-      const remaining = totalAmount - newPaid;
+    setIsSaving(true);
+    setError(null);
+    try {
+      const updated = await updateTransactionStatus({
+        transactionId: selectedTransaction.transactionid,
+        negotiatedPrice: transactionForm.negotiatedprice,
+        transactionStatus: (transactionForm.transactionstatus as TransactionStatus) || 'Draft',
+      });
       
       setTransactions(transactions.map(t =>
-        t.transaction_id === paymentForm.transaction_id
+        t.transactionid === selectedTransaction.transactionid
           ? {
-              ...t,
-              amount_paid: newPaid.toFixed(2),
-              balance_remaining: remaining.toFixed(2),
-              payment_status: remaining <= 0 ? 'Completed' : 'On Track',
+              ...updated,
+              client_name: getClientName(updated.buyerclientid),
+              property_code: getPropertyCode(updated.propertyid),
+              project_name: properties.find(p => p.property_id === updated.propertyid)?.project_name || 'Unknown',
+              paymentStatus: updated.transactionstatus === 'Completed' ? 'Completed' : 'On Track',
             }
           : t
       ));
+      setIsEditTransactionOpen(false);
+      resetTransactionForm();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update transaction');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDeleteTransaction = async () => {
+    if (!selectedTransaction) return;
+
+    setIsSaving(true);
+    setError(null);
+    try {
+      await cancelTransaction(selectedTransaction.transactionid);
+      setTransactions(transactions.filter(t => t.transactionid !== selectedTransaction.transactionid));
+      setPaymentsByTransaction(prev => {
+        const newPayments = { ...prev };
+        delete newPayments[selectedTransaction.transactionid];
+        return newPayments;
+      });
+      setIsDeleteTransactionOpen(false);
+      setSelectedTransaction(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete transaction');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleAddPayment = async () => {
+    if (!paymentForm.paymentscheduleid || !paymentForm.amountpaid || !paymentForm.paymentdate) {
+      setError('Please fill in all required fields');
+      return;
     }
 
-    setIsAddPaymentOpen(false);
-    resetPaymentForm();
+    setIsSaving(true);
+    setError(null);
+    try {
+      const newPayment = await recordPayment({
+        paymentScheduleId: paymentForm.paymentscheduleid,
+        paymentDate: paymentForm.paymentdate,
+        amountPaid: parseFloat(paymentForm.amountpaid),
+        paymentMethod: paymentForm.paymentmethod,
+        paymentStatus: 'Confirmed',
+      });
+      
+      // Update local payment logs
+      setPaymentsByTransaction(prev => ({
+        ...prev,
+        [selectedTransaction?.transactionid || 0]: [
+          ...(prev[selectedTransaction?.transactionid || 0] || []),
+          {
+            ...newPayment,
+            transaction_ref: `TX-${selectedTransaction?.transactionid}`
+          }
+        ]
+      }));
+      
+      setIsAddPaymentOpen(false);
+      resetPaymentForm();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to record payment');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const openEditDialog = (transaction: Transaction) => {
     setTransactionForm({
-      client_id: transaction.client_id,
-      property_id: transaction.property_id,
-      agent_id: transaction.agent_id,
-      transaction_date: transaction.transaction_date,
-      payment_type: transaction.payment_type,
-      total_amount: transaction.total_amount,
+      buyerclientid: transaction.buyerclientid,
+      propertyid: transaction.propertyid,
+      negotiatedprice: transaction.negotiatedprice,
+      transactionstatus: transaction.transactionstatus,
     });
     setSelectedTransaction(transaction);
     setIsEditTransactionOpen(true);
@@ -342,23 +311,24 @@ export default function AdminTransactions() {
 
   const resetTransactionForm = () => {
     setTransactionForm({
-      client_id: 0,
-      property_id: 0,
-      agent_id: null,
-      transaction_date: new Date().toISOString().split('T')[0],
-      payment_type: 'Cash',
-      total_amount: '',
+      buyerclientid: 0,
+      propertyid: 0,
+      negotiatedprice: 0,
+      transactionstatus: 'Draft',
     });
     setSelectedTransaction(null);
+    setError(null);
   };
 
   const resetPaymentForm = () => {
     setPaymentForm({
-      transaction_id: 0,
-      payment_date: new Date().toISOString().split('T')[0],
-      amount: '',
-      payment_method: 'Cash',
+      paymentscheduleid: 0,
+      paymentdate: new Date().toISOString().split('T')[0],
+      amountpaid: '',
+      paymentmethod: 'Cash',
+      paymentstatus: 'Confirmed',
     });
+    setError(null);
   };
 
   const handleTransactionFormChange = (field: string, value: any) => {
@@ -371,7 +341,7 @@ export default function AdminTransactions() {
 
   // Component: payments list scoped to a single transaction
   function TransactionPayments({ transactionId }: { transactionId: number }) {
-    const paymentsForTx = paymentLogs.filter(p => p.transaction_id === transactionId);
+    const paymentsForTx = paymentsByTransaction[transactionId] || [];
 
     return (
       <div className="space-y-4">
@@ -379,13 +349,13 @@ export default function AdminTransactions() {
           <div className="text-sm text-gray-500">No payments recorded for this transaction.</div>
         ) : (
           paymentsForTx.map(p => (
-            <div key={p.payment_log_id} className="flex items-center justify-between p-3 border rounded-lg">
+            <div key={p.paymentid} className="flex items-center justify-between p-3 border rounded-lg">
               <div>
-                <div className="text-sm font-medium">{p.transaction_ref || `TX-${p.transaction_id}`}</div>
-                <div className="text-xs text-gray-600">{p.payment_method} • {p.payment_date}</div>
+                <div className="text-sm font-medium">{p.transaction_ref || `TX-${transactionId}`}</div>
+                <div className="text-xs text-gray-600">{p.paymentmethod} • {p.paymentdate}</div>
               </div>
               <div className="text-right">
-                <div className="text-sm">₱{parseFloat(p.amount).toLocaleString()}</div>
+                <div className="text-sm">₱{parseFloat(String(p.amountpaid)).toLocaleString()}</div>
               </div>
             </div>
           ))
@@ -397,6 +367,17 @@ export default function AdminTransactions() {
   return (
     <AdminLayout>
       <div className="space-y-6">
+        {/* Error Message */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-red-600 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm text-red-700">{error}</p>
+            </div>
+            <button onClick={() => setError(null)} className="text-red-600 hover:text-red-800">✕</button>
+          </div>
+        )}
+
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
@@ -405,15 +386,23 @@ export default function AdminTransactions() {
           </div>
           <div className="flex gap-2">
             <button
-              onClick={() => setIsAddPaymentOpen(true)}
-              className="flex items-center gap-2 bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 transition-colors"
+              onClick={() => {
+                resetPaymentForm();
+                setIsAddPaymentOpen(true);
+              }}
+              disabled={isLoading || isSaving}
+              className="flex items-center gap-2 bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
             >
               <DollarSign className="w-5 h-5" />
               Record Payment
             </button>
             <button
-              onClick={() => setIsAddTransactionOpen(true)}
-              className="flex items-center gap-2 bg-green-600 text-white px-4 py-3 rounded-lg hover:bg-green-700 transition-colors"
+              onClick={() => {
+                resetTransactionForm();
+                setIsAddTransactionOpen(true);
+              }}
+              disabled={isLoading || isSaving}
+              className="flex items-center gap-2 bg-green-600 text-white px-4 py-3 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
             >
               <Plus className="w-5 h-5" />
               Add Transaction
@@ -425,9 +414,9 @@ export default function AdminTransactions() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           {[
             { label: 'Total Transactions', value: transactions.length.toString(), icon: CheckCircle, color: 'bg-blue-500' },
-            { label: 'Active Installments', value: transactions.filter(t => t.payment_status === 'On Track').length.toString(), icon: Clock, color: 'bg-purple-500' },
-            { label: 'Overdue Payments', value: transactions.filter(t => t.payment_status === 'Overdue').length.toString(), icon: AlertCircle, color: 'bg-red-500' },
-            { label: 'Completed', value: transactions.filter(t => t.payment_status === 'Completed').length.toString(), icon: CheckCircle, color: 'bg-green-500' },
+            { label: 'Active Installments', value: transactions.filter(t => t.transactionstatus === 'Ongoing').length.toString(), icon: Clock, color: 'bg-purple-500' },
+            { label: 'Draft Transactions', value: transactions.filter(t => t.transactionstatus === 'Draft').length.toString(), icon: AlertCircle, color: 'bg-yellow-500' },
+            { label: 'Completed', value: transactions.filter(t => t.transactionstatus === 'Completed').length.toString(), icon: CheckCircle, color: 'bg-green-500' },
           ].map((stat, index) => (
             <div key={index} className="bg-white rounded-lg shadow-sm p-6">
               <div className="flex items-center justify-between mb-2">
@@ -450,131 +439,99 @@ export default function AdminTransactions() {
               placeholder="Search by transaction ID, client name, or property code..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              disabled={isLoading}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:bg-gray-100"
             />
           </div>
         </div>
 
         {/* Transactions Table */}
         <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h3 className="text-gray-900">Active Transactions</h3>
+          <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+            <h3 className="text-gray-900">Transactions</h3>
+            {isLoading && <Loader className="w-4 h-4 animate-spin text-gray-600" />}
           </div>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs text-gray-600 uppercase tracking-wider">
-                    TX ID
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs text-gray-600 uppercase tracking-wider">
-                    Property Code
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs text-gray-600 uppercase tracking-wider">
-                    Client
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs text-gray-600 uppercase tracking-wider">
-                    Total Amount
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs text-gray-600 uppercase tracking-wider">
-                    Payment Type
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs text-gray-600 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs text-gray-600 uppercase tracking-wider">
-                    Actions
-                  </th>
+                  <th className="px-6 py-3 text-left text-xs text-gray-600 uppercase tracking-wider">TX ID</th>
+                  <th className="px-6 py-3 text-left text-xs text-gray-600 uppercase tracking-wider">Property</th>
+                  <th className="px-6 py-3 text-left text-xs text-gray-600 uppercase tracking-wider">Client</th>
+                  <th className="px-6 py-3 text-left text-xs text-gray-600 uppercase tracking-wider">Negotiated Price</th>
+                  <th className="px-6 py-3 text-left text-xs text-gray-600 uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-3 text-right text-xs text-gray-600 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {filteredTransactions.map((transaction) => (
-                  <tr key={transaction.transaction_id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      TX-{transaction.transaction_id}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-gray-900">
-                      {transaction.property_code}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                      {transaction.client_name}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-gray-900">
-                      ₱{parseFloat(transaction.total_amount).toLocaleString()}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                      {transaction.payment_type}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex items-center gap-1 px-2 py-1 text-xs rounded-full ${
-                        transaction.payment_status === 'Completed' ? 'bg-green-100 text-green-800' :
-                        transaction.payment_status === 'On Track' ? 'bg-blue-100 text-blue-800' :
-                        'bg-red-100 text-red-800'
-                      }`}>
-                        {transaction.payment_status === 'Overdue' && <AlertCircle className="w-3 h-3" />}
-                        {transaction.payment_status === 'Completed' && <CheckCircle className="w-3 h-3" />}
-                        {transaction.payment_status === 'On Track' && <Clock className="w-3 h-3" />}
-                        {transaction.payment_status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
-                      <button
-                        onClick={() => openTransactionDetail(transaction)}
-                        className="text-green-600 hover:text-green-800 mr-3"
-                        title="View details"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => openEditDialog(transaction)}
-                        className="text-blue-600 hover:text-blue-800 mr-3"
-                      >
-                        <Edit className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => openDeleteDialog(transaction)}
-                        className="text-red-600 hover:text-red-800"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                {isLoading ? (
+                  <tr>
+                    <td colSpan={6} className="text-center py-8">
+                      <Loader className="w-5 h-5 animate-spin mx-auto text-gray-600" />
                     </td>
                   </tr>
-                ))}
+                ) : filteredTransactions.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="text-center py-8 text-gray-500">No transactions found</td>
+                  </tr>
+                ) : (
+                  filteredTransactions.map((transaction) => (
+                    <tr key={transaction.transactionid} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">TX-{transaction.transactionid}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-gray-900">{transaction.property_code}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{transaction.client_name}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-gray-900">₱{parseFloat(String(transaction.negotiatedprice)).toLocaleString()}</td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`inline-flex items-center gap-1 px-2 py-1 text-xs rounded-full ${
+                          transaction.transactionstatus === 'Completed' ? 'bg-green-100 text-green-800' :
+                          transaction.transactionstatus === 'Ongoing' ? 'bg-blue-100 text-blue-800' :
+                          transaction.transactionstatus === 'Cancelled' ? 'bg-gray-100 text-gray-800' :
+                          'bg-yellow-100 text-yellow-800'
+                        }`}>
+                          {transaction.transactionstatus === 'Completed' && <CheckCircle className="w-3 h-3" />}
+                          {transaction.transactionstatus === 'Ongoing' && <Clock className="w-3 h-3" />}
+                          {transaction.transactionstatus === 'Draft' && <AlertCircle className="w-3 h-3" />}
+                          {transaction.transactionstatus}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
+                        <button
+                          onClick={() => openTransactionDetail(transaction)}
+                          disabled={isSaving}
+                          className="text-green-600 hover:text-green-800 mr-3 disabled:opacity-50"
+                          title="View details"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => openEditDialog(transaction)}
+                          disabled={isSaving}
+                          className="text-blue-600 hover:text-blue-800 mr-3 disabled:opacity-50"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => openDeleteDialog(transaction)}
+                          disabled={isSaving}
+                          className="text-red-600 hover:text-red-800 disabled:opacity-50"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
         </div>
-
-        {/* Recent Payment Logs */}
-        <div className="bg-white rounded-lg shadow-sm p-6">
-          <h3 className="text-gray-900 mb-6">Recent Payment Logs</h3>
-          <div className="space-y-4">
-            {paymentLogs.map((payment) => (
-              <div key={payment.payment_log_id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3">
-                    <CheckCircle className="w-5 h-5 text-green-500" />
-                    <div>
-                      <p className="text-gray-900">{payment.transaction_ref}</p>
-                      <p className="text-sm text-gray-600">{payment.payment_method}</p>
-                    </div>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="text-gray-900">₱{parseFloat(payment.amount).toLocaleString()}</p>
-                  <p className="text-sm text-gray-600">{payment.payment_date}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
       
-      {/* Transaction Detail Dialog (Overview + Payments tab) */}
+      {/* Transaction Detail Dialog */}
       <Dialog open={isTransactionDetailOpen} onOpenChange={setIsTransactionDetailOpen}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Transaction Details</DialogTitle>
-            <DialogDescription>TX-{selectedTransaction?.transaction_id}</DialogDescription>
+            <DialogDescription>TX-{selectedTransaction?.transactionid}</DialogDescription>
           </DialogHeader>
 
           <div className="pt-4">
@@ -604,29 +561,28 @@ export default function AdminTransactions() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <p className="text-sm text-gray-600">Total Amount</p>
-                    <p className="text-gray-900">₱{selectedTransaction ? parseFloat(selectedTransaction.total_amount).toLocaleString() : '0'}</p>
+                    <p className="text-sm text-gray-600">Negotiated Price</p>
+                    <p className="text-gray-900">₱{selectedTransaction ? parseFloat(String(selectedTransaction.negotiatedprice)).toLocaleString() : '0'}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-600">Balance</p>
-                    <p className="text-gray-900">₱{selectedTransaction?.balance_remaining || '0.00'}</p>
+                    <p className="text-sm text-gray-600">Status</p>
+                    <p className="text-gray-900">{selectedTransaction?.transactionstatus}</p>
                   </div>
                 </div>
               </div>
             ) : (
               <div>
-                {/* Reuse transaction-scoped payments component */}
-                {selectedTransaction && <TransactionPayments transactionId={selectedTransaction.transaction_id} />}
+                {selectedTransaction && <TransactionPayments transactionId={selectedTransaction.transactionid} />}
                 <div className="mt-4">
                   <button
                     onClick={() => {
-                      // Prefill payment form transaction id and open the add payment dialog
                       if (selectedTransaction) {
-                        setPaymentForm(prev => ({ ...prev, transaction_id: selectedTransaction.transaction_id }));
+                        setPaymentForm(prev => ({ ...prev, paymentscheduleid: selectedTransaction.transactionid }));
                         setIsAddPaymentOpen(true);
                       }
                     }}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg"
+                    disabled={isSaving}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
                   >Record Payment</button>
                 </div>
               </div>
@@ -634,7 +590,7 @@ export default function AdminTransactions() {
           </div>
 
           <DialogFooter>
-            <button onClick={() => setIsTransactionDetailOpen(false)} className="px-4 py-2 border rounded-lg">Close</button>
+            <button onClick={() => setIsTransactionDetailOpen(false)} className="px-4 py-2 border rounded-lg hover:bg-gray-50">Close</button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -644,10 +600,8 @@ export default function AdminTransactions() {
       <Dialog open={isAddTransactionOpen} onOpenChange={setIsAddTransactionOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Add New Transaction</DialogTitle>
-            <DialogDescription>
-              Create a new property transaction record
-            </DialogDescription>
+            <DialogTitle>Create New Transaction</DialogTitle>
+            <DialogDescription>Create a new property transaction record</DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
@@ -657,9 +611,10 @@ export default function AdminTransactions() {
                   Client <span className="text-red-500">*</span>
                 </label>
                 <select
-                  value={transactionForm.client_id || ''}
-                  onChange={(e) => handleTransactionFormChange('client_id', parseInt(e.target.value))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  value={transactionForm.buyerclientid || ''}
+                  onChange={(e) => handleTransactionFormChange('buyerclientid', parseInt(e.target.value))}
+                  disabled={isSaving}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:bg-gray-100"
                 >
                   <option value="">Select Client</option>
                   {clients.map(client => (
@@ -675,9 +630,10 @@ export default function AdminTransactions() {
                   Property <span className="text-red-500">*</span>
                 </label>
                 <select
-                  value={transactionForm.property_id || ''}
-                  onChange={(e) => handleTransactionFormChange('property_id', parseInt(e.target.value))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  value={transactionForm.propertyid || ''}
+                  onChange={(e) => handleTransactionFormChange('propertyid', parseInt(e.target.value))}
+                  disabled={isSaving}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:bg-gray-100"
                 >
                   <option value="">Select Property</option>
                   {properties.map(property => (
@@ -689,66 +645,20 @@ export default function AdminTransactions() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm text-gray-700 mb-1">
-                  Agent
-                </label>
-                <select
-                  value={transactionForm.agent_id || ''}
-                  onChange={(e) => handleTransactionFormChange('agent_id', e.target.value ? parseInt(e.target.value) : null)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                >
-                  <option value="">Select Agent (Optional)</option>
-                  {agents.map(agent => (
-                    <option key={agent.agent_id} value={agent.agent_id}>
-                      {agent.first_name} {agent.middle_name} {agent.last_name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm text-gray-700 mb-1">
-                  Transaction Date <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="date"
-                  value={transactionForm.transaction_date}
-                  onChange={(e) => handleTransactionFormChange('transaction_date', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm text-gray-700 mb-1">
-                  Total Amount (PHP) <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={transactionForm.total_amount}
-                  onChange={(e) => handleTransactionFormChange('total_amount', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  placeholder="e.g., 5500000.00"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm text-gray-700 mb-1">
-                  Payment Type <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={transactionForm.payment_type}
-                  onChange={(e) => handleTransactionFormChange('payment_type', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                >
-                  <option value="Cash">Cash</option>
-                  <option value="Installment">Installment</option>
-                </select>
-              </div>
+            <div>
+              <label className="block text-sm text-gray-700 mb-1">
+                Negotiated Price (PHP) <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={transactionForm.negotiatedprice || ''}
+                onChange={(e) => handleTransactionFormChange('negotiatedprice', parseFloat(e.target.value))}
+                disabled={isSaving}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:bg-gray-100"
+                placeholder="e.g., 5500000.00"
+              />
             </div>
           </div>
 
@@ -758,15 +668,18 @@ export default function AdminTransactions() {
                 setIsAddTransactionOpen(false);
                 resetTransactionForm();
               }}
-              className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+              disabled={isSaving}
+              className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
             >
               Cancel
             </button>
             <button
               onClick={handleAddTransaction}
-              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+              disabled={isSaving}
+              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
             >
-              Add Transaction
+              {isSaving ? <Loader className="w-4 h-4 animate-spin inline mr-2" /> : null}
+              Create Transaction
             </button>
           </DialogFooter>
         </DialogContent>
@@ -777,109 +690,46 @@ export default function AdminTransactions() {
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Transaction</DialogTitle>
-            <DialogDescription>
-              Update transaction details
-            </DialogDescription>
+            <DialogDescription>Update transaction status and details</DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm text-gray-700 mb-1">
-                  Client <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={transactionForm.client_id || ''}
-                  onChange={(e) => handleTransactionFormChange('client_id', parseInt(e.target.value))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                >
-                  <option value="">Select Client</option>
-                  {clients.map(client => (
-                    <option key={client.client_id} value={client.client_id}>
-                      {client.first_name} {client.middle_name} {client.last_name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm text-gray-700 mb-1">
-                  Property <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={transactionForm.property_id || ''}
-                  onChange={(e) => handleTransactionFormChange('property_id', parseInt(e.target.value))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                >
-                  <option value="">Select Property</option>
-                  {properties.map(property => (
-                    <option key={property.property_id} value={property.property_id}>
-                      {property.property_code} - {property.project_name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+            <div>
+              <label className="block text-sm text-gray-700 mb-1">
+                Status <span className="text-red-500">*</span>
+              </label>
+              <select
+                value={transactionForm.transactionstatus || ''}
+                onChange={(e) => handleTransactionFormChange('transactionstatus', e.target.value)}
+                disabled={isSaving}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:bg-gray-100"
+              >
+                <option value="Draft">Draft</option>
+                <option value="Ongoing">Ongoing</option>
+                <option value="Completed">Completed</option>
+                <option value="Cancelled">Cancelled</option>
+              </select>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm text-gray-700 mb-1">
-                  Agent
-                </label>
-                <select
-                  value={transactionForm.agent_id || ''}
-                  onChange={(e) => handleTransactionFormChange('agent_id', e.target.value ? parseInt(e.target.value) : null)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                >
-                  <option value="">Select Agent (Optional)</option>
-                  {agents.map(agent => (
-                    <option key={agent.agent_id} value={agent.agent_id}>
-                      {agent.first_name} {agent.middle_name} {agent.last_name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm text-gray-700 mb-1">
-                  Transaction Date <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="date"
-                  value={transactionForm.transaction_date}
-                  onChange={(e) => handleTransactionFormChange('transaction_date', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                />
-              </div>
+            <div>
+              <label className="block text-sm text-gray-700 mb-1">
+                Negotiated Price (PHP) <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={transactionForm.negotiatedprice || ''}
+                onChange={(e) => handleTransactionFormChange('negotiatedprice', parseFloat(e.target.value))}
+                disabled={isSaving}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:bg-gray-100"
+              />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm text-gray-700 mb-1">
-                  Total Amount (PHP) <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={transactionForm.total_amount}
-                  onChange={(e) => handleTransactionFormChange('total_amount', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm text-gray-700 mb-1">
-                  Payment Type <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={transactionForm.payment_type}
-                  onChange={(e) => handleTransactionFormChange('payment_type', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                >
-                  <option value="Cash">Cash</option>
-                  <option value="Installment">Installment</option>
-                </select>
-              </div>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <p className="text-sm text-blue-700">
+                Note: When status is changed to "Completed", a commission will be automatically generated for the assigned staff.
+              </p>
             </div>
           </div>
 
@@ -889,14 +739,17 @@ export default function AdminTransactions() {
                 setIsEditTransactionOpen(false);
                 resetTransactionForm();
               }}
-              className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+              disabled={isSaving}
+              className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
             >
               Cancel
             </button>
             <button
               onClick={handleEditTransaction}
-              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+              disabled={isSaving}
+              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
             >
+              {isSaving ? <Loader className="w-4 h-4 animate-spin inline mr-2" /> : null}
               Save Changes
             </button>
           </DialogFooter>
@@ -907,9 +760,9 @@ export default function AdminTransactions() {
       <Dialog open={isDeleteTransactionOpen} onOpenChange={setIsDeleteTransactionOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete Transaction</DialogTitle>
+            <DialogTitle>Cancel Transaction</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete this transaction? This action cannot be undone and will also delete all related payment records.
+              Are you sure you want to cancel this transaction? This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
 
@@ -917,7 +770,7 @@ export default function AdminTransactions() {
             <div className="py-4">
               <div className="bg-gray-50 rounded-lg p-4">
                 <p className="text-sm text-gray-600">Transaction ID</p>
-                <p className="text-gray-900">TX-{selectedTransaction.transaction_id}</p>
+                <p className="text-gray-900">TX-{selectedTransaction.transactionid}</p>
                 <p className="text-sm text-gray-600 mt-2">Property</p>
                 <p className="text-gray-900">{selectedTransaction.property_code}</p>
                 <p className="text-sm text-gray-600 mt-2">Client</p>
@@ -932,15 +785,18 @@ export default function AdminTransactions() {
                 setIsDeleteTransactionOpen(false);
                 setSelectedTransaction(null);
               }}
-              className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+              disabled={isSaving}
+              className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
             >
               Cancel
             </button>
             <button
               onClick={handleDeleteTransaction}
-              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+              disabled={isSaving}
+              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
             >
-              Delete Transaction
+              {isSaving ? <Loader className="w-4 h-4 animate-spin inline mr-2" /> : null}
+              Cancel Transaction
             </button>
           </DialogFooter>
         </DialogContent>
@@ -951,28 +807,23 @@ export default function AdminTransactions() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Record Payment</DialogTitle>
-            <DialogDescription>
-              Add a new payment record to the payment log
-            </DialogDescription>
+            <DialogDescription>Add a new payment record</DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
             <div>
               <label className="block text-sm text-gray-700 mb-1">
-                Transaction <span className="text-red-500">*</span>
+                Payment Schedule ID <span className="text-red-500">*</span>
               </label>
-              <select
-                value={paymentForm.transaction_id || ''}
-                onChange={(e) => handlePaymentFormChange('transaction_id', parseInt(e.target.value))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-              >
-                <option value="">Select Transaction</option>
-                {transactions.map(t => (
-                  <option key={t.transaction_id} value={t.transaction_id}>
-                    TX-{t.transaction_id} - {t.property_code} ({t.client_name})
-                  </option>
-                ))}
-              </select>
+              <input
+                type="number"
+                value={paymentForm.paymentscheduleid || ''}
+                onChange={(e) => handlePaymentFormChange('paymentscheduleid', parseInt(e.target.value))}
+                disabled={isSaving}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:bg-gray-100"
+                placeholder="e.g., 123"
+              />
+              <p className="text-xs text-gray-500 mt-1">Enter the payment schedule ID from the transaction</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -982,9 +833,10 @@ export default function AdminTransactions() {
                 </label>
                 <input
                   type="date"
-                  value={paymentForm.payment_date}
-                  onChange={(e) => handlePaymentFormChange('payment_date', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  value={paymentForm.paymentdate}
+                  onChange={(e) => handlePaymentFormChange('paymentdate', e.target.value)}
+                  disabled={isSaving}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:bg-gray-100"
                 />
               </div>
 
@@ -993,13 +845,16 @@ export default function AdminTransactions() {
                   Payment Method <span className="text-red-500">*</span>
                 </label>
                 <select
-                  value={paymentForm.payment_method}
-                  onChange={(e) => handlePaymentFormChange('payment_method', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  value={paymentForm.paymentmethod}
+                  onChange={(e) => handlePaymentFormChange('paymentmethod', e.target.value)}
+                  disabled={isSaving}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:bg-gray-100"
                 >
                   <option value="Cash">Cash</option>
                   <option value="Bank Transfer">Bank Transfer</option>
                   <option value="Check">Check</option>
+                  <option value="Credit Card">Credit Card</option>
+                  <option value="Online Payment">Online Payment</option>
                 </select>
               </div>
             </div>
@@ -1011,9 +866,11 @@ export default function AdminTransactions() {
               <input
                 type="number"
                 step="0.01"
-                value={paymentForm.amount}
-                onChange={(e) => handlePaymentFormChange('amount', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                min="0"
+                value={paymentForm.amountpaid}
+                onChange={(e) => handlePaymentFormChange('amountpaid', e.target.value)}
+                disabled={isSaving}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:bg-gray-100"
                 placeholder="e.g., 500000.00"
               />
             </div>
@@ -1025,14 +882,17 @@ export default function AdminTransactions() {
                 setIsAddPaymentOpen(false);
                 resetPaymentForm();
               }}
-              className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+              disabled={isSaving}
+              className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
             >
               Cancel
             </button>
             <button
               onClick={handleAddPayment}
-              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+              disabled={isSaving}
+              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
             >
+              {isSaving ? <Loader className="w-4 h-4 animate-spin inline mr-2" /> : null}
               Record Payment
             </button>
           </DialogFooter>

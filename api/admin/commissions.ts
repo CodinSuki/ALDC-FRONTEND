@@ -146,7 +146,7 @@ const handleGenerateCommission = async (req: any, res: any) => {
         commissionamount: commissionAmount,
         commissionrate: payload.commissionRate,
         commissionstatus: 'Pending',
-        generatedat: new Date().toISOString(),
+        createdat: new Date().toISOString(),
       },
     ])
     .select()
@@ -268,7 +268,7 @@ const handleFetchCommissions = async (req: any, res: any) => {
     query = query.eq('commissionstatus', status);
   }
 
-  query = query.order('generatedat', { ascending: false });
+  query = query.order('createdat', { ascending: false });
 
   const { data: commissions, error } = await query;
 
@@ -363,13 +363,13 @@ const handleFetchStaffReport = async (req: any, res: any) => {
     .eq('staffid', Number(staffId));
 
   if (startDate) {
-    query = query.gte('generatedat', startDate);
+    query = query.gte('createdat', startDate);
   }
   if (endDate) {
-    query = query.lte('generatedat', endDate);
+    query = query.lte('createdat', endDate);
   }
 
-  query = query.order('generatedat', { ascending: false });
+  query = query.order('createdat', { ascending: false });
 
   const { data: commissions, error } = await query;
 

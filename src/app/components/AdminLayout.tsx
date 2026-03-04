@@ -12,6 +12,7 @@ const navigation: Array<{ name: string; path: string; icon: any; disabled?: bool
   { name: 'Inquiries', path: '/admin/inquiries', icon: MessageSquare },
   { name: 'Seller Submissions', path: '/admin/seller-submissions', icon: UserSearch },
   { name: 'Transactions', path: '/admin/transactions', icon: FileText },
+  { name: 'Commissions', path: '/admin/commissions', icon: DollarSign },
   { name: 'Agents & Brokers', path: '/admin/agents', icon: UserCog },
   { name: 'Reports', path: '/admin/reports', icon: BarChart3 },
   { name: 'Settings', path: '/admin/settings', icon: Settings },

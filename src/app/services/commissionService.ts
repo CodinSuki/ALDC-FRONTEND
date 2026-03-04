@@ -12,7 +12,7 @@ export type Commission = {
   commissionamount: number;
   commissionrate: number;
   commissionstatus: CommissionStatus;
-  generatedat: string;
+  createdat: string;
   releasedat?: string;
 };
 
@@ -70,7 +70,7 @@ export const generateCommission = async (payload: GenerateCommissionPayload): Pr
  * If so, marks commission as "Released"
  */
 export const recordCommissionPayout = async (payload: RecordCommissionPayoutPayload): Promise<CommissionPayout> => {
-  const response = await fetch('/api/admin/commissions/payout', {
+  const response = await fetch('/api/admin/commissions?resource=payout', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
@@ -135,7 +135,7 @@ export const fetchCommissionById = async (commissionId: number): Promise<Commiss
  * Get all payouts for a commission
  */
 export const fetchCommissionPayouts = async (commissionId: number): Promise<CommissionPayout[]> => {
-  const response = await fetch(`/api/admin/commissions/payout?commissionId=${commissionId}`, {
+  const response = await fetch(`/api/admin/commissions?resource=payout&commissionId=${commissionId}`, {
     method: 'GET',
     credentials: 'include',
   });
@@ -159,7 +159,7 @@ export const fetchCommissionSummary = async (commissionId: number): Promise<{
   payoutCount: number;
   status: CommissionStatus;
 }> => {
-  const response = await fetch(`/api/admin/commissions/summary?commissionId=${commissionId}`, {
+  const response = await fetch(`/api/admin/commissions?resource=summary&commissionId=${commissionId}`, {
     method: 'GET',
     credentials: 'include',
   });
@@ -186,11 +186,11 @@ export const fetchStaffCommissionReport = async (staffId: number, filters?: {
   commissionCount: number;
   commissions: Commission[];
 }> => {
-  const params = new URLSearchParams({ staffId: String(staffId) });
+  const params = new URLSearchParams({ resource: 'report', staffId: String(staffId) });
   if (filters?.startDate) params.append('startDate', filters.startDate);
   if (filters?.endDate) params.append('endDate', filters.endDate);
 
-  const response = await fetch(`/api/admin/commissions/report?${params}`, {
+  const response = await fetch(`/api/admin/commissions?${params}`, {
     method: 'GET',
     credentials: 'include',
   });

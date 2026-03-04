@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { Eye } from 'lucide-react';
 import AdminLayout from '@/app/components/AdminLayout';
-import { Search, DollarSign, CheckCircle, Clock, Plus, Edit, Trash2 } from 'lucide-react';
+import { Search, AlertCircle, CheckCircle, Clock, Plus, DollarSign, Loader, TrendingUp } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -9,341 +10,360 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/app/components/ui/dialog';
+import {
+  Commission,
+  CommissionPayout,
+  generateCommission,
+  fetchCommissions,
+  recordCommissionPayout,
+  fetchCommissionPayouts,
+} from '@/app/services/commissionService';
+import { fetchTransactions } from '@/app/services/transactionService';
 
-// Database-aligned interfaces
-interface Commission {
-  commission_id: number;
-  transaction_id: number;
-  agent_id: number | null;
-  percentage: string;
-  amount: string;
-  // Joined data for display
-  transaction_ref?: string;
-  agent_name?: string;
-  property_code?: string;
-  client_name?: string;
-  status?: 'Paid' | 'Pending';
-  paid_date?: string;
+// Enhanced interfaces
+interface EnhancedCommission extends Commission {
+  transactionCode?: string;
+  staffName?: string;
+  clientName?: string;
+  payoutStatus?: 'Fully Paid' | 'Partial' | 'Pending';
+  totalPaidOut?: number;
 }
 
-interface Agent {
-  agent_id: number;
-  broker_id: number;
+interface PayoutRecord extends CommissionPayout {
+  commissionRef?: string;
+}
+
+interface Staff {
+  staffid: number;
+  firstname: string;
+  middlename?: string;
+  lastname: string;
+}
+
+interface Client {
+  client_id: number;
   first_name: string;
-  middle_name: string | null;
+  middle_name?: string;
   last_name: string;
-  contact_email: string | null;
-  contact_number: string | null;
 }
 
 interface Transaction {
-  transaction_id: number;
-  property_code: string;
-  client_name: string;
-  total_amount: string;
+  transactionid: number;
+  propertyid: number;
+  buyerclientid: number;
+  negotiatedprice: number;
+  transactionstatus: string;
 }
 
-// Mock data
-const mockAgents: Agent[] = [
-  { agent_id: 1, broker_id: 1, first_name: 'Roberto', middle_name: 'A.', last_name: 'Martinez', contact_email: 'roberto.martinez@aldc.com', contact_number: '09171234567' },
-  { agent_id: 2, broker_id: 1, first_name: 'Sofia', middle_name: 'B.', last_name: 'Reyes', contact_email: 'sofia.reyes@aldc.com', contact_number: '09181234567' },
-  { agent_id: 3, broker_id: 1, first_name: 'Miguel', middle_name: null, last_name: 'Santos', contact_email: 'miguel.santos@aldc.com', contact_number: '09191234567' },
+// Mock data for staff, clients, properties
+const mockStaff: Staff[] = [
+  { staffid: 1, firstname: 'Miguel', middlename: 'A.', lastname: 'Santos' },
+  { staffid: 2, firstname: 'Sofia', middlename: 'B.', lastname: 'Reyes' },
+  { staffid: 3, firstname: 'Roberto', middlename: 'C.', lastname: 'Martinez' },
 ];
 
-const mockTransactions: Transaction[] = [
-  { transaction_id: 45, property_code: 'VV-BLK1-LOT5', client_name: 'Maria C. Santos', total_amount: '5500000.00' },
-  { transaction_id: 46, property_code: 'MBC-FL5-U501', client_name: 'John D. Reyes', total_amount: '12000000.00' },
-  { transaction_id: 47, property_code: 'GF-FARM-A12', client_name: 'Ana Cruz', total_amount: '8500000.00' },
-  { transaction_id: 48, property_code: 'SBR-LOT-B8', client_name: 'Pedro L. Garcia', total_amount: '7200000.00' },
-];
-
-const initialCommissions: Commission[] = [
-  { 
-    commission_id: 1,
-    transaction_id: 45,
-    agent_id: 1,
-    percentage: '5.00',
-    amount: '275000.00',
-    transaction_ref: 'TX-45',
-    agent_name: 'Roberto A. Martinez',
-    property_code: 'VV-BLK1-LOT5',
-    client_name: 'Maria C. Santos',
-    status: 'Paid',
-    paid_date: '2025-01-03'
-  },
-  { 
-    commission_id: 2,
-    transaction_id: 46,
-    agent_id: 2,
-    percentage: '5.00',
-    amount: '600000.00',
-    transaction_ref: 'TX-46',
-    agent_name: 'Sofia B. Reyes',
-    property_code: 'MBC-FL5-U501',
-    client_name: 'John D. Reyes',
-    status: 'Paid',
-    paid_date: '2025-01-02'
-  },
-  { 
-    commission_id: 3,
-    transaction_id: 47,
-    agent_id: 1,
-    percentage: '5.00',
-    amount: '425000.00',
-    transaction_ref: 'TX-47',
-    agent_name: 'Roberto A. Martinez',
-    property_code: 'GF-FARM-A12',
-    client_name: 'Ana Cruz',
-    status: 'Pending',
-    paid_date: undefined
-  },
-  { 
-    commission_id: 4,
-    transaction_id: 48,
-    agent_id: 3,
-    percentage: '5.00',
-    amount: '360000.00',
-    transaction_ref: 'TX-48',
-    agent_name: 'Miguel Santos',
-    property_code: 'SBR-LOT-B8',
-    client_name: 'Pedro L. Garcia',
-    status: 'Paid',
-    paid_date: '2024-12-30'
-  },
+const mockClients: Client[] = [
+  { client_id: 1, first_name: 'Maria', middle_name: 'C.', last_name: 'Santos' },
+  { client_id: 2, first_name: 'John', middle_name: 'D.', last_name: 'Reyes' },
+  { client_id: 3, first_name: 'Ana', middle_name: undefined, last_name: 'Cruz' },
 ];
 
 export default function AdminCommissions() {
-  const [commissions, setCommissions] = useState<Commission[]>(initialCommissions);
-  const [agents] = useState<Agent[]>(mockAgents);
-  const [transactions] = useState<Transaction[]>(mockTransactions);
+  const [commissions, setCommissions] = useState<EnhancedCommission[]>([]);
+  const [payoutsByCommission, setPayoutsByCommission] = useState<Record<number, PayoutRecord[]>>({});
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterStatus, setFilterStatus] = useState('All');
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [selectedCommission, setSelectedCommission] = useState<Commission | null>(null);
+  const [selectedStatusFilter, setSelectedStatusFilter] = useState<'all' | 'Pending' | 'Released'>('all');
   
-  const [formData, setFormData] = useState<Partial<Commission>>({
-    transaction_id: 0,
-    agent_id: null,
-    percentage: '5.00',
-    amount: '',
-    status: 'Pending',
-    paid_date: '',
+  // Dialog states
+  const [isGenerateCommissionOpen, setIsGenerateCommissionOpen] = useState(false);
+  const [isRecordPayoutOpen, setIsRecordPayoutOpen] = useState(false);
+  const [isCommissionDetailOpen, setIsCommissionDetailOpen] = useState(false);
+  const [selectedCommission, setSelectedCommission] = useState<EnhancedCommission | null>(null);
+  
+  // Form states
+  const [generateForm, setGenerateForm] = useState({
+    transactionId: 0,
+    staffId: 0,
+    commissionRate: 0.05,
   });
 
-  const filteredCommissions = commissions.filter(commission => {
+  const [payoutForm, setPayoutForm] = useState({
+    commissionId: 0,
+    payoutAmount: '',
+    payoutDate: new Date().toISOString().split('T')[0],
+    payoutMethod: 'Bank Transfer',
+    payoutNotes: '',
+  });
+
+  // Loading & error states
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  
+  // Fetch commissions and transactions on mount
+  useEffect(() => {
+    const loadData = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const [commissionsData, transactionsData] = await Promise.all([
+          fetchCommissions(),
+          fetchTransactions(),
+        ]);
+        
+        setTransactions(transactionsData);
+        
+        // Enrich commissions with related data
+        const enriched = await Promise.all(commissionsData.map(async (comm) => {
+          const tx = transactionsData.find(t => t.transactionid === comm.transactionid);
+          const staff = mockStaff.find(s => s.staffid === comm.staffid);
+          const client = mockClients.find(c => c.client_id === tx?.buyerclientid);
+          
+          // Fetch payouts for this commission
+          const payouts = await fetchCommissionPayouts(comm.commissionid);
+          const totalPaidOut = payouts.reduce((sum, p) => sum + parseFloat(String(p.payoutamount)), 0);
+          
+          setPayoutsByCommission(prev => ({
+            ...prev,
+            [comm.commissionid]: payouts.map(p => ({
+              ...p,
+              commissionRef: `COMM-${comm.commissionid}`
+            }))
+          }));
+          
+          let payoutStatus: 'Fully Paid' | 'Partial' | 'Pending' = 'Pending';
+          if (totalPaidOut >= comm.commissionamount) payoutStatus = 'Fully Paid';
+          else if (totalPaidOut > 0) payoutStatus = 'Partial';
+          
+          return {
+            ...comm,
+            transactionCode: `TX-${comm.transactionid}`,
+            staffName: staff ? `${staff.firstname} ${staff.middlename || ''} ${staff.lastname}`.trim() : 'Unknown',
+            clientName: client ? `${client.first_name} ${client.last_name}` : 'Unknown',
+            payoutStatus,
+            totalPaidOut,
+          } as EnhancedCommission;
+        }));
+        
+        setCommissions(enriched);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load commissions');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    loadData();
+  }, []);
+
+  const filteredCommissions = commissions.filter(comm => {
     const matchesSearch = 
-      commission.agent_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      commission.transaction_ref?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      commission.property_code?.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = filterStatus === 'All' || commission.status === filterStatus;
+      comm.commissionid.toString().includes(searchQuery) ||
+      comm.staffName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      comm.clientName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      comm.transactionCode?.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    const matchesStatus = selectedStatusFilter === 'all' || comm.commissionstatus === selectedStatusFilter;
+    
     return matchesSearch && matchesStatus;
   });
 
-  // Calculate agent summaries dynamically
-  const agentSummary = Object.values(
-    commissions.reduce((acc, comm) => {
-      if (!comm.agent_id) return acc;
-      if (!acc[comm.agent_id]) {
-        acc[comm.agent_id] = {
-          agent_id: comm.agent_id,
-          agent_name: comm.agent_name,
-          transactions: 0,
-          totalCommission: 0,
-          pending: 0,
-        };
-      }
-      acc[comm.agent_id].transactions += 1;
-      const amount = parseFloat(comm.amount);
-      acc[comm.agent_id].totalCommission += amount;
-      if (comm.status === 'Pending') {
-        acc[comm.agent_id].pending += amount;
-      }
-      return acc;
-    }, {} as Record<number, any>)
-  ).map(agent => ({
-    ...agent,
-    totalCommission: `₱${agent.totalCommission.toLocaleString()}`,
-    pending: `₱${agent.pending.toLocaleString()}`,
-  }));
-
-  const getAgentName = (agentId: number | null): string => {
-    if (!agentId) return 'N/A';
-    const agent = agents.find(a => a.agent_id === agentId);
-    if (!agent) return 'Unknown';
-    return `${agent.first_name} ${agent.middle_name ? agent.middle_name + ' ' : ''}${agent.last_name}`;
-  };
-
-  const getTransactionInfo = (transactionId: number) => {
-    return transactions.find(t => t.transaction_id === transactionId);
-  };
-
-  const calculateCommission = (transactionId: number, percentage: string): string => {
-    const transaction = transactions.find(t => t.transaction_id === transactionId);
-    if (!transaction) return '0.00';
-    const amount = parseFloat(transaction.total_amount) * (parseFloat(percentage) / 100);
-    return amount.toFixed(2);
-  };
-
-  const handleAddCommission = () => {
-    if (!formData.transaction_id || !formData.agent_id || !formData.percentage) {
-      alert('Please fill in all required fields');
+  const handleGenerateCommission = async () => {
+    if (!generateForm.transactionId || !generateForm.staffId || generateForm.commissionRate <= 0) {
+      setError('Please fill in all required fields');
       return;
     }
 
-    const calculatedAmount = formData.amount || calculateCommission(formData.transaction_id, formData.percentage!);
-    const transactionInfo = getTransactionInfo(formData.transaction_id);
-
-    const newCommission: Commission = {
-      commission_id: Math.max(...commissions.map(c => c.commission_id), 0) + 1,
-      transaction_id: formData.transaction_id!,
-      agent_id: formData.agent_id,
-      percentage: formData.percentage!,
-      amount: calculatedAmount,
-      transaction_ref: `TX-${formData.transaction_id}`,
-      agent_name: getAgentName(formData.agent_id),
-      property_code: transactionInfo?.property_code || 'Unknown',
-      client_name: transactionInfo?.client_name || 'Unknown',
-      status: formData.status || 'Pending',
-      paid_date: formData.status === 'Paid' ? (formData.paid_date || new Date().toISOString().split('T')[0]) : undefined,
-    };
-
-    setCommissions([...commissions, newCommission]);
-    setIsAddDialogOpen(false);
-    resetForm();
+    setIsSaving(true);
+    setError(null);
+    try {
+      const newComm = await generateCommission({
+        transactionId: generateForm.transactionId,
+        staffId: generateForm.staffId,
+        commissionRate: generateForm.commissionRate,
+      });
+      
+      const tx = transactions.find(t => t.transactionid === newComm.transactionid);
+      const staff = mockStaff.find(s => s.staffid === newComm.staffid);
+      const client = mockClients.find(c => c.client_id === tx?.buyerclientid);
+      
+      const enriched: EnhancedCommission = {
+        ...newComm,
+        transactionCode: `TX-${newComm.transactionid}`,
+        staffName: staff ? `${staff.firstname} ${staff.lastname}` : 'Unknown',
+        clientName: client ? `${client.first_name} ${client.last_name}` : 'Unknown',
+        payoutStatus: 'Pending',
+        totalPaidOut: 0,
+      };
+      
+      setCommissions([...commissions, enriched]);
+      setIsGenerateCommissionOpen(false);
+      setGenerateForm({ transactionId: 0, staffId: 0, commissionRate: 0.05 });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to generate commission');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const handleEditCommission = () => {
-    if (!formData.transaction_id || !formData.agent_id || !formData.percentage) {
-      alert('Please fill in all required fields');
+  const handleRecordPayout = async () => {
+    if (!payoutForm.commissionId || !payoutForm.payoutAmount || !payoutForm.payoutDate) {
+      setError('Please fill in all required fields');
       return;
     }
 
-    const calculatedAmount = formData.amount || calculateCommission(formData.transaction_id, formData.percentage!);
-    const transactionInfo = getTransactionInfo(formData.transaction_id);
-
-    const updatedCommission: Commission = {
-      commission_id: selectedCommission!.commission_id,
-      transaction_id: formData.transaction_id!,
-      agent_id: formData.agent_id,
-      percentage: formData.percentage!,
-      amount: calculatedAmount,
-      transaction_ref: `TX-${formData.transaction_id}`,
-      agent_name: getAgentName(formData.agent_id),
-      property_code: transactionInfo?.property_code || 'Unknown',
-      client_name: transactionInfo?.client_name || 'Unknown',
-      status: formData.status || 'Pending',
-      paid_date: formData.status === 'Paid' ? (formData.paid_date || new Date().toISOString().split('T')[0]) : undefined,
-    };
-
-    setCommissions(commissions.map(c =>
-      c.commission_id === selectedCommission!.commission_id ? updatedCommission : c
-    ));
-    setIsEditDialogOpen(false);
-    resetForm();
-  };
-
-  const handleDeleteCommission = () => {
-    if (selectedCommission) {
-      setCommissions(commissions.filter(c => c.commission_id !== selectedCommission.commission_id));
-      setIsDeleteDialogOpen(false);
-      setSelectedCommission(null);
+    setIsSaving(true);
+    setError(null);
+    try {
+      const newPayout = await recordCommissionPayout({
+        commissionId: payoutForm.commissionId,
+        payoutAmount: parseFloat(payoutForm.payoutAmount),
+        payoutDate: payoutForm.payoutDate,
+        payoutMethod: payoutForm.payoutMethod,
+        payoutNotes: payoutForm.payoutNotes || undefined,
+      });
+      
+      // Update payouts list
+      setPayoutsByCommission(prev => ({
+        ...prev,
+        [payoutForm.commissionId]: [
+          ...(prev[payoutForm.commissionId] || []),
+          {
+            ...newPayout,
+            commissionRef: `COMM-${payoutForm.commissionId}`
+          }
+        ]
+      }));
+      
+      // Update commission status if fully paid
+      const commission = commissions.find(c => c.commissionid === payoutForm.commissionId);
+      if (commission) {
+        const newTotalPaid = (commission.totalPaidOut || 0) + parseFloat(payoutForm.payoutAmount);
+        const newStatus = newTotalPaid >= commission.commissionamount ? 'Released' : commission.commissionstatus;
+        
+        setCommissions(commissions.map(c =>
+          c.commissionid === payoutForm.commissionId
+            ? {
+                ...c,
+                commissionstatus: newStatus as any,
+                totalPaidOut: newTotalPaid,
+                payoutStatus: newTotalPaid >= c.commissionamount ? 'Fully Paid' : 'Partial',
+              }
+            : c
+        ));
+      }
+      
+      setIsRecordPayoutOpen(false);
+      setPayoutForm({
+        commissionId: 0,
+        payoutAmount: '',
+        payoutDate: new Date().toISOString().split('T')[0],
+        payoutMethod: 'Bank Transfer',
+        payoutNotes: '',
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to record payout');
+    } finally {
+      setIsSaving(false);
     }
   };
 
-  const handleMarkAsPaid = (commission: Commission) => {
-    const updatedCommission = {
-      ...commission,
-      status: 'Paid' as 'Paid' | 'Pending',
-      paid_date: new Date().toISOString().split('T')[0],
-    };
-    setCommissions(commissions.map(c =>
-      c.commission_id === commission.commission_id ? updatedCommission : c
-    ));
-  };
-
-  const openEditDialog = (commission: Commission) => {
-    setFormData({
-      transaction_id: commission.transaction_id,
-      agent_id: commission.agent_id,
-      percentage: commission.percentage,
-      amount: commission.amount,
-      status: commission.status,
-      paid_date: commission.paid_date || '',
-    });
+  const handleOpenCommissionDetail = (commission: EnhancedCommission) => {
     setSelectedCommission(commission);
-    setIsEditDialogOpen(true);
+    setIsCommissionDetailOpen(true);
   };
 
-  const openDeleteDialog = (commission: Commission) => {
+  const handleOpenPayoutDialog = (commission: EnhancedCommission) => {
+    setPayoutForm(prev => ({
+      ...prev,
+      commissionId: commission.commissionid,
+    }));
     setSelectedCommission(commission);
-    setIsDeleteDialogOpen(true);
+    setIsRecordPayoutOpen(true);
   };
 
-  const resetForm = () => {
-    setFormData({
-      transaction_id: 0,
-      agent_id: null,
-      percentage: '5.00',
-      amount: '',
-      status: 'Pending',
-      paid_date: '',
-    });
-    setSelectedCommission(null);
-  };
+  // Component: Payouts list for a commission
+  function CommissionPayouts({ commissionId }: { commissionId: number }) {
+    const payouts = payoutsByCommission[commissionId] || [];
 
-  const handleFormChange = (field: string, value: any) => {
-    setFormData(prev => {
-      const updated = { ...prev, [field]: value };
-      
-      // Auto-calculate amount when transaction or percentage changes
-      if ((field === 'transaction_id' || field === 'percentage') && updated.transaction_id && updated.percentage) {
-        updated.amount = calculateCommission(updated.transaction_id, updated.percentage);
-      }
-      
-      return updated;
-    });
-  };
+    return (
+      <div className="space-y-3">
+        {payouts.length === 0 ? (
+          <div className="text-sm text-gray-500">No payouts recorded yet.</div>
+        ) : (
+          payouts.map(payout => (
+            <div key={payout.commissionpayoutid} className="flex items-center justify-between p-3 border rounded-lg">
+              <div>
+                <div className="text-sm font-medium">{payout.payoutmethod}</div>
+                <div className="text-xs text-gray-600">{payout.payoutdate}</div>
+              </div>
+              <div className="text-right">
+                <div className="text-sm font-medium">₱{parseFloat(String(payout.payoutamount)).toLocaleString()}</div>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    );
+  }
 
   return (
     <AdminLayout>
       <div className="space-y-6">
+        {/* Error Message */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-red-600 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm text-red-700">{error}</p>
+            </div>
+            <button onClick={() => setError(null)} className="text-red-600 hover:text-red-800">✕</button>
+          </div>
+        )}
+
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <h2 className="text-gray-900">Commission Tracking</h2>
-            <p className="text-gray-600">Monitor agent commissions and payment status</p>
+            <h2 className="text-gray-900">Commission Management</h2>
+            <p className="text-gray-600">Track and manage commission generation and payouts</p>
           </div>
           <button
-            onClick={() => setIsAddDialogOpen(true)}
-            className="flex items-center gap-2 bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors"
+            onClick={() => setIsGenerateCommissionOpen(true)}
+            disabled={isLoading || isSaving}
+            className="flex items-center gap-2 bg-green-600 text-white px-4 py-3 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
           >
             <Plus className="w-5 h-5" />
-            Add Commission
+            Generate Commission
           </button>
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           {[
             { 
-              label: 'Total Commissions Paid', 
-              value: `₱${commissions.filter(c => c.status === 'Paid').reduce((sum, c) => sum + parseFloat(c.amount), 0).toLocaleString()}`, 
-              icon: CheckCircle, 
-              color: 'bg-green-500' 
+              label: 'Total Commissions', 
+              value: commissions.length.toString(), 
+              icon: DollarSign, 
+              color: 'bg-blue-500' 
             },
             { 
-              label: 'Pending Commissions', 
-              value: `₱${commissions.filter(c => c.status === 'Pending').reduce((sum, c) => sum + parseFloat(c.amount), 0).toLocaleString()}`, 
+              label: 'Pending', 
+              value: commissions.filter(c => c.commissionstatus === 'Pending').length.toString(), 
               icon: Clock, 
               color: 'bg-yellow-500' 
             },
             { 
-              label: 'Total Records', 
-              value: commissions.length.toString(), 
-              icon: DollarSign, 
-              color: 'bg-blue-500' 
+              label: 'Released', 
+              value: commissions.filter(c => c.commissionstatus === 'Released').length.toString(), 
+              icon: CheckCircle, 
+              color: 'bg-green-500' 
+            },
+            { 
+              label: 'Total Amount', 
+              value: `₱${commissions.reduce((sum, c) => sum + parseFloat(String(c.commissionamount)), 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`, 
+              icon: TrendingUp, 
+              color: 'bg-purple-500' 
             },
           ].map((stat, index) => (
             <div key={index} className="bg-white rounded-lg shadow-sm p-6">
@@ -358,465 +378,379 @@ export default function AdminCommissions() {
           ))}
         </div>
 
-        {/* Agent Summary */}
+        {/* Search and Filters */}
         <div className="bg-white rounded-lg shadow-sm p-6">
-          <h3 className="text-gray-900 mb-6">Agent Summary</h3>
-          <div className="grid md:grid-cols-3 gap-6">
-            {agentSummary.map((agent, index) => (
-              <div key={index} className="p-4 border border-gray-200 rounded-lg">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-10 h-10 rounded-full bg-green-100 text-green-600 flex items-center justify-center">
-                    {agent.agent_name?.charAt(0)}
-                  </div>
-                  <div>
-                    <p className="text-gray-900">{agent.agent_name}</p>
-                    <p className="text-sm text-gray-600">{agent.transactions} transactions</p>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Total Earned</span>
-                    <span className="text-gray-900">{agent.totalCommission}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Pending</span>
-                    <span className="text-yellow-600">{agent.pending}</span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Filters */}
-        <div className="bg-white rounded-lg shadow-sm p-6">
-          <div className="flex flex-col md:flex-row gap-4">
-            {/* Search */}
+          <div className="flex gap-4 flex-col md:flex-row">
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
               <input
                 type="text"
-                placeholder="Search by agent, transaction, or property..."
+                placeholder="Search by commission ID, staff, client, or transaction..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                disabled={isLoading}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:bg-gray-100"
               />
             </div>
-
-            {/* Status Filter */}
             <select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              value={selectedStatusFilter}
+              onChange={(e) => setSelectedStatusFilter(e.target.value as any)}
+              disabled={isLoading}
+              className="md:w-48 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:bg-gray-100"
             >
-              <option value="All">All Status</option>
-              <option value="Paid">Paid</option>
+              <option value="all">All Statuses</option>
               <option value="Pending">Pending</option>
+              <option value="Released">Released</option>
             </select>
           </div>
         </div>
 
         {/* Commissions Table */}
         <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h3 className="text-gray-900">Commission Records</h3>
+          <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+            <h3 className="text-gray-900">Commissions</h3>
+            {isLoading && <Loader className="w-4 h-4 animate-spin text-gray-600" />}
           </div>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs text-gray-600 uppercase tracking-wider">
-                    Comm. ID
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs text-gray-600 uppercase tracking-wider">
-                    Agent Name
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs text-gray-600 uppercase tracking-wider">
-                    Transaction
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs text-gray-600 uppercase tracking-wider">
-                    Property
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs text-gray-600 uppercase tracking-wider">
-                    Rate
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs text-gray-600 uppercase tracking-wider">
-                    Amount
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs text-gray-600 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs text-gray-600 uppercase tracking-wider">
-                    Actions
-                  </th>
+                  <th className="px-6 py-3 text-left text-xs text-gray-600 uppercase tracking-wider">Commission ID</th>
+                  <th className="px-6 py-3 text-left text-xs text-gray-600 uppercase tracking-wider">Staff</th>
+                  <th className="px-6 py-3 text-left text-xs text-gray-600 uppercase tracking-wider">Transaction</th>
+                  <th className="px-6 py-3 text-left text-xs text-gray-600 uppercase tracking-wider">Commission Amount</th>
+                  <th className="px-6 py-3 text-left text-xs text-gray-600 uppercase tracking-wider">Rate</th>
+                  <th className="px-6 py-3 text-left text-xs text-gray-600 uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-3 text-left text-xs text-gray-600 uppercase tracking-wider">Payout Status</th>
+                  <th className="px-6 py-3 text-right text-xs text-gray-600 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {filteredCommissions.map((commission) => (
-                  <tr key={commission.commission_id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      COM-{commission.commission_id}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-gray-900">
-                      {commission.agent_name}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                      {commission.transaction_ref}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                      {commission.property_code}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                      {parseFloat(commission.percentage).toFixed(2)}%
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-gray-900">
-                      ₱{parseFloat(commission.amount).toLocaleString()}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center gap-2">
-                        <span className={`inline-flex items-center gap-1 px-2 py-1 text-xs rounded-full ${
-                          commission.status === 'Paid' 
-                            ? 'bg-green-100 text-green-800' 
-                            : 'bg-yellow-100 text-yellow-800'
-                        }`}>
-                          {commission.status === 'Paid' ? (
-                            <CheckCircle className="w-3 h-3" />
-                          ) : (
-                            <Clock className="w-3 h-3" />
-                          )}
-                          {commission.status}
-                        </span>
-                        {commission.status === 'Pending' && (
-                          <button
-                            onClick={() => handleMarkAsPaid(commission)}
-                            className="text-xs text-green-600 hover:text-green-800 underline"
-                          >
-                            Mark Paid
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
-                      <button
-                        onClick={() => openEditDialog(commission)}
-                        className="text-blue-600 hover:text-blue-800 mr-3"
-                      >
-                        <Edit className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => openDeleteDialog(commission)}
-                        className="text-red-600 hover:text-red-800"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                {isLoading ? (
+                  <tr>
+                    <td colSpan={8} className="text-center py-8">
+                      <Loader className="w-5 h-5 animate-spin mx-auto text-gray-600" />
                     </td>
                   </tr>
-                ))}
+                ) : filteredCommissions.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="text-center py-8 text-gray-500">No commissions found</td>
+                  </tr>
+                ) : (
+                  filteredCommissions.map((commission) => (
+                    <tr key={commission.commissionid} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">COMM-{commission.commissionid}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{commission.staffName}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{commission.transactionCode}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-gray-900">₱{parseFloat(String(commission.commissionamount)).toLocaleString()}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{(commission.commissionrate * 100).toFixed(1)}%</td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`inline-flex items-center gap-1 px-2 py-1 text-xs rounded-full ${
+                          commission.commissionstatus === 'Released' ? 'bg-green-100 text-green-800' :
+                          'bg-yellow-100 text-yellow-800'
+                        }`}>
+                          {commission.commissionstatus === 'Released' && <CheckCircle className="w-3 h-3" />}
+                          {commission.commissionstatus === 'Pending' && <Clock className="w-3 h-3" />}
+                          {commission.commissionstatus}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`text-xs font-medium ${
+                          commission.payoutStatus === 'Fully Paid' ? 'text-green-600' :
+                          commission.payoutStatus === 'Partial' ? 'text-yellow-600' :
+                          'text-gray-600'
+                        }`}>
+                          {commission.payoutStatus}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm space-x-3">
+                        <button
+                          onClick={() => handleOpenCommissionDetail(commission)}
+                          disabled={isSaving}
+                          className="text-green-600 hover:text-green-800 disabled:opacity-50"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleOpenPayoutDialog(commission)}
+                          disabled={isSaving}
+                          className="text-blue-600 hover:text-blue-800 disabled:opacity-50"
+                        >
+                          <DollarSign className="w-4 h-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
         </div>
       </div>
 
-      {/* Add Commission Dialog */}
-      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+      {/* Commission Detail Dialog */}
+      <Dialog open={isCommissionDetailOpen} onOpenChange={setIsCommissionDetailOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Add New Commission</DialogTitle>
-            <DialogDescription>
-              Create a new commission record for an agent
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 py-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm text-gray-700 mb-1">
-                  Transaction <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={formData.transaction_id || ''}
-                  onChange={(e) => handleFormChange('transaction_id', parseInt(e.target.value))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                >
-                  <option value="">Select Transaction</option>
-                  {transactions.map(transaction => (
-                    <option key={transaction.transaction_id} value={transaction.transaction_id}>
-                      TX-{transaction.transaction_id} - {transaction.property_code}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm text-gray-700 mb-1">
-                  Agent <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={formData.agent_id || ''}
-                  onChange={(e) => handleFormChange('agent_id', parseInt(e.target.value))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                >
-                  <option value="">Select Agent</option>
-                  {agents.map(agent => (
-                    <option key={agent.agent_id} value={agent.agent_id}>
-                      {agent.first_name} {agent.middle_name} {agent.last_name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm text-gray-700 mb-1">
-                  Commission Rate (%) <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={formData.percentage}
-                  onChange={(e) => handleFormChange('percentage', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  placeholder="e.g., 5.00"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm text-gray-700 mb-1">
-                  Commission Amount (PHP)
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={formData.amount}
-                  onChange={(e) => handleFormChange('amount', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent bg-gray-50"
-                  placeholder="Auto-calculated"
-                  readOnly
-                />
-                <p className="text-xs text-gray-500 mt-1">Automatically calculated from transaction amount</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm text-gray-700 mb-1">
-                  Payment Status <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={formData.status}
-                  onChange={(e) => handleFormChange('status', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                >
-                  <option value="Pending">Pending</option>
-                  <option value="Paid">Paid</option>
-                </select>
-              </div>
-
-              {formData.status === 'Paid' && (
-                <div>
-                  <label className="block text-sm text-gray-700 mb-1">
-                    Paid Date
-                  </label>
-                  <input
-                    type="date"
-                    value={formData.paid_date}
-                    onChange={(e) => handleFormChange('paid_date', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  />
-                </div>
-              )}
-            </div>
-          </div>
-
-          <DialogFooter>
-            <button
-              onClick={() => {
-                setIsAddDialogOpen(false);
-                resetForm();
-              }}
-              className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleAddCommission}
-              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-            >
-              Add Commission
-            </button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Edit Commission Dialog */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Edit Commission</DialogTitle>
-            <DialogDescription>
-              Update commission record details
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 py-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm text-gray-700 mb-1">
-                  Transaction <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={formData.transaction_id || ''}
-                  onChange={(e) => handleFormChange('transaction_id', parseInt(e.target.value))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                >
-                  <option value="">Select Transaction</option>
-                  {transactions.map(transaction => (
-                    <option key={transaction.transaction_id} value={transaction.transaction_id}>
-                      TX-{transaction.transaction_id} - {transaction.property_code}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm text-gray-700 mb-1">
-                  Agent <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={formData.agent_id || ''}
-                  onChange={(e) => handleFormChange('agent_id', parseInt(e.target.value))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                >
-                  <option value="">Select Agent</option>
-                  {agents.map(agent => (
-                    <option key={agent.agent_id} value={agent.agent_id}>
-                      {agent.first_name} {agent.middle_name} {agent.last_name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm text-gray-700 mb-1">
-                  Commission Rate (%) <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={formData.percentage}
-                  onChange={(e) => handleFormChange('percentage', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm text-gray-700 mb-1">
-                  Commission Amount (PHP)
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={formData.amount}
-                  onChange={(e) => handleFormChange('amount', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent bg-gray-50"
-                  readOnly
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm text-gray-700 mb-1">
-                  Payment Status <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={formData.status}
-                  onChange={(e) => handleFormChange('status', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                >
-                  <option value="Pending">Pending</option>
-                  <option value="Paid">Paid</option>
-                </select>
-              </div>
-
-              {formData.status === 'Paid' && (
-                <div>
-                  <label className="block text-sm text-gray-700 mb-1">
-                    Paid Date
-                  </label>
-                  <input
-                    type="date"
-                    value={formData.paid_date}
-                    onChange={(e) => handleFormChange('paid_date', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  />
-                </div>
-              )}
-            </div>
-          </div>
-
-          <DialogFooter>
-            <button
-              onClick={() => {
-                setIsEditDialogOpen(false);
-                resetForm();
-              }}
-              className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleEditCommission}
-              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-            >
-              Save Changes
-            </button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete Commission</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete this commission record? This action cannot be undone.
-            </DialogDescription>
+            <DialogTitle>Commission Details</DialogTitle>
+            <DialogDescription>COMM-{selectedCommission?.commissionid}</DialogDescription>
           </DialogHeader>
 
           {selectedCommission && (
-            <div className="py-4">
-              <div className="bg-gray-50 rounded-lg p-4">
-                <p className="text-sm text-gray-600">Commission ID</p>
-                <p className="text-gray-900">COM-{selectedCommission.commission_id}</p>
-                <p className="text-sm text-gray-600 mt-2">Agent</p>
-                <p className="text-gray-900">{selectedCommission.agent_name}</p>
-                <p className="text-sm text-gray-600 mt-2">Amount</p>
-                <p className="text-gray-900">₱{parseFloat(selectedCommission.amount).toLocaleString()}</p>
+            <div className="space-y-6 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-gray-600">Staff</p>
+                  <p className="text-gray-900 font-medium">{selectedCommission.staffName}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Transaction</p>
+                  <p className="text-gray-900 font-medium">{selectedCommission.transactionCode}</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-gray-600">Commission Amount</p>
+                  <p className="text-gray-900 font-medium">₱{parseFloat(String(selectedCommission.commissionamount)).toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Commission Rate</p>
+                  <p className="text-gray-900 font-medium">{(selectedCommission.commissionrate * 100).toFixed(1)}%</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-gray-600">Status</p>
+                  <p className="text-gray-900 font-medium">{selectedCommission.commissionstatus}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Total Paid Out</p>
+                  <p className="text-gray-900 font-medium">₱{parseFloat(String(selectedCommission.totalPaidOut || 0)).toLocaleString()}</p>
+                </div>
+              </div>
+
+              <div className="border-t pt-4">
+                <h4 className="font-medium text-gray-900 mb-4">Payouts</h4>
+                <CommissionPayouts commissionId={selectedCommission.commissionid} />
               </div>
             </div>
           )}
 
           <DialogFooter>
+            <button onClick={() => setIsCommissionDetailOpen(false)} className="px-4 py-2 border rounded-lg hover:bg-gray-50">Close</button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Generate Commission Dialog */}
+      <Dialog open={isGenerateCommissionOpen} onOpenChange={setIsGenerateCommissionOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Generate Commission</DialogTitle>
+            <DialogDescription>Create a new commission for a completed transaction</DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div>
+              <label className="block text-sm text-gray-700 mb-1">
+                Completed Transaction <span className="text-red-500">*</span>
+              </label>
+              <select
+                value={generateForm.transactionId || ''}
+                onChange={(e) => setGenerateForm(prev => ({ ...prev, transactionId: parseInt(e.target.value) }))}
+                disabled={isSaving}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:bg-gray-100"
+              >
+                <option value="">Select Transaction</option>
+                {transactions.filter(tx => tx.transactionstatus === 'Completed').map(tx => (
+                  <option key={tx.transactionid} value={tx.transactionid}>
+                    TX-{tx.transactionid} - ₱{parseFloat(String(tx.negotiatedprice)).toLocaleString()}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm text-gray-700 mb-1">
+                Staff Member <span className="text-red-500">*</span>
+              </label>
+              <select
+                value={generateForm.staffId || ''}
+                onChange={(e) => setGenerateForm(prev => ({ ...prev, staffId: parseInt(e.target.value) }))}
+                disabled={isSaving}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:bg-gray-100"
+              >
+                <option value="">Select Staff</option>
+                {mockStaff.map(staff => (
+                  <option key={staff.staffid} value={staff.staffid}>
+                    {staff.firstname} {staff.lastname}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm text-gray-700 mb-1">
+                Commission Rate (%)<span className="text-red-500">*</span>
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                max="100"
+                value={generateForm.commissionRate * 100}
+                onChange={(e) => setGenerateForm(prev => ({ ...prev, commissionRate: parseFloat(e.target.value) / 100 }))}
+                disabled={isSaving}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:bg-gray-100"
+                placeholder="e.g., 5.00"
+              />
+              <p className="text-xs text-gray-500 mt-1">Enter as percentage (e.g., 5 for 5%)</p>
+            </div>
+
+            {generateForm.transactionId ? (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <p className="text-sm text-blue-700">
+                  <strong>Commission Amount:</strong> ₱{(
+                    (transactions.find(t => t.transactionid === generateForm.transactionId)?.negotiatedprice || 0) * generateForm.commissionRate
+                  ).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                </p>
+              </div>
+            ) : null}
+          </div>
+
+          <DialogFooter>
             <button
               onClick={() => {
-                setIsDeleteDialogOpen(false);
-                setSelectedCommission(null);
+                setIsGenerateCommissionOpen(false);
+                setGenerateForm({ transactionId: 0, staffId: 0, commissionRate: 0.05 });
               }}
-              className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+              disabled={isSaving}
+              className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
             >
               Cancel
             </button>
             <button
-              onClick={handleDeleteCommission}
-              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+              onClick={handleGenerateCommission}
+              disabled={isSaving}
+              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
             >
-              Delete Commission
+              {isSaving ? <Loader className="w-4 h-4 animate-spin inline mr-2" /> : null}
+              Generate Commission
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Record Payout Dialog */}
+      <Dialog open={isRecordPayoutOpen} onOpenChange={setIsRecordPayoutOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Record Commission Payout</DialogTitle>
+            <DialogDescription>Record a payout for commission COMM-{selectedCommission?.commissionid}</DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            {selectedCommission && (
+              <div className="bg-gray-50 rounded-lg p-3 mb-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-xs text-gray-600">Commission Amount</p>
+                    <p className="text-sm font-medium">₱{parseFloat(String(selectedCommission.commissionamount)).toLocaleString()}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-600">Already Paid</p>
+                    <p className="text-sm font-medium">₱{parseFloat(String(selectedCommission.totalPaidOut || 0)).toLocaleString()}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm text-gray-700 mb-1">
+                  Payout Date <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="date"
+                  value={payoutForm.payoutDate}
+                  onChange={(e) => setPayoutForm(prev => ({ ...prev, payoutDate: e.target.value }))}
+                  disabled={isSaving}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:bg-gray-100"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm text-gray-700 mb-1">
+                  Payout Method <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={payoutForm.payoutMethod}
+                  onChange={(e) => setPayoutForm(prev => ({ ...prev, payoutMethod: e.target.value }))}
+                  disabled={isSaving}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:bg-gray-100"
+                >
+                  <option value="Bank Transfer">Bank Transfer</option>
+                  <option value="Cash">Cash</option>
+                  <option value="Check">Check</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm text-gray-700 mb-1">
+                Payout Amount (PHP) <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={payoutForm.payoutAmount}
+                onChange={(e) => setPayoutForm(prev => ({ ...prev, payoutAmount: e.target.value }))}
+                disabled={isSaving}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:bg-gray-100"
+                placeholder="e.g., 275000.00"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm text-gray-700 mb-1">Notes (Optional)</label>
+              <textarea
+                value={payoutForm.payoutNotes}
+                onChange={(e) => setPayoutForm(prev => ({ ...prev, payoutNotes: e.target.value }))}
+                disabled={isSaving}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:bg-gray-100"
+                rows={3}
+                placeholder="e.g., Cheque #12345, Reference details..."
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <button
+              onClick={() => {
+                setIsRecordPayoutOpen(false);
+                setPayoutForm({
+                  commissionId: 0,
+                  payoutAmount: '',
+                  payoutDate: new Date().toISOString().split('T')[0],
+                  payoutMethod: 'Bank Transfer',
+                  payoutNotes: '',
+                });
+              }}
+              disabled={isSaving}
+              className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleRecordPayout}
+              disabled={isSaving}
+              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+            >
+              {isSaving ? <Loader className="w-4 h-4 animate-spin inline mr-2" /> : null}
+              Record Payout
             </button>
           </DialogFooter>
         </DialogContent>
