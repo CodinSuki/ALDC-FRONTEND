@@ -4,38 +4,28 @@ import { Plus, Edit, Trash2, Search } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, } from '@/app/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,AlertDialogDescription,AlertDialogFooter,AlertDialogHeader,AlertDialogTitle, } from '@/app/components/ui/alert-dialog';
 import { fetchStaff, type StaffRow } from '@/app/services/adminService';
+import { 
+  fetchAgents, 
+  fetchBrokers, 
+  createAgent, 
+  createBroker, 
+  updateAgent, 
+  updateBroker, 
+  deleteAgent, 
+  deleteBroker,
+  type Agent as AgentType,
+  type Broker as BrokerType
+} from '@/app/services/agentService';
 import PersonnelDialog from './components/personnel/PersonnelDialog';
 
-interface Agent {
-  agent_id: number;
-  name: string;
-  email: string;
-  contact_number: string;
-  license_number: string;
-  status: 'Active' | 'Inactive';
-}
-
-interface Broker {
-  broker_id: number;
-  name: string;
-  email: string;
-  contact_number: string;
-  prc_license: string;
-  status: 'Active' | 'Inactive';
-}
-
+type Agent = AgentType;
+type Broker = BrokerType;
 type Staff = StaffRow;
-
-const initialAgents: Agent[] = [
-];
-
-const initialBrokers: Broker[] = [
-];
 
 export default function AdminAgents() {
   const [activeTab, setActiveTab] = useState<'agents' | 'brokers' | 'staff'>('staff');
-  const [agents, setAgents] = useState<Agent[]>(initialAgents);
-  const [brokers, setBrokers] = useState<Broker[]>(initialBrokers);
+  const [agents, setAgents] = useState<Agent[]>([]);
+  const [brokers, setBrokers] = useState<Broker[]>([]);
   const [staff, setStaff] = useState<Staff[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState('All');
@@ -123,44 +113,126 @@ export default function AdminAgents() {
     };
   }, [activeTab]);
 
-  const handleAddAgent = () => {
+  // Load agents when agents tab is active
+  useEffect(() => {
+    if (activeTab !== 'agents') {
+      return;
+    }
+
+    let isMounted = true;
+
+    const loadAgents = async () => {
+      setLoading(true);
+      setLoadError(null);
+
+      try {
+        const rows = await fetchAgents();
+        if (isMounted) {
+          setAgents(rows);
+        }
+      } catch (error) {
+        if (isMounted) {
+          setLoadError(error instanceof Error ? error.message : 'Failed to load agents');
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadAgents();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [activeTab]);
+
+  // Load brokers when brokers tab is active
+  useEffect(() => {
+    if (activeTab !== 'brokers') {
+      return;
+    }
+
+    let isMounted = true;
+
+    const loadBrokers = async () => {
+      setLoading(true);
+      setLoadError(null);
+
+      try {
+        const rows = await fetchBrokers();
+        if (isMounted) {
+          setBrokers(rows);
+        }
+      } catch (error) {
+        if (isMounted) {
+          setLoadError(error instanceof Error ? error.message : 'Failed to load brokers');
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadBrokers();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [activeTab]);
+
+  const handleAddAgent = async () => {
     if (!formData.name || !formData.email || !formData.contact_number || !formData.license_number) {
       alert('Please fill in all required fields');
       return;
     }
     
-    const newAgent: Agent = {
-      agent_id: Math.max(...agents.map(a => a.agent_id), 0) + 1,
-      name: formData.name,
-      email: formData.email,
-      contact_number: formData.contact_number,
-      license_number: formData.license_number,
-      status: formData.status || 'Active',
-    };
-    
-    setAgents([...agents, newAgent]);
-    setIsAddDialogOpen(false);
-    resetForm();
+    try {
+      setLoading(true);
+      const newAgent = await createAgent({
+        name: formData.name,
+        email: formData.email,
+        contact_number: formData.contact_number,
+        license_number: formData.license_number,
+        status: formData.status || 'Active',
+      });
+      
+      setAgents([...agents, newAgent]);
+      setIsAddDialogOpen(false);
+      resetForm();
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Failed to create agent');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleAddBroker = () => {
+  const handleAddBroker = async () => {
     if (!formData.name || !formData.email || !formData.contact_number || !formData.prc_license) {
       alert('Please fill in all required fields');
       return;
     }
     
-    const newBroker: Broker = {
-      broker_id: Math.max(...brokers.map(b => b.broker_id), 0) + 1,
-      name: formData.name,
-      email: formData.email,
-      contact_number: formData.contact_number,
-      prc_license: formData.prc_license,
-      status: formData.status || 'Active',
-    };
-    
-    setBrokers([...brokers, newBroker]);
-    setIsAddDialogOpen(false);
-    resetForm();
+    try {
+      setLoading(true);
+      const newBroker = await createBroker({
+        name: formData.name,
+        email: formData.email,
+        contact_number: formData.contact_number,
+        prc_license: formData.prc_license,
+        status: formData.status || 'Active',
+      });
+      
+      setBrokers([...brokers, newBroker]);
+      setIsAddDialogOpen(false);
+      resetForm();
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Failed to create broker');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleAddStaff = () => {
@@ -184,48 +256,64 @@ export default function AdminAgents() {
     resetForm();
   };
 
-  const handleEditAgent = () => {
+  const handleEditAgent = async () => {
     if (!formData.name || !formData.email || !formData.contact_number || !formData.license_number) {
       alert('Please fill in all required fields');
       return;
     }
     
-    const updatedAgent: Agent = {
-      agent_id: selectedAgent!.agent_id,
-      name: formData.name,
-      email: formData.email,
-      contact_number: formData.contact_number,
-      license_number: formData.license_number,
-      status: formData.status || 'Active',
-    };
-    
-    setAgents(agents.map(a => 
-      a.agent_id === selectedAgent!.agent_id ? updatedAgent : a
-    ));
-    setIsEditDialogOpen(false);
-    resetForm();
+    if (!selectedAgent) return;
+
+    try {
+      setLoading(true);
+      const updatedAgent = await updateAgent(selectedAgent.agent_id, {
+        name: formData.name,
+        email: formData.email,
+        contact_number: formData.contact_number,
+        license_number: formData.license_number,
+        status: formData.status || 'Active',
+      });
+      
+      setAgents(agents.map(a => 
+        a.agent_id === selectedAgent.agent_id ? updatedAgent : a
+      ));
+      setIsEditDialogOpen(false);
+      resetForm();
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Failed to update agent');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleEditBroker = () => {
+  const handleEditBroker = async () => {
     if (!formData.name || !formData.email || !formData.contact_number || !formData.prc_license) {
       alert('Please fill in all required fields');
       return;
     }
     
-    const updatedBroker: Broker = {
-      broker_id: selectedBroker!.broker_id,
-      name: formData.name,
-      email: formData.email,
-      contact_number: formData.contact_number,
-      prc_license: formData.prc_license,
-      status: formData.status || 'Active',
-    };
-    
-    setBrokers(brokers.map(b => 
-      b.broker_id === selectedBroker!.broker_id ? updatedBroker : b
-    ));
-    setIsEditDialogOpen(false);
-    resetForm();
+    if (!selectedBroker) return;
+
+    try {
+      setLoading(true);
+      const updatedBroker = await updateBroker(selectedBroker.broker_id, {
+        name: formData.name,
+        email: formData.email,
+        contact_number: formData.contact_number,
+        prc_license: formData.prc_license,
+        status: formData.status || 'Active',
+      });
+      
+      setBrokers(brokers.map(b => 
+        b.broker_id === selectedBroker.broker_id ? updatedBroker : b
+      ));
+      setIsEditDialogOpen(false);
+      resetForm();
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Failed to update broker');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleEditStaff = () => {
@@ -251,18 +339,29 @@ export default function AdminAgents() {
     resetForm();
   };
 
-  const handleDelete = () => {
-    if (activeTab === 'agents' && selectedAgent) {
-      setAgents(agents.filter(a => a.agent_id !== selectedAgent.agent_id));
-    } else if (activeTab === 'brokers' && selectedBroker) {
-      setBrokers(brokers.filter(b => b.broker_id !== selectedBroker.broker_id));
-    } else if (activeTab === 'staff' && selectedStaff) {
-      setStaff(staff.filter(s => s.staff_id !== selectedStaff.staff_id));
+  const handleDelete = async () => {
+    try {
+      setLoading(true);
+      
+      if (activeTab === 'agents' && selectedAgent) {
+        await deleteAgent(selectedAgent.agent_id);
+        setAgents(agents.filter(a => a.agent_id !== selectedAgent.agent_id));
+      } else if (activeTab === 'brokers' && selectedBroker) {
+        await deleteBroker(selectedBroker.broker_id);
+        setBrokers(brokers.filter(b => b.broker_id !== selectedBroker.broker_id));
+      } else if (activeTab === 'staff' && selectedStaff) {
+        setStaff(staff.filter(s => s.staff_id !== selectedStaff.staff_id));
+      }
+      
+      setIsDeleteDialogOpen(false);
+      setSelectedAgent(null);
+      setSelectedBroker(null);
+      setSelectedStaff(null);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Failed to delete');
+    } finally {
+      setLoading(false);
     }
-    setIsDeleteDialogOpen(false);
-    setSelectedAgent(null);
-    setSelectedBroker(null);
-    setSelectedStaff(null);
   };
 
   const handleAddByType = () => {
@@ -425,10 +524,12 @@ export default function AdminAgents() {
 
         {/* Table */}
         <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-          {activeTab === 'staff' && loading && (
-            <div className="px-6 py-3 text-sm text-gray-500 border-b border-gray-200">Loading staff records...</div>
+          {loading && (
+            <div className="px-6 py-3 text-sm text-gray-500 border-b border-gray-200">
+              Loading {activeTab === 'agents' ? 'agents' : activeTab === 'brokers' ? 'brokers' : 'staff'}...
+            </div>
           )}
-          {activeTab === 'staff' && loadError && (
+          {loadError && (
             <div className="px-6 py-3 text-sm text-red-600 border-b border-gray-200">{loadError}</div>
           )}
           <div className="overflow-x-auto">
