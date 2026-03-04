@@ -16,7 +16,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const checkSession = async () => {
       try {
-        const response = await fetch('/api/admin/session', {
+        const response = await fetch('/api/admin/auth?action=session', {
           method: 'GET',
           credentials: 'include',
         });
@@ -39,7 +39,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const login = async (email: string, password: string): Promise<void> => {
-    const response = await fetch('/api/admin/login', {
+    const response = await fetch('/api/admin/auth?action=login', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -57,7 +57,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = async () => {
-    await fetch('/api/admin/logout', {
+    await fetch('/api/admin/auth?action=logout', {
       method: 'POST',
       credentials: 'include',
     }).catch(() => null);
