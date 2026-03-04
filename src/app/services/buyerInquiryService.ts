@@ -24,7 +24,7 @@ export async function submitBuyerInquiry(
   payload: BuyerInquiryPayload
 ): Promise<{ success: boolean; message: string; data?: any; error?: string }> {
   try {
-    const response = await fetch('/api/public/buyer-inquiry', {
+    const response = await fetch('/api/public?resource=buyer-inquiry', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

@@ -1,5 +1,3 @@
-import { supabase } from '../../lib/SupabaseClient';
-
 export interface Project {
   project_id: number;
   project_code: string;
@@ -8,27 +6,6 @@ export interface Project {
   project_status: string;
   location_display?: string;
   property_count: number;
-}
-
-interface ProjectDbRow {
-  projectid: number;
-  projectcode: string;
-  projectname: string;
-  projectdescription: string | null;
-  projectstatus: string;
-  property?: Array<{
-    propertyid: number;
-    propertylocation:
-      | {
-          propertycity: string;
-          propertyprovince: string;
-        }
-      | {
-          propertycity: string;
-          propertyprovince: string;
-        }[]
-      | null;
-  }>;
 }
 
 export interface CreateProjectPayload {
@@ -42,94 +19,79 @@ export interface UpdateProjectPayload {
   projectdescription: string | null;
 }
 
-const PROJECT_SELECT = `
-  projectid,
-  projectcode,
-  projectname,
-  projectdescription,
-  projectstatus,
-  property!fk_property_project(
-    propertyid,
-    propertylocation!fk_propertylocation_property(propertycity, propertyprovince)
-  )
-`;
-
-const mapProjectRow = (row: ProjectDbRow): Project => {
-  const locations = (row.property ?? [])
-    .flatMap((property) => {
-      if (!property.propertylocation) return [];
-      return Array.isArray(property.propertylocation)
-        ? property.propertylocation
-        : [property.propertylocation];
-    })
-    .map((location) => `${location.propertycity}, ${location.propertyprovince}`)
-    .filter(Boolean);
-
-  const uniqueLocations = Array.from(new Set(locations));
-
-  return {
-    project_id: Number(row.projectid),
-    project_code: row.projectcode,
-    project_name: row.projectname,
-    project_description: row.projectdescription,
-    project_status: row.projectstatus,
-    location_display: uniqueLocations[0] ?? 'No linked property location',
-    property_count: row.property?.length ?? 0,
-  };
-};
-
 export const fetchProjects = async (): Promise<Project[]> => {
-  const { data, error } = await supabase
-    .from('project')
-    .select(PROJECT_SELECT)
-    .order('projectid', { ascending: true });
+  const response = await fetch('/api/admin/projects', {
+    method: 'GET',
+    credentials: 'include',
+  });
 
-  if (error) {
-    throw error;
+  const payload = (await response.json().catch(() => ({}))) as {
+    items?: Project[];
+    error?: string;
+  };
+
+  if (!response.ok) {
+    throw new Error(payload.error ?? 'Failed to load projects');
   }
 
-  return (data ?? []).map((row) => mapProjectRow(row as ProjectDbRow));
+  return payload.items ?? [];
 };
 
 export const createProject = async (payload: CreateProjectPayload): Promise<Project> => {
-  const { data, error } = await supabase
-    .from('project')
-    .insert([payload])
-    .select(PROJECT_SELECT)
-    .single();
+  const response = await fetch('/api/admin/projects', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+    body: JSON.stringify(payload),
+  });
 
-  if (error || !data) {
-    throw error ?? new Error('Failed to create project');
+  const data = (await response.json().catch(() => ({}))) as {
+    item?: Project;
+    error?: string;
+  };
+
+  if (!response.ok || !data.item) {
+    throw new Error(data.error ?? 'Failed to create project');
   }
 
-  return mapProjectRow(data as ProjectDbRow);
+  return data.item;
 };
 
 export const updateProject = async (
   projectId: number,
   payload: UpdateProjectPayload
 ): Promise<Project> => {
-  const { data, error } = await supabase
-    .from('project')
-    .update(payload)
-    .eq('projectid', projectId)
-    .select(PROJECT_SELECT)
-    .single();
+  const response = await fetch(`/api/admin/projects?id=${encodeURIComponent(String(projectId))}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+    body: JSON.stringify(payload),
+  });
 
-  if (error || !data) {
-    throw error ?? new Error('Failed to update project');
+  const data = (await response.json().catch(() => ({}))) as {
+    item?: Project;
+    error?: string;
+  };
+
+  if (!response.ok || !data.item) {
+    throw new Error(data.error ?? 'Failed to update project');
   }
 
-  return mapProjectRow(data as ProjectDbRow);
+  return data.item;
 };
 
 export const deleteProject = async (projectId: number): Promise<void> => {
-  const { error } = await supabase
-    .from('project')
-    .delete()
-    .eq('projectid', projectId);
+  const response = await fetch(`/api/admin/projects?id=${encodeURIComponent(String(projectId))}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  });
 
-  if (error) {
-    throw error;
+  if (!response.ok) {
+    const data = (await response.json().catch(() => ({}))) as { error?: string };
+    throw new Error(data.error ?? 'Failed to delete project');
   }
 };

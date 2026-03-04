@@ -402,7 +402,7 @@ const uploadPropertyPhotos = async (propertyId: number, photos: SellerDraftPhoto
 };
 
 export const submitSellerDraftProperty = async (formData: SellerDraftFormData): Promise<number> => {
-  const response = await fetch('/api/public/seller-draft', {
+  const response = await fetch('/api/public?resource=seller-draft', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

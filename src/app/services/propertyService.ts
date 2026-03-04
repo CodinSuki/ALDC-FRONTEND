@@ -52,7 +52,7 @@ export type MappedPropertyDetail = {
 };
 
 export const fetchProperties = async (): Promise<PublicPropertyListItem[]> => {
-  const response = await fetch('/api/public/properties', {
+  const response = await fetch('/api/public?resource=properties', {
     method: 'GET',
   });
 
@@ -69,7 +69,7 @@ export const fetchProperties = async (): Promise<PublicPropertyListItem[]> => {
 };
 
 export const fetchPropertyDetails = async (propertyId: number): Promise<MappedPropertyDetail> => {
-  const response = await fetch(`/api/public/properties?id=${encodeURIComponent(String(propertyId))}`, {
+  const response = await fetch(`/api/public?resource=properties&id=${encodeURIComponent(String(propertyId))}`, {
     method: 'GET',
   });
 

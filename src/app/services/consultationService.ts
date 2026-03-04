@@ -11,7 +11,7 @@ export interface ConsultationSubmissionPayload {
 export const submitConsultationRequest = async (
   payload: ConsultationSubmissionPayload
 ): Promise<{ consultationRequestId: number; clientId: number | null }> => {
-  const response = await fetch('/api/public/consultation', {
+  const response = await fetch('/api/public?resource=consultation', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
