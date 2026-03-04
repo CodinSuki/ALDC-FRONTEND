@@ -95,27 +95,27 @@ const apiRequest = async <T>(url: string, init?: RequestInit): Promise<T> => {
 };
 
 export const fetchSellerSubmissions = async (): Promise<SellerSubmissionRow[]> => {
-  return apiRequest<SellerSubmissionRow[]>('/api/admin/seller-submissions', {
+  return apiRequest<SellerSubmissionRow[]>('/api/admin/workflows', {
     method: 'GET',
   });
 };
 
 export const setSubmissionStatus = async (propertyId: number, code: SellerSubmissionStatusCode): Promise<void> => {
-  await apiRequest<{ success: boolean }>('/api/admin/seller-submissions', {
+  await apiRequest<{ success: boolean }>('/api/admin/workflows', {
     method: 'PATCH',
     body: JSON.stringify({ propertyId, code }),
   });
 };
 
 export const deleteSubmissionProperty = async (propertyId: number): Promise<void> => {
-  await apiRequest<{ success: boolean }>('/api/admin/seller-submissions', {
+  await apiRequest<{ success: boolean }>('/api/admin/workflows', {
     method: 'DELETE',
     body: JSON.stringify({ propertyId }),
   });
 };
 
 export const fetchSellerSubmissionDetail = async (propertyId: number): Promise<SellerSubmissionDetail> => {
-  return apiRequest<SellerSubmissionDetail>(`/api/admin/seller-submissions?propertyId=${propertyId}`, {
+  return apiRequest<SellerSubmissionDetail>(`/api/admin/workflows?propertyId=${propertyId}`, {
     method: 'GET',
   });
 };

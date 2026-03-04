@@ -9,7 +9,7 @@ export type StaffRow = {
 };
 
 export const fetchStaff = async (): Promise<StaffRow[]> => {
-  const response = await fetch('/api/admin/staff', {
+  const response = await fetch('/api/admin/management', {
     method: 'GET',
     credentials: 'include',
   });

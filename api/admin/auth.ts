@@ -199,20 +199,28 @@ export default async function handler(req: any, res: any) {
     // Look up staff by email
     const { data: staffData, error: staffError } = await supabaseAdmin
       .from('staff')
-      .select(
-        `
-        staffid,
-        emailaddress,
-        isactive,
-        staffrole!fk_staff_role(rolecode)
-      `
-      )
-      .eq('emailaddress', email)
+      .select('staffid, emailaddress, isactive, staffroleid')
+      .eq('emailaddress', email.toLowerCase())
       .single();
 
     if (staffError || !staffData) {
+      console.error('Staff lookup failed:', staffError?.message || 'No staff found');
       res.status(401).json({ error: 'Invalid credentials' });
       return;
+    }
+
+    // Fetch role separately if needed
+    let roleCode = 'STAFF';
+    if (staffData.staffroleid) {
+      const { data: roleData, error: roleError } = await supabaseAdmin
+        .from('staffrole')
+        .select('rolecode')
+        .eq('staffroleid', staffData.staffroleid)
+        .single();
+      
+      if (roleData?.rolecode) {
+        roleCode = roleData.rolecode;
+      }
     }
 
     // Check if staff member is active
@@ -293,9 +301,7 @@ export default async function handler(req: any, res: any) {
     });
 
     // Create session with staffId and role
-    const roleCode = (staffData.staffrole?.rolecode ||
-      'STAFF') as 'AGENT' | 'BROKER' | 'STAFF' | 'ADMIN';
-    const token = createAdminSessionToken(email, staffData.staffid, roleCode);
+    const token = createAdminSessionToken(email, staffData.staffid, roleCode as 'AGENT' | 'BROKER' | 'STAFF' | 'ADMIN');
     setAdminSessionCookie(res, token);
 
     res.status(200).json({
