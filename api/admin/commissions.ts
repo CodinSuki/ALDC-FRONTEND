@@ -165,6 +165,9 @@ const handleGenerateCommission = async (req: any, res: any) => {
 const handleRecordCommissionPayout = async (req: any, res: any) => {
   const payload = (typeof req.body === 'string' ? JSON.parse(req.body) : req.body) as RecordCommissionPayoutPayload;
 
+  const session = requireAdminSession(req, res);
+  if (!session) return;
+
   // Validate required fields
   if (!payload.commissionId || !payload.payoutAmount || !payload.payoutDate || !payload.payoutMethod) {
     res.status(400).json({ error: 'CommissionId, PayoutAmount, PayoutDate, and PayoutMethod are required' });
@@ -207,6 +210,17 @@ const handleRecordCommissionPayout = async (req: any, res: any) => {
     return;
   }
 
+  const { data: recorder, error: recorderError } = await supabaseAdmin
+    .from('staff')
+    .select('staffid')
+    .eq('emailaddress', session.email)
+    .single();
+
+  if (recorderError || !recorder) {
+    res.status(400).json({ error: 'No staff record found for current admin session email' });
+    return;
+  }
+
   // Create payout
   const { data: payout, error: payoutError } = await supabaseAdmin
     .from('commissionpayout')
@@ -215,8 +229,9 @@ const handleRecordCommissionPayout = async (req: any, res: any) => {
         commissionid: payload.commissionId,
         payoutamount: payload.payoutAmount,
         payoutdate: payload.payoutDate,
-        payoutmethod: payload.payoutMethod,
-        payoutnotes: payload.payoutNotes ?? null,
+        paymentmethod: payload.payoutMethod,
+        referenceno: payload.payoutNotes ?? null,
+        recordedby: recorder.staffid,
       },
     ])
     .select()
@@ -296,7 +311,13 @@ const handleFetchCommissionPayouts = async (req: any, res: any) => {
 
   if (error) throw error;
 
-  res.status(200).json({ payouts: payouts ?? [] });
+  const normalizedPayouts = (payouts ?? []).map((p: any) => ({
+    ...p,
+    payoutmethod: p.paymentmethod,
+    payoutnotes: p.referenceno,
+  }));
+
+  res.status(200).json({ payouts: normalizedPayouts });
 };
 
 /**
