@@ -3,8 +3,10 @@ import crypto from 'node:crypto';
 const ADMIN_COOKIE_NAME = 'aldc_admin_session';
 const SESSION_TTL_MS = 8 * 60 * 60 * 1000;
 
-type SessionPayload = {
+export type SessionPayload = {
   email: string;
+  staffId: number;
+  staffRole: 'AGENT' | 'BROKER' | 'STAFF' | 'ADMIN';
   exp: number;
 };
 
@@ -38,9 +40,15 @@ const timingSafeEqual = (a: string, b: string): boolean => {
   return crypto.timingSafeEqual(aBuffer, bBuffer);
 };
 
-export const createAdminSessionToken = (email: string): string => {
+export const createAdminSessionToken = (
+  email: string,
+  staffId: number,
+  staffRole: 'AGENT' | 'BROKER' | 'STAFF' | 'ADMIN'
+): string => {
   const payload: SessionPayload = {
     email,
+    staffId,
+    staffRole,
     exp: Date.now() + SESSION_TTL_MS,
   };
 
@@ -74,7 +82,7 @@ export const getAdminSessionFromRequest = (req: any): SessionPayload | null => {
     if (!timingSafeEqual(expectedSignature, signature)) return null;
 
     const payload = JSON.parse(fromBase64Url(payloadBase64Url)) as SessionPayload;
-    if (!payload?.email || !payload?.exp) return null;
+    if (!payload?.email || !payload?.staffId || !payload?.staffRole || !payload?.exp) return null;
     if (Date.now() >= payload.exp) return null;
 
     return payload;

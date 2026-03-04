@@ -27,6 +27,7 @@ import AdminReports from './pages/admin/Reports';
 import AdminSettings from './pages/admin/Settings';
 import AdminCommissions from './pages/admin/Commissions';
 import AdminSellerSubmissions from './pages/admin/SellerSubmissions';
+import AdminPasswordInitialization from './pages/admin/PasswordInitialization';
 
 
 
@@ -65,6 +66,7 @@ export default function App() {
           <Route path="/admin/reports" element={<ProtectedRoute><AdminReports /></ProtectedRoute>} />
           <Route path="/admin/settings" element={<ProtectedRoute><AdminSettings /></ProtectedRoute>} />
           <Route path="/admin/commissions" element={<ProtectedRoute><AdminCommissions /></ProtectedRoute>} />
+          <Route path="/admin/passwords" element={<ProtectedRoute><AdminPasswordInitialization /></ProtectedRoute>} />
         </Routes>
         <Chatbot />
       </AuthProvider>

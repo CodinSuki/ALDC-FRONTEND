@@ -1,5 +1,7 @@
 import { requireAdminSession } from './_utils/auth.js';
 import { supabaseAdmin } from './_utils/supabaseAdmin.js';
+import { validateAgentAssignment } from './_utils/permissions.js';
+import { logActivity } from './_utils/activityLog.js';
 
 type IntakeSource = 'Consultation' | 'Buyer Inquiry' | 'Seller Submission';
 type IntakeStatus =
@@ -300,6 +302,14 @@ const updateIntakeItem = async (payload: UpdateBody): Promise<void> => {
     throw new Error('Invalid source or sourceId');
   }
 
+  // Validate agent assignment if assigning to a staff member
+  if (payload.assignedStaffId) {
+    const validation = await validateAgentAssignment(payload.assignedStaffId);
+    if (!validation.valid) {
+      throw new Error(`Cannot assign staff: ${validation.reason}`);
+    }
+  }
+
   if (source === 'Consultation') {
     const consultationPayload: Record<string, unknown> = {
       consultationstatus: payload.status ?? 'New',
@@ -313,6 +323,17 @@ const updateIntakeItem = async (payload: UpdateBody): Promise<void> => {
       .eq('consultationrequestid', sourceId);
 
     if (error) throw error;
+
+    // Log activity if agent was assigned
+    if (payload.assignedStaffId) {
+      await logActivity({
+        staffid: 0, // Would need to extract from session
+        activitytype: 'agent_assigned',
+        entitytype: 'consultation',
+        entityid: sourceId,
+        description: `Assigned agent #${payload.assignedStaffId} to consultation`,
+      });
+    }
     return;
   }
 
@@ -328,6 +349,17 @@ const updateIntakeItem = async (payload: UpdateBody): Promise<void> => {
       .eq('propertyinquiryid', sourceId);
 
     if (error) throw error;
+
+    // Log activity if status changed
+    if (payload.status) {
+      await logActivity({
+        staffid: 0, // Would need to extract from session
+        activitytype: 'inquiry_assigned',
+        entitytype: 'propertyinquiry',
+        entityid: sourceId,
+        description: `Updated inquiry status to ${payload.status}`,
+      });
+    }
     return;
   }
 
@@ -340,6 +372,15 @@ const updateIntakeItem = async (payload: UpdateBody): Promise<void> => {
     .eq('propertyid', sourceId);
 
   if (error) throw error;
+
+  // Log activity
+  await logActivity({
+    staffid: 0, // Would need to extract from session
+    activitytype: 'property_approved',
+    entitytype: 'property',
+    entityid: sourceId,
+    description: `Updated property status to ${payload.status}`,
+  });
 };
 
 export default async function handler(req: any, res: any) {

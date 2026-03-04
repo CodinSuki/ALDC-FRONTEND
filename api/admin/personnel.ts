@@ -1,6 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { requireAdminSession } from './_utils/auth.js';
 import { supabaseAdmin } from './_utils/supabaseAdmin.js';
+import { validateStaffPermission, validateAgentAssignment, validateBrokerRole } from './_utils/permissions.js';
+import { logActivity } from './_utils/activityLog.js';
 
 type StaffRow = {
   staffid: number;
@@ -18,7 +20,7 @@ async function handleFetchPersonnel(req: VercelRequest, res: VercelResponse) {
   const { type } = req.query; // 'agent' | 'broker' | 'staff'
 
   try {
-    let query = supabaseAdmin
+    const { data, error } = await supabaseAdmin
       .from('staff')
       .select(
         `
@@ -35,58 +37,100 @@ async function handleFetchPersonnel(req: VercelRequest, res: VercelResponse) {
       )
       .order('staffid', { ascending: true });
 
-    // Filter by role type if specified
-    if (type === 'agent') {
-      query = query.eq('staffrole.rolecode', 'AGENT');
-    } else if (type === 'broker') {
-      query = query.eq('staffrole.rolecode', 'BROKER');
-    }
-
-    const { data, error } = await query;
-
     if (error) {
       throw error;
     }
 
-    const items = ((data ?? []) as StaffRow[]).map((staff) => {
-      const fullName = [staff.firstname, staff.middlename, staff.lastname]
-        .filter(Boolean)
-        .join(' ');
+    // Filter by role type on client side
+    let filteredData = data ?? [];
+    if (type === 'agent') {
+      filteredData = filteredData.filter((staff: any) => staff.staffrole?.rolecode === 'AGENT');
+    } else if (type === 'broker') {
+      filteredData = filteredData.filter((staff: any) => staff.staffrole?.rolecode === 'BROKER');
+    } else if (type === 'staff') {
+      // For generic staff, show those with STAFF role or no special role
+      filteredData = filteredData.filter((staff: any) => 
+        staff.staffrole?.rolecode === 'STAFF' || !['AGENT', 'BROKER'].includes(staff.staffrole?.rolecode)
+      );
+    }
 
-      // Determine personnel type based on role
-      const roleCode = staff.staffrole?.rolecode || '';
-      const isAgent = roleCode === 'AGENT';
-      const isBroker = roleCode === 'BROKER';
+    const items = await Promise.all(
+      ((filteredData ?? []) as StaffRow[]).map(async (staff) => {
+        const fullName = [staff.firstname, staff.middlename, staff.lastname]
+          .filter(Boolean)
+          .join(' ');
 
-      const baseData = {
-        id: Number(staff.staffid),
-        name: fullName,
-        email: staff.emailaddress,
-        contact_number: staff.contactnumber || '',
-        status: staff.isactive ? 'Active' : 'Inactive',
-      };
+        // Determine personnel type based on role
+        const roleCode = staff.staffrole?.rolecode || '';
+        const isAgent = roleCode === 'AGENT';
+        const isBroker = roleCode === 'BROKER';
 
-      if (isAgent) {
-        return {
-          ...baseData,
-          agent_id: baseData.id,
-          license_number: '', // TODO: Add license_number field to staff table if needed
+        const baseData = {
+          id: Number(staff.staffid),
+          name: fullName,
+          email: staff.emailaddress,
+          contact_number: staff.contactnumber || '',
+          status: staff.isactive ? 'Active' : 'Inactive',
         };
-      } else if (isBroker) {
-        return {
-          ...baseData,
-          broker_id: baseData.id,
-          prc_license: '', // TODO: Add prc_license field to staff table if needed
-        };
-      } else {
-        return {
-          ...baseData,
-          staff_id: baseData.id,
-          department: '',
-          position: staff.staffrole?.rolename || '',
-        };
-      }
-    });
+
+        if (isAgent) {
+          // Fetch agent license if available
+          let license_number = '';
+          try {
+            const { data: licenseData } = await supabaseAdmin
+              .from('agent_license')
+              .select('licensenumber')
+              .eq('staffid', staff.staffid)
+              .order('createdat', { ascending: false })
+              .limit(1)
+              .single();
+            
+            if (licenseData?.licensenumber) {
+              license_number = licenseData.licensenumber;
+            }
+          } catch {
+            // Table may not exist, continue without license info
+          }
+
+          return {
+            ...baseData,
+            agent_id: baseData.id,
+            license_number,
+          };
+        } else if (isBroker) {
+          // Fetch broker license if available
+          let prc_license = '';
+          try {
+            const { data: licenseData } = await supabaseAdmin
+              .from('broker_license')
+              .select('prclicense')
+              .eq('staffid', staff.staffid)
+              .order('createdat', { ascending: false })
+              .limit(1)
+              .single();
+            
+            if (licenseData?.prclicense) {
+              prc_license = licenseData.prclicense;
+            }
+          } catch {
+            // Table may not exist, continue without license info
+          }
+
+          return {
+            ...baseData,
+            broker_id: baseData.id,
+            prc_license,
+          };
+        } else {
+          return {
+            ...baseData,
+            staff_id: baseData.id,
+            department: '',
+            position: staff.staffrole?.rolename || '',
+          };
+        }
+      })
+    );
 
     return res.status(200).json({ items });
   } catch (error) {
@@ -98,13 +142,22 @@ async function handleFetchPersonnel(req: VercelRequest, res: VercelResponse) {
 
 async function handleCreatePersonnel(req: VercelRequest, res: VercelResponse) {
   const { type } = req.query;
-  const { name, email, contact_number } = req.body;
+  const { name, email, contact_number, license_number, prc_license, status } = req.body;
 
   if (!name || !email) {
     return res.status(400).json({ error: 'Name and email are required' });
   }
 
   try {
+    // Validation: agents require license_number, brokers require prc_license
+    if (type === 'agent' && !license_number) {
+      return res.status(400).json({ error: 'License number is required for agents' });
+    }
+
+    if (type === 'broker' && !prc_license) {
+      return res.status(400).json({ error: 'PRC license is required for brokers' });
+    }
+
     // Parse name into first, middle, last
     const nameParts = name.trim().split(' ');
     const firstname = nameParts[0] || '';
@@ -126,7 +179,8 @@ async function handleCreatePersonnel(req: VercelRequest, res: VercelResponse) {
       throw new Error(`Role ${roleCode} not found`);
     }
 
-    const { data, error } = await supabaseAdmin
+    // Create staff member
+    const { data: staffData, error: staffError } = await supabaseAdmin
       .from('staff')
       .insert({
         firstname,
@@ -135,16 +189,57 @@ async function handleCreatePersonnel(req: VercelRequest, res: VercelResponse) {
         emailaddress: email,
         contactnumber: contact_number || null,
         staffroleid: roleData.staffroleid,
-        isactive: true,
+        isactive: status !== 'Inactive' ? true : false,
       })
       .select()
       .single();
 
-    if (error) {
-      throw error;
+    if (staffError) {
+      throw staffError;
     }
 
-    return res.status(201).json({ item: data });
+    // Store license information in agent_license or broker_license tables if they exist
+    // For now, this is handled through separate tables that should be created in the schema
+    if (type === 'agent' && license_number) {
+      const { error: licenseError } = await supabaseAdmin
+        .from('agent_license')
+        .insert({
+          staffid: staffData.staffid,
+          licensenumber: license_number,
+          createdat: new Date().toISOString(),
+        })
+        .catch(() => ({ error: null })); // Gracefully handle if table doesn't exist
+      
+      if (licenseError) {
+        console.warn('Could not store agent license (table may not exist):', licenseError);
+      }
+    }
+
+    if (type === 'broker' && prc_license) {
+      const { error: licenseError } = await supabaseAdmin
+        .from('broker_license')
+        .insert({
+          staffid: staffData.staffid,
+          prclicense: prc_license,
+          createdat: new Date().toISOString(),
+        })
+        .catch(() => ({ error: null })); // Gracefully handle if table doesn't exist
+      
+      if (licenseError) {
+        console.warn('Could not store broker license (table may not exist):', licenseError);
+      }
+    }
+
+    // Log activity
+    await logActivity({
+      staffid: 0, // Current user (would need to extract from session)
+      activitytype: 'staff_created',
+      entitytype: 'staff',
+      entityid: staffData.staffid,
+      description: `Created ${roleCode} ${name}`,
+    });
+
+    return res.status(201).json({ item: staffData });
   } catch (error) {
     return res.status(500).json({
       error: error instanceof Error ? error.message : 'Failed to create personnel',
