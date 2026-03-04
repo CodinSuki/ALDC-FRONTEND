@@ -1,5 +1,5 @@
-import { supabaseAdmin } from './_utils/supabaseAdmin';
-import { requireAdminSession } from './_utils/auth';
+import { supabaseAdmin } from './_utils/supabaseAdmin.js';
+import { requireAdminSession } from './_utils/auth.js';
 
 type GenerateCommissionPayload = {
   transactionId: number;
@@ -462,7 +462,8 @@ const handleReportRoute = async (req: any, res: any) => {
 export default async function handler(req: any, res: any) {
   try {
     // Require admin session for all operations
-    await requireAdminSession(req, res);
+    const session = requireAdminSession(req, res);
+    if (!session) return;
 
     // Route based on subpath
     const resource = req.query?.resource;

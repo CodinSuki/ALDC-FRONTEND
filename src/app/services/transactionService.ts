@@ -83,12 +83,12 @@ export const fetchTransactions = async (filters?: {
   buyerClientId?: number;
   status?: TransactionStatus;
 }): Promise<Transaction[]> => {
-  const params = new URLSearchParams();
+  const params = new URLSearchParams({ resource: 'transaction' });
   if (filters?.propertyId) params.append('propertyId', String(filters.propertyId));
   if (filters?.buyerClientId) params.append('buyerClientId', String(filters.buyerClientId));
   if (filters?.status) params.append('status', filters.status);
 
-  const response = await fetch(`/api/admin/sales?resource=transaction&${params}`, {
+  const response = await fetch(`/api/admin/sales?${params}`, {
     method: 'GET',
     credentials: 'include',
   });

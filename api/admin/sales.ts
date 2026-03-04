@@ -1,5 +1,5 @@
-import { supabaseAdmin } from './_utils/supabaseAdmin';
-import { requireAdminSession } from './_utils/auth';
+import { supabaseAdmin } from './_utils/supabaseAdmin.js';
+import { requireAdminSession } from './_utils/auth.js';
 
 // ============================================
 // TRANSACTION HANDLERS
@@ -441,7 +441,8 @@ const handleFetchPaymentSummary = async (query: any) => {
 
 export default async function handler(req: any, res: any) {
   try {
-    await requireAdminSession(req, res);
+    const session = requireAdminSession(req, res);
+    if (!session) return;
 
     const { resource, action } = req.query ?? {};
 
