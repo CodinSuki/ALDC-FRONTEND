@@ -1,5 +1,10 @@
 {
   "framework": "vite",
+  "functions": {
+    "api/**/*.ts": {
+      "runtime": "@vercel/node@5.6.10"
+    }
+  },
   "routes": [
     {
       "handle": "filesystem"
