@@ -9,7 +9,8 @@ type StaffRow = {
   emailaddress: string | null;
   contactnumber: string | null;
   isactive: boolean | null;
-  staffrole?: Array<{ rolename: string | null }> | null;
+  staffroleid: number | null;
+  staffrole?: { rolename: string | null } | null;
 };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -31,7 +32,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           lastname,
           emailaddress,
           contactnumber,
-          staffrole!fk_staff_role(rolename),
+          staffroleid,
+          staffrole:fk_staff_role(rolename),
           isactive
         `
       )
@@ -47,7 +49,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       email: staff.emailaddress ?? '',
       contact_number: staff.contactnumber ?? '',
       department: '',
-      position: staff.staffrole?.[0]?.rolename ?? '',
+      position: staff.staffrole?.rolename ?? 'Unassigned',
       status: staff.isactive ? 'Active' : 'Inactive',
     }));
 

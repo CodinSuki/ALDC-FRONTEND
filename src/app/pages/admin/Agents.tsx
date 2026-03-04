@@ -549,7 +549,7 @@ export default function AdminAgents() {
                     Contact Number
                   </th>
                   <th className="px-6 py-3 text-left text-xs text-gray-600 uppercase tracking-wider">
-                    {activeTab === 'agents' ? 'License Number' : activeTab === 'brokers' ? 'PRC License' : 'Department / Position'}
+                    {activeTab === 'agents' ? 'License Number' : activeTab === 'brokers' ? 'PRC License' : 'Position'}
                   </th>
                   <th className="px-6 py-3 text-left text-xs text-gray-600 uppercase tracking-wider">
                     Status
@@ -658,7 +658,7 @@ export default function AdminAgents() {
                         {member.contact_number}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {member.department} / {member.position}
+                        {member.position}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`inline-flex px-2 py-1 text-xs rounded-full ${
@@ -761,19 +761,7 @@ export default function AdminAgents() {
             </div>
 
             {activeTab === 'staff' ? (
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm text-gray-700 mb-1">
-                    Department <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.department}
-                    onChange={(e) => handleFormChange('department', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  />
-                </div>
-
+              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm text-gray-700 mb-1">
                     Position <span className="text-red-500">*</span>
