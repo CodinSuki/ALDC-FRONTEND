@@ -1,42 +1,7 @@
 import { useEffect, useState } from 'react';
 import AdminLayout from '../../components/AdminLayout';
 import { Search, Eye } from 'lucide-react';
-import { supabase } from '@/lib/SupabaseClient';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/app/components/ui/dialog';
-
-type ClientRow = {
-  clientid: number;
-  firstname: string;
-  middlename: string | null;
-  lastname: string;
-  emailaddress: string;
-  contactnumber: string;
-  additionalemailaddress: string | null;
-  additionalcontactnumber: string | null;
-  created_at: string;
-};
-
-type SellerProfileRow = {
-  clientid: number;
-};
-
-type ConsultationRow = {
-  consultationrequestid: number;
-  clientid: number | null;
-  createdat: string | null;
-};
-
-type PropertyInquiryRow = {
-  propertyinquiryid: number;
-  clientid: number | null;
-  createdat: string | null;
-};
-
-type PropertyRow = {
-  propertyid: number;
-  sellerclientid: number | null;
-  createdat: string | null;
-};
 
 type ClientItem = {
   id: string;
@@ -69,12 +34,6 @@ const formatDate = (value?: string | null) => {
   return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
 };
 
-const toTimestamp = (value?: string | null) => {
-  if (!value) return 0;
-  const time = new Date(value).getTime();
-  return Number.isNaN(time) ? 0 : time;
-};
-
 export default function AdminClients() {
   const [clients, setClients] = useState<ClientItem[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -90,96 +49,23 @@ export default function AdminClients() {
       setLoadError(null);
 
       try {
-        const [clientsRes, sellerRes, consultationRes, inquiryRes, propertyRes] = await Promise.all([
-          supabase
-            .from('client')
-            .select('clientid, firstname, middlename, lastname, emailaddress, contactnumber, additionalemailaddress, additionalcontactnumber, created_at')
-            .order('clientid', { ascending: false }),
-          supabase.from('sellerprofile').select('clientid'),
-          supabase.from('consultationrequest').select('consultationrequestid, clientid, createdat'),
-          supabase.from('propertyinquiry').select('propertyinquiryid, clientid, createdat'),
-          supabase.from('property').select('propertyid, sellerclientid, createdat'),
-        ]);
-
-        const errors: string[] = [];
-        if (clientsRes.error) errors.push(`Clients: ${clientsRes.error.message}`);
-        if (sellerRes.error) errors.push(`Seller Profile: ${sellerRes.error.message}`);
-        if (consultationRes.error) errors.push(`Consultation: ${consultationRes.error.message}`);
-        if (inquiryRes.error) errors.push(`Property Inquiry: ${inquiryRes.error.message}`);
-        if (propertyRes.error) errors.push(`Property: ${propertyRes.error.message}`);
-
-        const sellerSet = new Set<number>(
-          ((sellerRes.data ?? []) as SellerProfileRow[])
-            .map((row) => Number(row.clientid))
-            .filter((value) => Number.isFinite(value))
-        );
-
-        const consultationByClient = new Map<number, ConsultationRow[]>();
-        ((consultationRes.data ?? []) as ConsultationRow[]).forEach((row) => {
-          if (row.clientid == null) return;
-          const clientId = Number(row.clientid);
-          const list = consultationByClient.get(clientId) ?? [];
-          list.push(row);
-          consultationByClient.set(clientId, list);
+        const response = await fetch('/api/admin/clients', {
+          method: 'GET',
+          credentials: 'include',
         });
 
-        const inquiryByClient = new Map<number, PropertyInquiryRow[]>();
-        ((inquiryRes.data ?? []) as PropertyInquiryRow[]).forEach((row) => {
-          if (row.clientid == null) return;
-          const clientId = Number(row.clientid);
-          const list = inquiryByClient.get(clientId) ?? [];
-          list.push(row);
-          inquiryByClient.set(clientId, list);
-        });
+        const payload = (await response.json().catch(() => ({}))) as {
+          items?: ClientItem[];
+          error?: string;
+        };
 
-        const propertyBySeller = new Map<number, PropertyRow[]>();
-        ((propertyRes.data ?? []) as PropertyRow[]).forEach((row) => {
-          if (row.sellerclientid == null) return;
-          const clientId = Number(row.sellerclientid);
-          const list = propertyBySeller.get(clientId) ?? [];
-          list.push(row);
-          propertyBySeller.set(clientId, list);
-        });
-
-        const mappedClients: ClientItem[] = ((clientsRes.data ?? []) as ClientRow[]).map((row) => {
-          const clientId = Number(row.clientid);
-          const consultations = consultationByClient.get(clientId) ?? [];
-          const inquiries = inquiryByClient.get(clientId) ?? [];
-          const properties = propertyBySeller.get(clientId) ?? [];
-
-          const activityTimes = [
-            ...consultations.map((entry) => toTimestamp(entry.createdat)),
-            ...inquiries.map((entry) => toTimestamp(entry.createdat)),
-            ...properties.map((entry) => toTimestamp(entry.createdat)),
-          ].filter((time) => time > 0);
-
-          const lastActivity = activityTimes.length > 0 ? new Date(Math.max(...activityTimes)).toISOString() : null;
-
-          return {
-            id: String(clientId),
-            clientId,
-            fullName: [row.firstname, row.middlename, row.lastname].filter(Boolean).join(' ').trim() || `Client #${clientId}`,
-            contact: pick(row.contactnumber) || 'N/A',
-            additionalContact: pick(row.additionalcontactnumber) || 'N/A',
-            email: pick(row.emailaddress) || 'N/A',
-            additionalEmail: pick(row.additionalemailaddress) || 'N/A',
-            isSeller: sellerSet.has(clientId),
-            consultationCount: consultations.length,
-            inquiryCount: inquiries.length,
-            propertyCount: properties.length,
-            totalActivity: consultations.length + inquiries.length + properties.length,
-            createdAt: row.created_at,
-            lastActivityAt: lastActivity,
-          };
-        });
-
-        setClients(mappedClients);
-
-        if (errors.length > 0) {
-          setLoadError(errors.join(' | '));
+        if (!response.ok) {
+          throw new Error(payload.error ?? 'Failed to load clients');
         }
-      } catch (error: any) {
-        setLoadError(error?.message || 'Failed to load clients');
+
+        setClients(payload.items ?? []);
+      } catch (error: unknown) {
+        setLoadError(error instanceof Error ? error.message : 'Failed to load clients');
       } finally {
         setLoading(false);
       }

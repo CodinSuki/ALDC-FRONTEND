@@ -5,3 +5,10 @@ dist
 .env.local
 .vercel
 .env*.local
+.env
+.env.*
+!.env.example
+*.log
+coverage/
+*.tsbuildinfo
+.vscode/
