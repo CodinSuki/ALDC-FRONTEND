@@ -37,15 +37,23 @@ const invalidServiceRoleKeyMessage =
       ? 'SUPABASE_SERVICE_ROLE_KEY is not a valid JWT service-role key.'
       : null;
 
-const client =
-  supabaseUrl && serviceRoleKey && !invalidServiceRoleKeyMessage
-    ? createClient(supabaseUrl, serviceRoleKey, {
-        auth: {
-          persistSession: false,
-          autoRefreshToken: false,
-        },
-      })
-    : null;
+let client: any = null;
+let clientInitErrorMessage: string | null = null;
+
+if (supabaseUrl && serviceRoleKey && !invalidServiceRoleKeyMessage) {
+  try {
+    client = createClient(supabaseUrl, serviceRoleKey, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+      },
+    });
+  } catch (error: any) {
+    client = null;
+    clientInitErrorMessage = error?.message ?? 'Failed to initialize Supabase admin client.';
+    console.error('Supabase admin client initialization failed:', error);
+  }
+}
 
 if (!client && !invalidServiceRoleKeyMessage) {
   console.warn(missingConfigMessage);
@@ -54,6 +62,9 @@ if (!client && !invalidServiceRoleKeyMessage) {
 export const supabaseAdmin: any = new Proxy((client ?? {}) as any, {
   get(target, prop, receiver) {
     if (!client) {
+      if (clientInitErrorMessage) {
+        throw new Error(`Supabase admin client initialization failed: ${clientInitErrorMessage}`);
+      }
       if (invalidServiceRoleKeyMessage) {
         throw new Error(invalidServiceRoleKeyMessage);
       }
