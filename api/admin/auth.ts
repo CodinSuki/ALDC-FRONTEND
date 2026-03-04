@@ -3,9 +3,9 @@ import {
   createAdminSessionToken,
   getAdminSessionFromRequest,
   setAdminSessionCookie,
-} from './_utils/auth.js';
-import { supabaseAdmin } from './_utils/supabaseAdmin.js';
-import { verifyPassword, hashPassword } from './_utils/password.js';
+} from '../../lib/admin/utils/auth.js';
+import { supabaseAdmin } from '../../lib/admin/utils/supabaseAdmin.js';
+import { verifyPassword, hashPassword } from '../../lib/admin/utils/password.js';
 
 const parseBody = (req: any): Record<string, unknown> => {
   if (!req.body) return {};
@@ -137,7 +137,7 @@ export default async function handler(req: any, res: any) {
       }
 
       // Log the password initialization activity
-      const { logActivity } = await import('./_utils/activityLog.js');
+      const { logActivity } = await import('../../lib/admin/utils/activityLog.js');
       await logActivity({
         staffid: session.staffId,
         activitytype: 'staff_login', // Reusing login activity type for now
@@ -299,7 +299,7 @@ export default async function handler(req: any, res: any) {
       .eq('staffid', staffData.staffid);
 
     // Log login activity
-    const { logActivity } = await import('./_utils/activityLog.js');
+    const { logActivity } = await import('../../lib/admin/utils/activityLog.js');
     await logActivity({
       staffid: staffData.staffid,
       activitytype: 'staff_login',

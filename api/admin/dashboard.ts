@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { requireAdminSession } from './_utils/auth.js';
-import { supabaseAdmin } from './_utils/supabaseAdmin.js';
+import { requireAdminSession } from '../../lib/admin/utils/auth.js';
+import { supabaseAdmin } from '../../lib/admin/utils/supabaseAdmin.js';
 
 type DashboardStat = {
   totalProjects: number;

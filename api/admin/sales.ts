@@ -1,6 +1,6 @@
-import { requireAdminSession } from './_utils/auth.js';
-import { supabaseAdmin } from './_utils/supabaseAdmin.js';
-import { logActivity } from './_utils/activityLog.js';
+import { requireAdminSession } from '../../lib/admin/utils/auth.js';
+import { supabaseAdmin } from '../../lib/admin/utils/supabaseAdmin.js';
+import { logActivity } from '../../lib/admin/utils/activityLog.js';
 
 /**
  * Sales endpoint - handles transactions, payments, and payment schedules

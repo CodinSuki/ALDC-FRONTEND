@@ -1,8 +1,8 @@
-import { requireAdminSession } from './_utils/auth.js';
-import { supabaseAdmin } from './_utils/supabaseAdmin.js';
-import { validateAgentAssignment } from './_utils/permissions.js';
-import { logActivity } from './_utils/activityLog.js';
-import { validateRequiredDocuments } from './_utils/documentCompliance.js';
+import { requireAdminSession } from '../../lib/admin/utils/auth.js';
+import { supabaseAdmin } from '../../lib/admin/utils/supabaseAdmin.js';
+import { validateAgentAssignment } from '../../lib/admin/utils/permissions.js';
+import { logActivity } from '../../lib/admin/utils/activityLog.js';
+import { validateRequiredDocuments } from '../../lib/admin/utils/documentCompliance.js';
 
 /**
  * Consolidated workflows endpoint - handles inquiries, seller submissions, and sales

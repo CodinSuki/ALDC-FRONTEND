@@ -1,13 +1,13 @@
-import { requireAdminSession } from './_utils/auth.js';
-import { logActivity } from './_utils/activityLog.js';
+import { requireAdminSession } from '../../lib/admin/utils/auth.js';
+import { logActivity } from '../../lib/admin/utils/activityLog.js';
 import {
   getPropertyDocumentMeta,
   validateRequiredDocuments,
   validateTransactionDocuments,
   type DocumentVerificationStatus,
-} from './_utils/documentCompliance.js';
-import { validateStaffPermission, validateStaffRole } from './_utils/permissions.js';
-import { supabaseAdmin } from './_utils/supabaseAdmin.js';
+} from '../../lib/admin/utils/documentCompliance.js';
+import { validateStaffPermission, validateStaffRole } from '../../lib/admin/utils/permissions.js';
+import { supabaseAdmin } from '../../lib/admin/utils/supabaseAdmin.js';
 
 type BodyPayload = Record<string, unknown>;
 

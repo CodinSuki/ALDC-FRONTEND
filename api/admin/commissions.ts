@@ -1,5 +1,5 @@
-import { supabaseAdmin } from './_utils/supabaseAdmin.js';
-import { requireAdminSession } from './_utils/auth.js';
+import { supabaseAdmin } from '../../lib/admin/utils/supabaseAdmin.js';
+import { requireAdminSession } from '../../lib/admin/utils/auth.js';
 
 type GenerateCommissionPayload = {
   transactionId: number;
