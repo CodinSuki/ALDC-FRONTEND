@@ -109,10 +109,34 @@ export const clearAdminSessionCookie = (res: any): void => {
 };
 
 export const requireAdminSession = (req: any, res: any): SessionPayload | null => {
-  const session = getAdminSessionFromRequest(req);
-  if (!session) {
-    res.status(401).json({ error: 'Unauthorized' });
+  try {
+    const session = getAdminSessionFromRequest(req);
+    if (!session) {
+      // Provide diagnostic information
+      const cookies = parseCookieHeader(req.headers?.cookie);
+      const hasSessionCookie = 'aldc_admin_session' in cookies;
+      
+      console.warn('[Auth] Unauthorized request:', {
+        hasSessionCookie,
+        cookieCount: Object.keys(cookies).length,
+        method: req.method,
+        path: req.url,
+        timestamp: new Date().toISOString(),
+      });
+      
+      res.status(401).json({ 
+        error: 'Unauthorized. Please log in to access the admin panel.',
+        details: hasSessionCookie ? 'Session cookie exists but is invalid or expired' : 'No session cookie found'
+      });
+      return null;
+    }
+    return session;
+  } catch (error) {
+    console.error('[Auth] Session validation error:', error);
+    res.status(500).json({ 
+      error: 'Session validation failed',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
     return null;
   }
-  return session;
 };

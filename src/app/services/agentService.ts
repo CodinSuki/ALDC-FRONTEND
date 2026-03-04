@@ -17,7 +17,7 @@ export type Broker = {
 };
 
 export const fetchAgents = async (): Promise<Agent[]> => {
-  const response = await fetch('/api/admin/personnel?type=agent', {
+  const response = await fetch('/api/admin/management?resource=agents', {
     method: 'GET',
     credentials: 'include',
   });
@@ -35,7 +35,7 @@ export const fetchAgents = async (): Promise<Agent[]> => {
 };
 
 export const fetchBrokers = async (): Promise<Broker[]> => {
-  const response = await fetch('/api/admin/personnel?type=broker', {
+  const response = await fetch('/api/admin/management?resource=brokers', {
     method: 'GET',
     credentials: 'include',
   });
@@ -53,13 +53,13 @@ export const fetchBrokers = async (): Promise<Broker[]> => {
 };
 
 export const createAgent = async (agentData: Omit<Agent, 'agent_id'>): Promise<Agent> => {
-  const response = await fetch('/api/admin/personnel?type=agent', {
+  const response = await fetch('/api/admin/management?resource=agents', {
     method: 'POST',
     credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify(agentData),
+    body: JSON.stringify({ ...agentData, type: 'agent' }),
   });
 
   const payload = (await response.json().catch(() => ({}))) as {
@@ -79,13 +79,13 @@ export const createAgent = async (agentData: Omit<Agent, 'agent_id'>): Promise<A
 };
 
 export const createBroker = async (brokerData: Omit<Broker, 'broker_id'>): Promise<Broker> => {
-  const response = await fetch('/api/admin/personnel?type=broker', {
+  const response = await fetch('/api/admin/management?resource=brokers', {
     method: 'POST',
     credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify(brokerData),
+    body: JSON.stringify({ ...brokerData, type: 'broker' }),
   });
 
   const payload = (await response.json().catch(() => ({}))) as {
@@ -105,7 +105,7 @@ export const createBroker = async (brokerData: Omit<Broker, 'broker_id'>): Promi
 };
 
 export const updateAgent = async (agentId: number, agentData: Partial<Agent>): Promise<Agent> => {
-  const response = await fetch(`/api/admin/personnel?type=agent&id=${agentId}`, {
+  const response = await fetch(`/api/admin/management?resource=agents&id=${agentId}`, {
     method: 'PATCH',
     credentials: 'include',
     headers: {
@@ -131,7 +131,7 @@ export const updateAgent = async (agentId: number, agentData: Partial<Agent>): P
 };
 
 export const updateBroker = async (brokerId: number, brokerData: Partial<Broker>): Promise<Broker> => {
-  const response = await fetch(`/api/admin/personnel?type=broker&id=${brokerId}`, {
+  const response = await fetch(`/api/admin/management?resource=brokers&id=${brokerId}`, {
     method: 'PATCH',
     credentials: 'include',
     headers: {
@@ -157,7 +157,7 @@ export const updateBroker = async (brokerId: number, brokerData: Partial<Broker>
 };
 
 export const deleteAgent = async (agentId: number): Promise<void> => {
-  const response = await fetch(`/api/admin/personnel?type=agent&id=${agentId}`, {
+  const response = await fetch(`/api/admin/management?resource=agents&id=${agentId}`, {
     method: 'DELETE',
     credentials: 'include',
   });
@@ -173,7 +173,7 @@ export const deleteAgent = async (agentId: number): Promise<void> => {
 };
 
 export const deleteBroker = async (brokerId: number): Promise<void> => {
-  const response = await fetch(`/api/admin/personnel?type=broker&id=${brokerId}`, {
+  const response = await fetch(`/api/admin/management?resource=brokers&id=${brokerId}`, {
     method: 'DELETE',
     credentials: 'include',
   });

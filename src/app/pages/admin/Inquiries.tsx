@@ -169,7 +169,7 @@ export default function AdminInquiries() {
       setLoadError(null);
 
       try {
-        const response = await fetch('/api/admin/inquiries', {
+        const response = await fetch('/api/admin/workflows', {
           method: 'GET',
           credentials: 'include',
         });
@@ -234,7 +234,7 @@ export default function AdminInquiries() {
         notes: actionForm.notes,
       };
 
-      const response = await fetch('/api/admin/inquiries', {
+      const response = await fetch('/api/admin/workflows', {
         method: 'PATCH',
         credentials: 'include',
         headers: {

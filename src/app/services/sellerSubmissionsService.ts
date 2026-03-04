@@ -95,9 +95,34 @@ const apiRequest = async <T>(url: string, init?: RequestInit): Promise<T> => {
 };
 
 export const fetchSellerSubmissions = async (): Promise<SellerSubmissionRow[]> => {
-  return apiRequest<SellerSubmissionRow[]>('/api/admin/workflows', {
+  const response = await apiRequest<{ items: any[]; staffOptions: any[] }>('/api/admin/workflows', {
     method: 'GET',
   });
+
+  // Filter for seller submission items only and map to expected format
+  const sellerItems = (response.items ?? []).filter((item: any) => item.source === 'Seller Submission');
+
+  return sellerItems.map((item: any) => ({
+    propertyid: Number(item.sourceId),
+    propertyname: item.reference || 'Unknown Property',
+    createdat: item.createdAt,
+    sellerclientid: null, // Not available in current structure
+    statusCode: mapStatusToCode(item.status),
+    statusName: item.status,
+    sellerName: item.clientName,
+    sellerEmail: item.email !== 'N/A' ? item.email : null,
+    sellerContact: item.contact !== 'N/A' ? item.contact : null,
+  }));
+};
+
+const mapStatusToCode = (status: string): SellerSubmissionStatusCode => {
+  const normalized = status.toLowerCase();
+  if (normalized.includes('pending') || normalized.includes('review')) return 'PND';
+  if (normalized.includes('revision')) return 'REV';
+  if (normalized.includes('accept') || normalized.includes('client linked')) return 'ACC';
+  if (normalized.includes('reject')) return 'REJ';
+  if (normalized.includes('publish') || normalized.includes('available')) return 'AVL';
+  return 'PND';
 };
 
 export const setSubmissionStatus = async (propertyId: number, code: SellerSubmissionStatusCode): Promise<void> => {

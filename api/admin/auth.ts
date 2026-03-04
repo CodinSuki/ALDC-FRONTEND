@@ -174,8 +174,18 @@ export default async function handler(req: any, res: any) {
     return;
   }
 
+  if (req.method !== 'POST') {
+    res.status(405).json({ error: 'Method not allowed' });
+    return;
+  }
+
   if (!process.env.ADMIN_SESSION_SECRET) {
-    res.status(500).json({ error: 'Admin auth is not configured on the server' });
+    console.error('[AUTH] CRITICAL: ADMIN_SESSION_SECRET environment variable is not set!');
+    res.status(500).json({ 
+      error: 'Server configuration error',
+      message: 'Authentication is not properly configured. ADMIN_SESSION_SECRET is missing.',
+      helpText: 'Contact your administrator to ensure environment variables are set.'
+    });
     return;
   }
 
@@ -212,7 +222,7 @@ export default async function handler(req: any, res: any) {
     // Fetch role separately if needed
     let roleCode = 'STAFF';
     if (staffData.staffroleid) {
-      const { data: roleData, error: roleError } = await supabaseAdmin
+      const { data: roleData } = await supabaseAdmin
         .from('staffrole')
         .select('rolecode')
         .eq('staffroleid', staffData.staffroleid)

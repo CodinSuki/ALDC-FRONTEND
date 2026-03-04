@@ -28,6 +28,7 @@ import AdminSettings from './pages/admin/Settings';
 import AdminCommissions from './pages/admin/Commissions';
 import AdminSellerSubmissions from './pages/admin/SellerSubmissions';
 import AdminPasswordInitialization from './pages/admin/PasswordInitialization';
+import AdminDocuments from './pages/admin/Documents';
 
 
 
@@ -61,6 +62,7 @@ export default function App() {
           <Route path="/admin/clients" element={<ProtectedRoute><AdminClients /></ProtectedRoute>} />
           <Route path="/admin/inquiries" element={<ProtectedRoute><AdminInquiries /></ProtectedRoute>} />
           <Route path="/admin/seller-submissions" element={<ProtectedRoute><AdminSellerSubmissions /></ProtectedRoute>} />
+          <Route path="/admin/documents" element={<ProtectedRoute><AdminDocuments /></ProtectedRoute>} />
           <Route path="/admin/transactions" element={<ProtectedRoute><AdminTransactions /></ProtectedRoute>} />
           <Route path="/admin/agents" element={<ProtectedRoute><AdminAgents /></ProtectedRoute>} />
           <Route path="/admin/reports" element={<ProtectedRoute><AdminReports /></ProtectedRoute>} />

@@ -3,6 +3,11 @@ import AdminLayout from '../../components/AdminLayout';
 import { Building2, TrendingUp, AlertCircle, FolderKanban, MessageSquare } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { fetchAdminDashboardData, type AdminDashboardData } from '@/app/services/adminDashboardService';
+import StatCard from '@/app/components/ui/StatCard';
+import StatusBadge from '@/app/components/ui/StatusBadge';
+import { getStatusColor } from '@/app/components/ui/statusBadgeUtils';
+import LoadingError from '@/app/components/ui/LoadingError';
+import PageHeader from '@/app/components/ui/PageHeader';
 
 const INITIAL_DATA: AdminDashboardData = {
   stats: {
@@ -150,22 +155,20 @@ export default function Dashboard() {
   return (
     <AdminLayout>
       <div className="space-y-8">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div>
-            <h2 className="text-gray-900">Dashboard</h2>
-            <p className="text-sm text-gray-500">
-              Last updated: {lastUpdatedAt ? lastUpdatedAt.toLocaleString() : 'Not loaded yet'}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={loadDashboard}
-            disabled={isLoading}
-            className="px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-60 disabled:cursor-not-allowed"
-          >
-            {isLoading ? 'Refreshing...' : 'Refresh'}
-          </button>
-        </div>
+        <PageHeader 
+          title="Dashboard"
+          description={`Last updated: ${lastUpdatedAt ? lastUpdatedAt.toLocaleString() : 'Not loaded yet'}`}
+          action={
+            <button
+              type="button"
+              onClick={loadDashboard}
+              disabled={isLoading}
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {isLoading ? 'Refreshing...' : 'Refresh'}
+            </button>
+          }
+        />
 
         {isLoading && (
           <div className="bg-white rounded-lg shadow-sm p-4 text-sm text-gray-500">Loading dashboard data...</div>
@@ -178,18 +181,14 @@ export default function Dashboard() {
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {stats.map((stat, index) => (
-            <div key={index} className="bg-white rounded-lg shadow-sm p-6">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <p className="text-sm text-gray-600 mb-1">{stat.label}</p>
-                  <p className="text-gray-900 mb-2">{stat.value}</p>
-                  <p className="text-xs text-gray-500">{stat.change}</p>
-                </div>
-                <div className={`w-12 h-12 ${stat.color} rounded-lg flex items-center justify-center`}>
-                  <stat.icon className="w-6 h-6 text-white" />
-                </div>
-              </div>
-            </div>
+            <StatCard
+              key={index}
+              label={stat.label}
+              value={stat.value}
+              icon={stat.icon}
+              color={stat.color}
+              change={stat.change}
+            />
           ))}
         </div>
 
@@ -279,11 +278,7 @@ export default function Dashboard() {
                         {inquiry.property}
                       </td>
                       <td className="px-6 py-3 whitespace-nowrap">
-                        <span className={`inline-flex px-2 py-1 text-xs rounded-full ${
-                          inquiryStatusClass(inquiry.status)
-                        }`}>
-                          {inquiry.status}
-                        </span>
+                        <StatusBadge status={inquiry.status} color={getStatusColor(inquiry.status)} />
                       </td>
                     </tr>
                   ))}
@@ -327,11 +322,7 @@ export default function Dashboard() {
                         {transaction.amount}
                       </td>
                       <td className="px-6 py-3 whitespace-nowrap">
-                        <span className={`inline-flex px-2 py-1 text-xs rounded-full ${
-                          transactionStatusClass(transaction.status)
-                        }`}>
-                          {transaction.status}
-                        </span>
+                        <StatusBadge status={transaction.status} color={getStatusColor(transaction.status)} />
                       </td>
                     </tr>
                   ))}

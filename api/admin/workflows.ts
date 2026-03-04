@@ -2,6 +2,7 @@ import { requireAdminSession } from './_utils/auth.js';
 import { supabaseAdmin } from './_utils/supabaseAdmin.js';
 import { validateAgentAssignment } from './_utils/permissions.js';
 import { logActivity } from './_utils/activityLog.js';
+import { validateRequiredDocuments } from './_utils/documentCompliance.js';
 
 /**
  * Consolidated workflows endpoint - handles inquiries, seller submissions, and sales
@@ -365,6 +366,15 @@ const updateIntakeItem = async (payload: UpdateBody, session: any): Promise<void
   }
 
   // Seller Submission
+  if (payload.status === 'Published') {
+    const requiredValidation = await validateRequiredDocuments(sourceId);
+    if (!requiredValidation.valid) {
+      throw new Error(
+        `Cannot publish listing. Missing: ${requiredValidation.missing.join(', ') || 'none'}; Pending/Rejected: ${requiredValidation.pendingOrRejected.join(', ') || 'none'}`
+      );
+    }
+  }
+
   const listingCode = mapSellerStatusToCode(payload.status ?? 'Received');
   const listingStatusId = await resolveListingStatusIdByCode(listingCode);
 

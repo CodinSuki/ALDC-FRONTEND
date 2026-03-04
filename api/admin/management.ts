@@ -150,7 +150,12 @@ async function handleFetchManagement(req: VercelRequest, res: VercelResponse) {
 
 async function handleCreateManagement(req: VercelRequest, res: VercelResponse) {
   const { name, email, contact_number, license_number, prc_license, status } = req.body;
-  const { type } = req.body; // Determine from body for POST
+  const { resource } = req.query; // Get resource from query param
+  
+  // Map resource to type
+  let type = 'staff';
+  if (resource === 'agents') type = 'agent';
+  else if (resource === 'brokers') type = 'broker';
 
   if (!name || !email) {
     return res.status(400).json({ error: 'Name and email are required' });
@@ -243,8 +248,13 @@ async function handleCreateManagement(req: VercelRequest, res: VercelResponse) {
 }
 
 async function handleUpdateManagement(req: VercelRequest, res: VercelResponse) {
-  const { id } = req.query;
-  const { name, email, contact_number, status } = req.body;
+  const { id, resource } = req.query;
+  const { name, email, contact_number, license_number, prc_license, status } = req.body;
+  
+  // Map resource to type
+  let type = 'staff';
+  if (resource === 'agents') type = 'agent';
+  else if (resource === 'brokers') type = 'broker';
 
   if (!id) {
     return res.status(400).json({ error: 'ID is required' });
@@ -273,6 +283,47 @@ async function handleUpdateManagement(req: VercelRequest, res: VercelResponse) {
 
     if (error) {
       throw error;
+    }
+    
+    // Update license if provided
+    if (type === 'agent' && license_number !== undefined) {
+      // Delete old license and create new one
+      await supabaseAdmin
+        .from('agent_license')
+        .delete()
+        .eq('staffid', id)
+        .catch(() => {});
+      
+      if (license_number) {
+        await supabaseAdmin
+          .from('agent_license')
+          .insert({
+            staffid: Number(id),
+            licensenumber: license_number,
+            createdat: new Date().toISOString(),
+          })
+          .catch(() => {});
+      }
+    }
+    
+    if (type === 'broker' && prc_license !== undefined) {
+      // Delete old license and create new one
+      await supabaseAdmin
+        .from('broker_license')
+        .delete()
+        .eq('staffid', id)
+        .catch(() => {});
+      
+      if (prc_license) {
+        await supabaseAdmin
+          .from('broker_license')
+          .insert({
+            staffid: Number(id),
+            prclicense: prc_license,
+            createdat: new Date().toISOString(),
+          })
+          .catch(() => {});
+      }
     }
 
     await logActivity({

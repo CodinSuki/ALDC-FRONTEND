@@ -60,7 +60,9 @@ const mapProjectRow = (row: ProjectDbRow) => {
 };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (!requireAdminSession(req, res)) {
+  const session = requireAdminSession(req, res);
+  if (!session) {
+    // requireAdminSession already sends 401 response with error
     return;
   }
 

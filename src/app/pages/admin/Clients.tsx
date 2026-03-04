@@ -1,7 +1,12 @@
 import { useEffect, useState } from 'react';
 import AdminLayout from '../../components/AdminLayout';
-import { Search, Eye } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/app/components/ui/dialog';
+import PageHeader from '@/app/components/ui/PageHeader';
+import FilterBar from '@/app/components/ui/FilterBar';
+import DataTableWrapper, { TableHeaderCell, TableDataCell } from '@/app/components/ui/DataTableWrapper';
+import StatusBadge from '@/app/components/ui/StatusBadge';
+import ActionButtons from '@/app/components/ui/ActionButtons';
+import { SimpleStatCard } from '@/app/components/ui/StatCard';
 
 type ClientItem = {
   id: string;
@@ -21,11 +26,6 @@ type ClientItem = {
 };
 
 type ClientTypeFilter = 'All' | 'Seller' | 'Non-Seller';
-
-const pick = (...values: unknown[]): string => {
-  const found = values.find((value) => value !== undefined && value !== null && String(value).trim() !== '');
-  return found == null ? '' : String(found);
-};
 
 const formatDate = (value?: string | null) => {
   if (!value) return 'N/A';
@@ -109,154 +109,97 @@ export default function AdminClients() {
     <AdminLayout>
       <div className="space-y-6">
         {/* Header */}
-        <div>
-          <h2 className="text-gray-900">Client Directory</h2>
-          <p className="text-gray-600">Manage client records and activity across consultations, inquiries, and seller submissions</p>
-        </div>
+        <PageHeader 
+          title="Client Directory" 
+          description="Manage client records and activity across consultations, inquiries, and seller submissions"
+        />
 
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          {[
-            { label: 'Total Clients', value: String(totalClients), color: 'bg-blue-500' },
-            { label: 'Sellers', value: String(sellerCount), color: 'bg-purple-500' },
-            { label: 'With Activity', value: String(activeClients), color: 'bg-emerald-500' },
-            { label: 'New This Month', value: String(newThisMonthCount), color: 'bg-yellow-500' },
-          ].map((stat, index) => (
-            <div key={index} className="bg-white rounded-lg shadow-sm p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">{stat.label}</p>
-                  <p className="text-gray-900">{stat.value}</p>
-                </div>
-                <div className={`w-12 h-12 ${stat.color} rounded-lg`} />
-              </div>
-            </div>
-          ))}
+          <SimpleStatCard label="Total Clients" value={totalClients} color="bg-blue-500" />
+          <SimpleStatCard label="Sellers" value={sellerCount} color="bg-purple-500" />
+          <SimpleStatCard label="With Activity" value={activeClients} color="bg-emerald-500" />
+          <SimpleStatCard label="New This Month" value={newThisMonthCount} color="bg-yellow-500" />
         </div>
 
         {/* Filters */}
-        <div className="bg-white rounded-lg shadow-sm p-6">
-          <div className="flex flex-col md:flex-row gap-4">
-            {/* Search */}
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-              <input
-                type="text"
-                placeholder="Search by name, email, or contact..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-              />
-            </div>
-
-            {/* Type Filter */}
-            <select
-              value={filterType}
-              onChange={(e) => setFilterType(e.target.value as ClientTypeFilter)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-            >
-              <option value="All">All Clients</option>
-              <option value="Seller">Sellers</option>
-              <option value="Non-Seller">Non-Sellers</option>
-            </select>
-          </div>
-        </div>
+        <FilterBar
+          searchValue={searchQuery}
+          onSearchChange={setSearchQuery}
+          searchPlaceholder="Search by name, email, or contact..."
+          filters={[
+            {
+              value: filterType,
+              onChange: (value: string) => setFilterType(value as ClientTypeFilter),
+              options: [
+                { value: 'All', label: 'All Clients' },
+                { value: 'Seller', label: 'Sellers' },
+                { value: 'Non-Seller', label: 'Non-Sellers' },
+              ],
+            },
+          ]}
+        />
 
         {/* Clients Table */}
-        <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-          {loading && (
-            <div className="px-6 py-3 text-sm text-gray-500 border-b border-gray-200">Loading clients...</div>
-          )}
-          {loadError && (
-            <div className="px-6 py-3 text-sm text-red-600 border-b border-gray-200">{loadError}</div>
-          )}
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50 border-b border-gray-200">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs text-gray-600 uppercase tracking-wider">
-                    Client ID
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs text-gray-600 uppercase tracking-wider">
-                    Client Name
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs text-gray-600 uppercase tracking-wider">
-                    Contact
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs text-gray-600 uppercase tracking-wider">
-                    Email
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs text-gray-600 uppercase tracking-wider">
-                    Type
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs text-gray-600 uppercase tracking-wider">
-                    Activity
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs text-gray-600 uppercase tracking-wider">
-                    Last Activity
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs text-gray-600 uppercase tracking-wider">
-                    Created
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs text-gray-600 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {filteredClients.map((client) => (
-                  <tr key={client.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {client.clientId}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-gray-900">
-                      {client.fullName}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                      {client.contact}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                      {client.email}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                      <span
-                        className={`inline-flex px-2 py-1 text-xs rounded-full ${
-                          client.isSeller ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-700'
-                        }`}
-                      >
-                        {client.isSeller ? 'Seller' : 'Client'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                      <span className="text-gray-900">{client.totalActivity}</span>
-                      <span className="text-gray-500">{` (C:${client.consultationCount} / I:${client.inquiryCount} / P:${client.propertyCount})`}</span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                      {formatDate(client.lastActivityAt)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                      {formatDate(client.createdAt)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => openViewDialog(client)}
-                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                          title="View Client"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          {!loading && !loadError && filteredClients.length === 0 && (
-            <div className="text-center py-12 text-gray-500">No clients found matching your criteria</div>
-          )}
-        </div>
+        <DataTableWrapper
+          loading={loading}
+          error={loadError}
+          loadingMessage="Loading clients..."
+          isEmpty={filteredClients.length === 0}
+          emptyMessage="No clients found"
+          colSpan={9}
+        >
+          <thead className="bg-gray-50 border-b border-gray-200">
+            <tr>
+              <TableHeaderCell>Client ID</TableHeaderCell>
+              <TableHeaderCell>Client Name</TableHeaderCell>
+              <TableHeaderCell>Contact</TableHeaderCell>
+              <TableHeaderCell>Email</TableHeaderCell>
+              <TableHeaderCell>Type</TableHeaderCell>
+              <TableHeaderCell>Activity</TableHeaderCell>
+              <TableHeaderCell>Last Activity</TableHeaderCell>
+              <TableHeaderCell>Created</TableHeaderCell>
+              <TableHeaderCell align="right">Actions</TableHeaderCell>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-200">
+            {filteredClients.map((client) => (
+              <tr key={client.id} className="hover:bg-gray-50">
+                <TableDataCell className="text-sm text-gray-900">
+                  {client.clientId}
+                </TableDataCell>
+                <TableDataCell className="text-gray-900">
+                  {client.fullName}
+                </TableDataCell>
+                <TableDataCell className="text-sm text-gray-600">
+                  {client.contact}
+                </TableDataCell>
+                <TableDataCell className="text-sm text-gray-600">
+                  {client.email}
+                </TableDataCell>
+                <TableDataCell>
+                  <StatusBadge 
+                    status={client.isSeller ? 'Seller' : 'Client'} 
+                    color={client.isSeller ? 'purple' : 'gray'} 
+                  />
+                </TableDataCell>
+                <TableDataCell className="text-sm">
+                  <span className="text-gray-900">{client.totalActivity}</span>
+                  <span className="text-gray-500">{` (C:${client.consultationCount} / I:${client.inquiryCount} / P:${client.propertyCount})`}</span>
+                </TableDataCell>
+                <TableDataCell className="text-sm text-gray-600">
+                  {formatDate(client.lastActivityAt)}
+                </TableDataCell>
+                <TableDataCell className="text-sm text-gray-600">
+                  {formatDate(client.createdAt)}
+                </TableDataCell>
+                <TableDataCell align="right">
+                  <ActionButtons onView={() => openViewDialog(client)} />
+                </TableDataCell>
+              </tr>
+            ))}
+          </tbody>
+        </DataTableWrapper>
       </div>
 
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
