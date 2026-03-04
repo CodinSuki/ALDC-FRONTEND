@@ -13,6 +13,9 @@
     "format:check": "prettier . --check",
     "test": "vitest run --passWithNoTests"
   },
+  "engines": {
+    "node": "20.x || 22.x"
+  },
   "dependencies": {
     "@emotion/react": "11.14.0",
     "@emotion/styled": "11.14.1",
