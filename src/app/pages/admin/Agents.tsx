@@ -560,7 +560,7 @@ export default function AdminAgents() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {activeTab === 'agents' ? (
+                {activeTab === 'agents' &&
                   filteredAgents.map((agent) => (
                     <tr key={agent.agent_id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
@@ -600,8 +600,8 @@ export default function AdminAgents() {
                         </button>
                       </td>
                     </tr>
-                  ))
-                ) : activeTab === 'brokers' ? (
+                  ))}
+                {activeTab === 'brokers' &&
                   filteredBrokers.map((broker) => (
                     <tr key={broker.broker_id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
@@ -641,8 +641,8 @@ export default function AdminAgents() {
                         </button>
                       </td>
                     </tr>
-                  ))
-                ) : (
+                  ))}
+                {activeTab === 'staff' &&
                   filteredStaff.map((member) => (
                     <tr key={member.staff_id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
@@ -682,8 +682,7 @@ export default function AdminAgents() {
                         </button>
                       </td>
                     </tr>
-                  ))
-                )}
+                  ))}
               </tbody>
             </table>
           </div>
