@@ -1,4 +1,4 @@
-import { supabaseAdmin } from './admin/_utils/supabaseAdmin';
+import { supabaseAdmin } from '../lib/admin/utils/supabaseAdmin.js';
 
 // ===========================
 // Shared Types & Utilities
