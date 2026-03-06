@@ -48,7 +48,7 @@ export default async function handler(req: any, res: any) {
             return res.status(404).json({ error: 'Transaction not found' });
           }
 
-          return res.status(200).json(data);
+          return res.status(200).json({ transaction: data });
         }
 
         // Fetch all transactions
@@ -67,7 +67,7 @@ export default async function handler(req: any, res: any) {
           throw new Error(`Failed to fetch transactions: ${error.message}`);
         }
 
-        return res.status(200).json(data ?? []);
+        return res.status(200).json({ transactions: data ?? [] });
       }
 
       if (req.method === 'POST') {
@@ -116,7 +116,7 @@ export default async function handler(req: any, res: any) {
           description: `Created transaction for property ${propertyId}`,
         });
 
-        return res.status(201).json(data);
+        return res.status(201).json({ transaction: data });
       }
 
       if (req.method === 'PATCH') {
@@ -151,7 +151,7 @@ export default async function handler(req: any, res: any) {
           description: `Updated transaction status to ${transactionStatus || 'unchanged'}`,
         });
 
-        return res.status(200).json(data);
+        return res.status(200).json({ transaction: data });
       }
     }
 
@@ -168,20 +168,34 @@ export default async function handler(req: any, res: any) {
           .from('paymentschedule')
           .select('*')
           .eq('transactionid', transactionId)
-          .order('paymentduedate', { ascending: true });
+          .limit(1);
 
         if (error) {
           throw new Error(`Failed to fetch payment schedules: ${error.message}`);
         }
 
-        return res.status(200).json(data ?? []);
+        const schedules = data ?? [];
+        return res.status(200).json({ paymentSchedule: schedules[0] ?? null });
       }
 
       if (req.method === 'POST') {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-        const { transactionId, paymentAmount, paymentDueDate, paymentDescription } = body;
+        const {
+          transactionId,
+          paymentAmount,
+          paymentDueDate,
+          totalAmount,
+          installmentFrequency,
+          installmentCount,
+          startDate,
+        } = body;
 
-        if (!transactionId || !paymentAmount || !paymentDueDate) {
+        const resolvedTotalAmount = Number(totalAmount ?? paymentAmount);
+        const resolvedInstallmentFrequency = String(installmentFrequency ?? 'One-Time').trim();
+        const resolvedInstallmentCount = Number(installmentCount ?? 1);
+        const resolvedStartDate = String(startDate ?? paymentDueDate ?? '').trim();
+
+        if (!transactionId || !resolvedTotalAmount || !resolvedStartDate) {
           return res.status(400).json({ error: 'Missing required fields' });
         }
 
@@ -189,9 +203,10 @@ export default async function handler(req: any, res: any) {
           .from('paymentschedule')
           .insert({
             transactionid: transactionId,
-            paymentamount: paymentAmount,
-            paymentduedate: paymentDueDate,
-            paymentdescription: paymentDescription || null,
+            totalamount: resolvedTotalAmount,
+            installmentfrequency: resolvedInstallmentFrequency,
+            installmentcount: resolvedInstallmentCount,
+            startdate: resolvedStartDate,
             createdat: new Date().toISOString(),
           })
           .select()
@@ -201,7 +216,7 @@ export default async function handler(req: any, res: any) {
           throw new Error(`Failed to create payment schedule: ${error?.message}`);
         }
 
-        return res.status(201).json(data);
+        return res.status(201).json({ paymentSchedule: data });
       }
     }
 
@@ -216,7 +231,7 @@ export default async function handler(req: any, res: any) {
 
         const { data: schedule, error: schedError } = await supabaseAdmin
           .from('paymentschedule')
-          .select('paymentamount')
+          .select('totalamount')
           .eq('paymentscheduleid', paymentScheduleId)
           .single();
 
@@ -226,22 +241,25 @@ export default async function handler(req: any, res: any) {
 
         const { data: payments, error: payError } = await supabaseAdmin
           .from('payment')
-          .select('paymentamount')
+          .select('amountpaid')
           .eq('paymentscheduleid', paymentScheduleId);
 
         if (payError) {
           throw new Error(`Failed to fetch payments: ${payError.message}`);
         }
 
-        const totalPaid = (payments ?? []).reduce((sum: number, p: any) => sum + Number(p.paymentamount ?? 0), 0);
-        const amountDue = Number(schedule.paymentamount);
+        const totalPaid = (payments ?? []).reduce((sum: number, p: any) => sum + Number(p.amountpaid ?? 0), 0);
+        const amountDue = Number(schedule.totalamount);
         const balance = amountDue - totalPaid;
 
         return res.status(200).json({
-          amountDue,
-          totalPaid,
-          balance,
-          isPaid: balance <= 0,
+          summary: {
+            totalAmount: amountDue,
+            totalPaid,
+            totalConfirmed: totalPaid,
+            remainingAmount: balance,
+            paymentCount: (payments ?? []).length,
+          },
         });
       }
 
@@ -262,14 +280,24 @@ export default async function handler(req: any, res: any) {
           throw new Error(`Failed to fetch payments: ${error.message}`);
         }
 
-        return res.status(200).json(data ?? []);
+        return res.status(200).json({ payments: data ?? [] });
       }
 
       if (req.method === 'POST') {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-        const { paymentScheduleId, paymentAmount, paymentDate, paymentMethod, paymentNotes } = body;
+        const {
+          paymentScheduleId,
+          paymentAmount,
+          paymentDate,
+          paymentMethod,
+          amountPaid,
+          paymentStatus,
+        } = body;
 
-        if (!paymentScheduleId || !paymentAmount || !paymentDate || !paymentMethod) {
+        const resolvedAmountPaid = Number(amountPaid ?? paymentAmount);
+        const resolvedPaymentStatus = String(paymentStatus ?? 'Confirmed').trim();
+
+        if (!paymentScheduleId || !resolvedAmountPaid || !paymentDate || !paymentMethod) {
           return res.status(400).json({ error: 'Missing required fields' });
         }
 
@@ -277,10 +305,10 @@ export default async function handler(req: any, res: any) {
           .from('payment')
           .insert({
             paymentscheduleid: paymentScheduleId,
-            paymentamount: paymentAmount,
+            amountpaid: resolvedAmountPaid,
             paymentdate: paymentDate,
             paymentmethod: paymentMethod,
-            paymentnotes: paymentNotes || null,
+            paymentstatus: resolvedPaymentStatus,
             createdat: new Date().toISOString(),
           })
           .select()
@@ -295,10 +323,10 @@ export default async function handler(req: any, res: any) {
           activitytype: 'payout_recorded',
           entitytype: 'payment',
           entityid: data.paymentid,
-          description: `Recorded payment of ${paymentAmount}`,
+          description: `Recorded payment of ${resolvedAmountPaid}`,
         });
 
-        return res.status(201).json(data);
+        return res.status(201).json({ payment: data });
       }
     }
 

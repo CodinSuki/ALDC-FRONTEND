@@ -49,14 +49,28 @@ export default function AdminDocuments() {
   const load = async () => {
     setLoading(true);
     try {
-      const [docsData, typesData, propsData] = await Promise.all([
+      const [docsResult, typesResult, propsResult] = await Promise.allSettled([
         fetchPendingPropertyDocuments(),
         fetchDocumentTypes(),
         fetchPropertiesForUpload(),
       ]);
+
+      const docsData = docsResult.status === 'fulfilled' ? docsResult.value : [];
+      const typesData = typesResult.status === 'fulfilled' ? typesResult.value : [];
+      const propsData = propsResult.status === 'fulfilled' ? propsResult.value : [];
+
       setRows(docsData);
       setDocumentTypes(typesData);
       setProperties(propsData);
+
+      const failedCalls: string[] = [];
+      if (docsResult.status === 'rejected') failedCalls.push('pending documents');
+      if (typesResult.status === 'rejected') failedCalls.push('document types');
+      if (propsResult.status === 'rejected') failedCalls.push('properties for upload');
+
+      if (failedCalls.length > 0) {
+        alert(`Some data failed to load: ${failedCalls.join(', ')}. You can retry this page.`);
+      }
     } catch (error) {
       console.error('Failed to load documents', error);
       alert('Failed to load documents');
@@ -156,6 +170,27 @@ export default function AdminDocuments() {
   };
 
   const selectedProperty = properties.find((p) => p.propertyId === Number(uploadPropertyId));
+
+  if (loading && rows.length === 0 && documentTypes.length === 0 && properties.length === 0) {
+    return (
+      <AdminLayout>
+        <div className="space-y-6">
+          <div>
+            <h2 className="text-gray-900">Document Compliance</h2>
+            <p className="text-gray-600">
+              Upload property documents after negotiation, verify ownership, and enforce listing requirements.
+            </p>
+          </div>
+          <div className="bg-white rounded-lg shadow-sm p-8">
+            <div className="flex items-center justify-center gap-3 text-gray-600">
+              <div className="animate-spin rounded-full h-5 w-5 border-2 border-green-500 border-t-transparent"></div>
+              <span>Loading documents...</span>
+            </div>
+          </div>
+        </div>
+      </AdminLayout>
+    );
+  }
 
   return (
     <AdminLayout>
@@ -319,10 +354,7 @@ export default function AdminDocuments() {
         </div>
 
         <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-          {loading ? (
-            <div className="p-6 text-gray-500">Loading documents...</div>
-          ) : (
-            <div className="overflow-x-auto">
+          <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
@@ -400,10 +432,12 @@ export default function AdminDocuments() {
               </table>
 
               {rows.length === 0 && (
-                <div className="p-8 text-center text-gray-500">No property documents in queue.</div>
+                <div className="p-8 text-center">
+                  <p className="text-gray-600 font-medium">There are no documents to review.</p>
+                  <p className="text-gray-500 text-sm mt-2">Documents uploaded by sellers and staff will appear here for verification.</p>
+                </div>
               )}
             </div>
-          )}
         </div>
       </div>
     </AdminLayout>

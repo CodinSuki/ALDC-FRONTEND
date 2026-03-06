@@ -34,6 +34,7 @@ export default function AdminProjects() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState('All');
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -46,13 +47,15 @@ export default function AdminProjects() {
   useEffect(() => {
     const loadProjects = async () => {
       setIsLoading(true);
+      setLoadError(null);
 
       try {
         const data = await fetchProjects();
         setProjects(data);
       } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Failed to load projects';
+        setLoadError(errorMessage);
         console.error('Error loading projects:', error);
-        alert('Failed to load projects');
       } finally {
         setIsLoading(false);
       }
@@ -231,6 +234,18 @@ export default function AdminProjects() {
 
         {/* Projects Table */}
         <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+          {loadError && (
+            <div className="bg-red-50 border-b border-red-200 p-4">
+              <p className="text-red-800 font-medium">Could not load projects</p>
+              <p className="text-red-700 text-sm mt-1">{loadError}</p>
+              <button 
+                onClick={() => window.location.reload()}
+                className="mt-3 inline-block bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 text-sm"
+              >
+                Try Again
+              </button>
+            </div>
+          )}
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200">
@@ -319,8 +334,9 @@ export default function AdminProjects() {
           </div>
 
           {!isLoading && filteredProjects.length === 0 && (
-            <div className="text-center py-12 text-gray-500">
-              No projects found matching your criteria
+            <div className="text-center py-12">
+              <p className="text-gray-600 font-medium">There are no projects yet.</p>
+              <p className="text-gray-500 text-sm mt-2">Create your first project to start organizing properties. Projects help organize properties by development phase or location.</p>
             </div>
           )}
         </div>

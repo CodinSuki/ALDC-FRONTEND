@@ -25,24 +25,33 @@ export default function Chatbot() {
     setLoading(true);
 
     try {
-        const res = await fetch('/api/chat', {
+      const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: input }),
         });
 
-        const data = await res.json();
+      const data = (await res.json().catch(() => ({}))) as { reply?: string };
+
+      if (!res.ok) {
+        throw new Error(data.reply || 'Chat service is unavailable right now.');
+      }
 
         const botMessage: ChatMessage = {
         role: 'bot',
-        text: data.reply,
+      text: data.reply || 'I could not generate a response right now.',
         };
 
         setMessages(prev => [...prev, botMessage]);
     } catch (err) {
+      const errorText = err instanceof TypeError
+        ? 'Network error. Please check your connection and try again.'
+        : err instanceof Error
+        ? err.message
+        : 'Server error.';
         setMessages(prev => [
         ...prev,
-        { role: 'bot', text: 'Server error.' },
+      { role: 'bot', text: errorText },
         ]);
     } finally {
         setLoading(false);

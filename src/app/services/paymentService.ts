@@ -142,13 +142,28 @@ export const fetchPaymentSummary = async (paymentScheduleId: number): Promise<{
     credentials: 'include',
   });
 
-  const data = await response.json().catch(() => ({}));
+  const data = (await response.json().catch(() => ({}))) as {
+    error?: string;
+    summary?: {
+      totalAmount?: number;
+      totalPaid?: number;
+      totalConfirmed?: number;
+      remainingAmount?: number;
+      paymentCount?: number;
+    };
+  };
 
   if (!response.ok) {
     throw new Error(data?.error ?? 'Failed to fetch payment summary');
   }
 
-  return data.summary;
+  return {
+    totalAmount: Number(data.summary?.totalAmount ?? 0),
+    totalPaid: Number(data.summary?.totalPaid ?? 0),
+    totalConfirmed: Number(data.summary?.totalConfirmed ?? 0),
+    remainingAmount: Number(data.summary?.remainingAmount ?? 0),
+    paymentCount: Number(data.summary?.paymentCount ?? 0),
+  };
 };
 
 /**

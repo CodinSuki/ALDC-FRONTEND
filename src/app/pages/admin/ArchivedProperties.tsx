@@ -22,6 +22,8 @@ export default function AdminArchivedProperties() {
   const [sellers, setSellers] = useState<SellerOption[]>([]);
   const [propertyTypes, setPropertyTypes] = useState<PropertyTypeOption[]>([]);
   const [listingStatuses, setListingStatuses] = useState<PropertyListingStatusOption[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -31,6 +33,8 @@ export default function AdminArchivedProperties() {
 
   useEffect(() => {
     const loadData = async () => {
+      setIsLoading(true);
+      setLoadError(null);
       try {
         const data = await fetchAdminPropertyData();
         setProperties(data.properties);
@@ -39,7 +43,11 @@ export default function AdminArchivedProperties() {
         setPropertyTypes(data.propertyTypes);
         setListingStatuses(data.listingStatuses);
       } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Failed to load archived properties';
+        setLoadError(errorMessage);
         console.error('Failed to load archived properties', error);
+      } finally {
+        setIsLoading(false);
       }
     };
 
@@ -98,6 +106,50 @@ export default function AdminArchivedProperties() {
       setIsSubmitting(false);
     }
   };
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <AdminLayout>
+        <div className="space-y-6">
+          <div>
+            <h2 className="text-gray-900">Archived Properties</h2>
+            <p className="text-gray-600">Review and restore archived properties</p>
+          </div>
+          <div className="bg-white rounded-lg shadow-sm p-8">
+            <div className="flex items-center justify-center gap-3 text-gray-600">
+              <div className="animate-spin rounded-full h-5 w-5 border-2 border-green-500 border-t-transparent"></div>
+              <span>Loading archived properties...</span>
+            </div>
+          </div>
+        </div>
+      </AdminLayout>
+    );
+  }
+
+  // Show error state if failed to load
+  if (loadError) {
+    return (
+      <AdminLayout>
+        <div className="space-y-6">
+          <div>
+            <h2 className="text-gray-900">Archived Properties</h2>
+            <p className="text-gray-600">Review and restore archived properties</p>
+          </div>
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+            <p className="text-red-800 font-medium">Could not load archived properties</p>
+            <p className="text-red-700 text-sm mt-1">{loadError}</p>
+            <button 
+              onClick={() => window.location.reload()}
+              className="mt-3 inline-block bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 text-sm"
+            >
+              Try Again
+            </button>
+          </div>
+        </div>
+      </AdminLayout>
+    );
+  }
 
   return (
     <AdminLayout>
@@ -172,7 +224,10 @@ export default function AdminArchivedProperties() {
           </div>
 
           {archivedProperties.length === 0 && (
-            <div className="text-center py-12 text-gray-500">No archived properties found.</div>
+            <div className="text-center py-12">
+              <p className="text-gray-600 font-medium">There are currently no archived properties.</p>
+              <p className="text-gray-500 text-sm mt-2">Properties that are archived will appear here. You can restore them using the action buttons.</p>
+            </div>
           )}
         </div>
 

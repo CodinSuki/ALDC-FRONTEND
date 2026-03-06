@@ -35,7 +35,7 @@ export default function AdminAgents() {
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
   const [selectedBroker, setSelectedBroker] = useState<Broker | null>(null);
   const [selectedStaff, setSelectedStaff] = useState<Staff | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [formData, setFormData] = useState<any>
   ({
@@ -445,6 +445,34 @@ export default function AdminAgents() {
     setFormData((prev: any) => ({ ...prev, [field]: value }));
   };
 
+  const currentTabRowsCount =
+    activeTab === 'agents'
+      ? filteredAgents.length
+      : activeTab === 'brokers'
+      ? filteredBrokers.length
+      : filteredStaff.length;
+
+  if (loading && currentTabRowsCount === 0) {
+    return (
+      <AdminLayout>
+        <div className="space-y-6">
+          <div>
+            <h2 className="text-gray-900">Agents & Brokers Management</h2>
+            <p className="text-gray-600">Manage agents and brokers in the system</p>
+          </div>
+          <div className="bg-white rounded-lg shadow-sm p-8">
+            <div className="flex items-center justify-center gap-3 text-gray-600">
+              <div className="animate-spin rounded-full h-5 w-5 border-2 border-green-500 border-t-transparent"></div>
+              <span>
+                Loading {activeTab === 'agents' ? 'agents' : activeTab === 'brokers' ? 'brokers' : 'staff'}...
+              </span>
+            </div>
+          </div>
+        </div>
+      </AdminLayout>
+    );
+  }
+
   return (
     <AdminLayout>
       <div className="space-y-6">
@@ -524,11 +552,6 @@ export default function AdminAgents() {
 
         {/* Table */}
         <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-          {loading && (
-            <div className="px-6 py-3 text-sm text-gray-500 border-b border-gray-200">
-              Loading {activeTab === 'agents' ? 'agents' : activeTab === 'brokers' ? 'brokers' : 'staff'}...
-            </div>
-          )}
           {loadError && (
             <div className="px-6 py-3 text-sm text-red-600 border-b border-gray-200">{loadError}</div>
           )}

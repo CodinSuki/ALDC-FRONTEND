@@ -117,7 +117,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         supabaseAdmin
           .from('propertylistingstatus')
           .select('propertylistingstatusid, propertylistingstatuscode, propertylistingstatusname'),
-        supabaseAdmin.from('transaction').select('*').order('transaction_date', { ascending: false }),
+        supabaseAdmin.from('transaction').select('*').order('createdat', { ascending: false }),
         supabaseAdmin.from('consultationrequest').select('fullname, consultationstatus, createdat'),
         supabaseAdmin.from('propertyinquiry').select('propertyinquiryid, propertyid, clientid, inquirystatus, createdat'),
         supabaseAdmin.from('client').select('clientid, firstname, middlename, lastname'),

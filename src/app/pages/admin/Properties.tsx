@@ -29,6 +29,8 @@ export default function AdminProperties() {
   const [projects, setProjects] = useState<ProjectOption[]>([]);
   const [sellers, setSellers] = useState<SellerOption[]>([]);
   const [listingStatuses, setListingStatuses] = useState<PropertyListingStatusOption[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('All');
@@ -133,6 +135,8 @@ export default function AdminProperties() {
 
   useEffect(() => {
     const loadData = async () => {
+      setIsLoading(true);
+      setLoadError(null);
       try {
         const data = await fetchAdminPropertyData();
 
@@ -144,7 +148,11 @@ export default function AdminProperties() {
         setAgriculturalLotTypes(data.agriculturalLotTypes);
         setProperties(data.properties);
       } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to load properties';
+        setLoadError(errorMessage);
         console.error('Failed to fetch properties data', err);
+      } finally {
+        setIsLoading(false);
       }
     };
 
@@ -163,6 +171,50 @@ export default function AdminProperties() {
     const matchesProject = projectIdFilter ? p.projectid === projectIdFilter : true;
     return matchesSearch && matchesStatus && matchesProject;
   });
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <AdminLayout>
+        <div className="space-y-6">
+          <div>
+            <h2 className="text-gray-900">Properties</h2>
+            <p className="text-gray-600">Manage active properties and listings</p>
+          </div>
+          <div className="bg-white rounded-lg shadow-sm p-8">
+            <div className="flex items-center justify-center gap-3 text-gray-600">
+              <div className="animate-spin rounded-full h-5 w-5 border-2 border-green-500 border-t-transparent"></div>
+              <span>Loading properties...</span>
+            </div>
+          </div>
+        </div>
+      </AdminLayout>
+    );
+  }
+
+  // Show error state
+  if (loadError) {
+    return (
+      <AdminLayout>
+        <div className="space-y-6">
+          <div>
+            <h2 className="text-gray-900">Properties</h2>
+            <p className="text-gray-600">Manage active properties and listings</p>
+          </div>
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+            <p className="text-red-800 font-medium">Could not load properties</p>
+            <p className="text-red-700 text-sm mt-1">{loadError}</p>
+            <button 
+              onClick={() => window.location.reload()}
+              className="mt-3 inline-block bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 text-sm"
+            >
+              Try Again
+            </button>
+          </div>
+        </div>
+      </AdminLayout>
+    );
+  }
 
   const resetForm = () => {
     setFormData({

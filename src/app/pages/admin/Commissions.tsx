@@ -97,7 +97,7 @@ export default function AdminCommissions() {
   });
 
   // Loading & error states
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
@@ -308,6 +308,25 @@ export default function AdminCommissions() {
     );
   }
 
+  if (isLoading && commissions.length === 0 && transactions.length === 0) {
+    return (
+      <AdminLayout>
+        <div className="space-y-6">
+          <div>
+            <h2 className="text-gray-900">Commission Management</h2>
+            <p className="text-gray-600">Track and manage commission generation and payouts</p>
+          </div>
+          <div className="bg-white rounded-lg shadow-sm p-8">
+            <div className="flex items-center justify-center gap-3 text-gray-600">
+              <div className="animate-spin rounded-full h-5 w-5 border-2 border-green-500 border-t-transparent"></div>
+              <span>Loading commissions...</span>
+            </div>
+          </div>
+        </div>
+      </AdminLayout>
+    );
+  }
+
   return (
     <AdminLayout>
       <div className="space-y-6">
@@ -330,7 +349,7 @@ export default function AdminCommissions() {
           </div>
           <button
             onClick={() => setIsGenerateCommissionOpen(true)}
-            disabled={isLoading || isSaving}
+            disabled={isSaving}
             className="flex items-center gap-2 bg-green-600 text-white px-4 py-3 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
           >
             <Plus className="w-5 h-5" />
@@ -388,15 +407,13 @@ export default function AdminCommissions() {
                 placeholder="Search by commission ID, staff, client, or transaction..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                disabled={isLoading}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:bg-gray-100"
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
               />
             </div>
             <select
               value={selectedStatusFilter}
               onChange={(e) => setSelectedStatusFilter(e.target.value as any)}
-              disabled={isLoading}
-              className="md:w-48 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:bg-gray-100"
+              className="md:w-48 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
             >
               <option value="all">All Statuses</option>
               <option value="Pending">Pending</option>
@@ -407,9 +424,8 @@ export default function AdminCommissions() {
 
         {/* Commissions Table */}
         <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+          <div className="px-6 py-4 border-b border-gray-200">
             <h3 className="text-gray-900">Commissions</h3>
-            {isLoading && <Loader className="w-4 h-4 animate-spin text-gray-600" />}
           </div>
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -426,13 +442,7 @@ export default function AdminCommissions() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {isLoading ? (
-                  <tr>
-                    <td colSpan={8} className="text-center py-8">
-                      <Loader className="w-5 h-5 animate-spin mx-auto text-gray-600" />
-                    </td>
-                  </tr>
-                ) : filteredCommissions.length === 0 ? (
+                {filteredCommissions.length === 0 ? (
                   <tr>
                     <td colSpan={8} className="text-center py-8 text-gray-500">No commissions found</td>
                   </tr>

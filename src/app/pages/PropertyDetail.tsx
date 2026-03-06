@@ -12,6 +12,7 @@ export default function PropertyDetail() {
   const { id } = useParams();
   const [propertyDetails, setPropertyDetails] = useState<MappedPropertyDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     const loadPropertyDetails = async () => {
@@ -19,12 +20,14 @@ export default function PropertyDetail() {
       
       try {
         setLoading(true);
+        setLoadError(null);
         const propertyId = parseInt(id, 10);
         const data = await fetchPropertyDetails(propertyId);
         setPropertyDetails(data);
       } catch (error) {
         console.error('Error loading property details:', error);
         setPropertyDetails(null);
+        setLoadError('Failed to load property details. Please try again.');
       } finally {
         setLoading(false);
       }
@@ -33,12 +36,29 @@ export default function PropertyDetail() {
     loadPropertyDetails();
   }, [id]);
 
-  if (loading || !propertyDetails) {
+  if (loading) {
     return (
       <div className="min-h-screen flex flex-col">
         <PublicNav />
         <div className="flex-1 flex items-center justify-center">
           <p className="text-gray-600">Loading property details...</p>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (!propertyDetails) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <PublicNav />
+        <div className="flex-1 flex items-center justify-center px-4">
+          <div className="text-center">
+            <p className="text-gray-700 mb-4">{loadError || 'Property not found.'}</p>
+            <Link to="/properties" className="inline-block bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700">
+              Back to Properties
+            </Link>
+          </div>
         </div>
         <Footer />
       </div>

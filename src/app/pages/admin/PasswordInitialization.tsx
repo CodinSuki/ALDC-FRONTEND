@@ -10,7 +10,7 @@ interface StaffWithCredential extends StaffRow {
 
 export default function PasswordInitialization() {
   const [staff, setStaff] = useState<StaffWithCredential[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   
@@ -108,6 +108,25 @@ export default function PasswordInitialization() {
     member.position.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  if (loading && staff.length === 0) {
+    return (
+      <AdminLayout>
+        <div className="space-y-6">
+          <div>
+            <h2 className="text-gray-900">Password Initialization</h2>
+            <p className="text-gray-600">Initialize or reset passwords for staff members</p>
+          </div>
+          <div className="bg-white rounded-lg shadow-sm p-8">
+            <div className="flex items-center justify-center gap-3 text-gray-600">
+              <div className="animate-spin rounded-full h-5 w-5 border-2 border-green-500 border-t-transparent"></div>
+              <span>Loading staff members...</span>
+            </div>
+          </div>
+        </div>
+      </AdminLayout>
+    );
+  }
+
   return (
     <AdminLayout>
       <div className="space-y-6">
@@ -148,12 +167,6 @@ export default function PasswordInitialization() {
 
         {/* Staff List */}
         <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-          {loading && (
-            <div className="px-6 py-3 text-sm text-gray-500 border-b border-gray-200">
-              Loading staff members...
-            </div>
-          )}
-
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200">

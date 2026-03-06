@@ -145,7 +145,7 @@ export default function AdminInquiries() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('All');
   const [filterSource, setFilterSource] = useState<string>('All');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<IntakeItem | null>(null);
@@ -281,6 +281,27 @@ export default function AdminInquiries() {
     return 'bg-blue-100 text-blue-800';
   };
 
+  if (loading && items.length === 0) {
+    return (
+      <AdminLayout>
+        <div className="space-y-6">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+              <h2 className="text-gray-900">Unified Intake Inbox</h2>
+              <p className="text-gray-600">Consultation requests, buyer inquiries, and seller submissions in one queue</p>
+            </div>
+          </div>
+          <div className="bg-white rounded-lg shadow-sm p-8">
+            <div className="flex items-center justify-center gap-3 text-gray-600">
+              <div className="animate-spin rounded-full h-5 w-5 border-2 border-green-500 border-t-transparent"></div>
+              <span>Loading intake items...</span>
+            </div>
+          </div>
+        </div>
+      </AdminLayout>
+    );
+  }
+
   return (
     <AdminLayout>
       <div className="space-y-6">
@@ -335,9 +356,6 @@ export default function AdminInquiries() {
 
         {/* Intake Table */}
         <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-          {loading && (
-            <div className="px-6 py-3 text-sm text-gray-500 border-b border-gray-200">Loading intake items...</div>
-          )}
           {loadError && (
             <div className="px-6 py-3 text-sm text-red-600 border-b border-gray-200">{loadError}</div>
           )}

@@ -38,7 +38,7 @@ export default function AdminClients() {
   const [clients, setClients] = useState<ClientItem[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<ClientTypeFilter>('All');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [selectedClient, setSelectedClient] = useState<ClientItem | null>(null);
@@ -104,6 +104,25 @@ export default function AdminClients() {
     setSelectedClient(client);
     setIsViewDialogOpen(true);
   };
+
+  if (loading && clients.length === 0) {
+    return (
+      <AdminLayout>
+        <div className="space-y-6">
+          <PageHeader
+            title="Client Directory"
+            description="Manage client records and activity across consultations, inquiries, and seller submissions"
+          />
+          <div className="bg-white rounded-lg shadow-sm p-8">
+            <div className="flex items-center justify-center gap-3 text-gray-600">
+              <div className="animate-spin rounded-full h-5 w-5 border-2 border-green-500 border-t-transparent"></div>
+              <span>Loading clients...</span>
+            </div>
+          </div>
+        </div>
+      </AdminLayout>
+    );
+  }
 
   return (
     <AdminLayout>

@@ -9,11 +9,14 @@ import { fetchProperties } from '../services/propertyService';
 export default function PropertyListings() {
   const [properties, setProperties] = useState<Array<{ id: number; name: string; type: string; location: string; size: number; status: string; image: string; }>>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedType, setSelectedType] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     const loadProperties = async () => {
+      setLoading(true);
+      setLoadError(null);
       try {
         const data = await fetchProperties();
         const transformedData = data.map(property => ({
@@ -27,6 +30,8 @@ export default function PropertyListings() {
         }));
         setProperties(transformedData);
       } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Failed to load properties';
+        setLoadError(errorMessage);
         console.error('Error loading properties:', error);
       } finally {
         setLoading(false);
@@ -106,9 +111,24 @@ export default function PropertyListings() {
       {/* Properties Grid */}
       <div className="flex-1 bg-gray-50 py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          {loadError && (
+            <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
+              <p className="text-red-800 font-medium">Could not load properties</p>
+              <p className="text-red-700 text-sm mt-1">{loadError}</p>
+              <button 
+                onClick={() => window.location.reload()}
+                className="mt-3 inline-block bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 text-sm"
+              >
+                Try Again
+              </button>
+            </div>
+          )}
           {loading ? (
             <div className="text-center py-20">
-              <p className="text-gray-600 text-lg">Loading properties...</p>
+              <div className="inline-flex items-center gap-3 text-gray-600">
+                <div className="animate-spin rounded-full h-5 w-5 border-2 border-green-500 border-t-transparent"></div>
+                <span className="text-lg">Loading properties...</span>
+              </div>
             </div>
           ) : (
             <>
@@ -120,7 +140,7 @@ export default function PropertyListings() {
             <div className="text-center py-20">
               <Filter className="w-16 h-16 text-gray-400 mx-auto mb-4" />
               <h3 className="text-gray-900 mb-2">No properties found</h3>
-              <p className="text-gray-600">Try adjusting your search or filters</p>
+              <p className="text-gray-600">Try adjusting your search or filters to find what you're looking for</p>
             </div>
           ) : (
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">

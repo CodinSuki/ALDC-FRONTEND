@@ -43,27 +43,11 @@ interface Property {
   project_name: string;
 }
 
-// Mock data (clients, properties, agents - consider fetching from /api/admin/clients, etc.)
-const mockClients: Client[] = [
-  { client_id: 1, first_name: 'Maria', middle_name: 'C.', last_name: 'Santos', contact_email: 'maria.santos@email.com', contact_number: '09171234567' },
-  { client_id: 2, first_name: 'John', middle_name: 'D.', last_name: 'Reyes', contact_email: 'john.reyes@email.com', contact_number: '09181234567' },
-  { client_id: 3, first_name: 'Ana', middle_name: null, last_name: 'Cruz', contact_email: 'ana.cruz@email.com', contact_number: '09191234567' },
-  { client_id: 4, first_name: 'Pedro', middle_name: 'L.', last_name: 'Garcia', contact_email: 'pedro.garcia@email.com', contact_number: '09201234567' },
-];
-
-const mockProperties: Property[] = [
-  { property_id: 1, property_code: 'VV-BLK1-LOT5', project_name: 'Vista Verde Subdivision' },
-  { property_id: 2, property_code: 'GF-FARM-A12', project_name: 'Greenfield Agricultural Estate' },
-  { property_id: 3, property_code: 'MBC-FL5-U501', project_name: 'Metro Business Center' },
-  { property_id: 4, property_code: 'SBR-LOT-B8', project_name: 'Sunrise Beach Resort' },
-  { property_id: 5, property_code: 'IPZ-WARE-W3', project_name: 'Industrial Park Zone' },
-];
-
 export default function AdminTransactions() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [paymentsByTransaction, setPaymentsByTransaction] = useState<Record<number, PaymentLog[]>>({});
-  const [clients] = useState<Client[]>(mockClients);
-  const [properties] = useState<Property[]>(mockProperties);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [properties, setProperties] = useState<Property[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isAddTransactionOpen, setIsAddTransactionOpen] = useState(false);
   const [isEditTransactionOpen, setIsEditTransactionOpen] = useState(false);
@@ -74,7 +58,8 @@ export default function AdminTransactions() {
   const [detailTab, setDetailTab] = useState<'overview' | 'payments'>('overview');
   
   // Loading states
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [lookupsLoaded, setLookupsLoaded] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
@@ -93,8 +78,84 @@ export default function AdminTransactions() {
     paymentstatus: 'Confirmed' as const,
   });
 
-  // Fetch transactions on mount
+  const loadLookups = async () => {
+    const [clientsRes, propertiesRes] = await Promise.all([
+      fetch('/api/admin/clients', { method: 'GET', credentials: 'include' }),
+      fetch('/api/admin/properties?action=load', { method: 'GET', credentials: 'include' }),
+    ]);
+
+    const clientsPayload = (await clientsRes.json().catch(() => ({}))) as {
+      error?: string;
+      items?: Array<{
+        clientId: number;
+        fullName: string;
+        contact: string;
+        email: string;
+      }>;
+    };
+
+    const propertiesPayload = (await propertiesRes.json().catch(() => ({}))) as {
+      error?: string;
+      properties?: Array<{
+        propertyid: number;
+        propertyname?: string;
+        project_name?: string;
+      }>;
+    };
+
+    if (!clientsRes.ok) {
+      throw new Error(clientsPayload.error || 'Failed to load clients');
+    }
+
+    if (!propertiesRes.ok) {
+      throw new Error(propertiesPayload.error || 'Failed to load properties');
+    }
+
+    const normalizedClients: Client[] = (clientsPayload.items || []).map((item) => {
+      const [first = '', ...rest] = item.fullName.split(' ');
+      const last = rest.length > 0 ? rest[rest.length - 1] : '';
+      const middleParts = rest.slice(0, -1);
+      return {
+        client_id: item.clientId,
+        first_name: first,
+        middle_name: middleParts.length > 0 ? middleParts.join(' ') : null,
+        last_name: last,
+        contact_email: item.email || null,
+        contact_number: item.contact || null,
+      };
+    });
+
+    const normalizedProperties: Property[] = (propertiesPayload.properties || []).map((item) => ({
+      property_id: item.propertyid,
+      property_code: item.propertyname || `Property #${item.propertyid}`,
+      project_name: item.project_name || 'Unknown Project',
+    }));
+
+    setClients(normalizedClients);
+    setProperties(normalizedProperties);
+  };
+
+  // Fetch clients and properties lookup data first
   useEffect(() => {
+    const load = async () => {
+      try {
+        await loadLookups();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load lookup data');
+      } finally {
+        setLookupsLoaded(true);
+      }
+    };
+
+    load();
+  }, []);
+
+  // Fetch transactions after lookups are available
+  useEffect(() => {
+    if (!lookupsLoaded) {
+      return;
+    }
+
     const loadTransactions = async () => {
       setIsLoading(true);
       setError(null);
@@ -137,7 +198,7 @@ export default function AdminTransactions() {
     };
     
     loadTransactions();
-  }, [clients, properties]);
+  }, [clients, properties, lookupsLoaded]);
 
   const filteredTransactions = transactions.filter(transaction => {
     const matchesSearch = 
@@ -364,6 +425,26 @@ export default function AdminTransactions() {
     );
   }
 
+  // Show loading state
+  if (isLoading) {
+    return (
+      <AdminLayout>
+        <div className="space-y-6">
+          <div>
+            <h2 className="text-gray-900">Transaction & Payment Tracking</h2>
+            <p className="text-gray-600">Monitor all property transactions and payment schedules</p>
+          </div>
+          <div className="bg-white rounded-lg shadow-sm p-8">
+            <div className="flex items-center justify-center gap-3 text-gray-600">
+              <div className="animate-spin rounded-full h-5 w-5 border-2 border-green-500 border-t-transparent"></div>
+              <span>Loading transactions...</span>
+            </div>
+          </div>
+        </div>
+      </AdminLayout>
+    );
+  }
+
   return (
     <AdminLayout>
       <div className="space-y-6">
@@ -390,7 +471,7 @@ export default function AdminTransactions() {
                 resetPaymentForm();
                 setIsAddPaymentOpen(true);
               }}
-              disabled={isLoading || isSaving}
+              disabled={isSaving}
               className="flex items-center gap-2 bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
             >
               <DollarSign className="w-5 h-5" />
@@ -401,7 +482,7 @@ export default function AdminTransactions() {
                 resetTransactionForm();
                 setIsAddTransactionOpen(true);
               }}
-              disabled={isLoading || isSaving}
+              disabled={isSaving}
               className="flex items-center gap-2 bg-green-600 text-white px-4 py-3 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
             >
               <Plus className="w-5 h-5" />
@@ -439,17 +520,15 @@ export default function AdminTransactions() {
               placeholder="Search by transaction ID, client name, or property code..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              disabled={isLoading}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:bg-gray-100"
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
             />
           </div>
         </div>
 
         {/* Transactions Table */}
         <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+          <div className="px-6 py-4 border-b border-gray-200">
             <h3 className="text-gray-900">Transactions</h3>
-            {isLoading && <Loader className="w-4 h-4 animate-spin text-gray-600" />}
           </div>
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -464,15 +543,12 @@ export default function AdminTransactions() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {isLoading ? (
+                {filteredTransactions.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="text-center py-8">
-                      <Loader className="w-5 h-5 animate-spin mx-auto text-gray-600" />
+                      <p className="text-gray-600 font-medium">There are no transactions yet.</p>
+                      <p className="text-gray-500 text-sm mt-1">New sales transactions will appear here once they're created.</p>
                     </td>
-                  </tr>
-                ) : filteredTransactions.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="text-center py-8 text-gray-500">No transactions found</td>
                   </tr>
                 ) : (
                   filteredTransactions.map((transaction) => (

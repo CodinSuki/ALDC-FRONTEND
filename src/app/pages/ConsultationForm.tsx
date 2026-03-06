@@ -3,18 +3,14 @@ import PublicNav from '../components/PublicNav';
 import Footer from '../components/Footer';
 import { CheckCircle, ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { supabase } from '@/lib/SupabaseClient';
+import { fetchPropertyTypes, type PropertyTypeRow } from '@/app/services/propertyTypeService';
 import { submitConsultationRequest } from '@/app/services/consultationService';
-
-type PropertyTypeRow = {
-  propertytypeid: number;
-  propertytypename: string;
-};
 
 export default function ConsultationForm() {
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [propertyTypes, setPropertyTypes] = useState<PropertyTypeRow[]>([]);
   const [formData, setFormData] = useState({
     name: '',
@@ -28,14 +24,13 @@ export default function ConsultationForm() {
 
   useEffect(() => {
     const loadPropertyTypes = async () => {
-      const { data, error } = await supabase
-        .from('propertytype')
-        .select('propertytypeid, propertytypename')
-        .order('propertytypename', { ascending: true });
-
-      if (!error) {
-        setPropertyTypes((data ?? []) as PropertyTypeRow[]);
+      const types = await fetchPropertyTypes();
+      
+      if (types.length === 0) {
+        setLoadError('Property types are temporarily unavailable. You can still submit by retrying shortly.');
       }
+      
+      setPropertyTypes(types);
     };
 
     loadPropertyTypes();
@@ -119,6 +114,11 @@ export default function ConsultationForm() {
       <div className="flex-1 bg-gray-50 py-12">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
           <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-lg p-8 space-y-6">
+            {loadError && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                {loadError}
+              </div>
+            )}
             {/* Personal Information */}
             <div>
               <h2 className="text-gray-900 mb-6">Personal Information</h2>

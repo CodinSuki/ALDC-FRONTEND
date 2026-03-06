@@ -114,24 +114,6 @@ export const fetchCommissions = async (filters?: {
 };
 
 /**
- * Get commission by ID
- */
-export const fetchCommissionById = async (commissionId: number): Promise<Commission> => {
-  const response = await fetch(`/api/admin/commissions?id=${commissionId}`, {
-    method: 'GET',
-    credentials: 'include',
-  });
-
-  const data = await response.json().catch(() => ({}));
-
-  if (!response.ok) {
-    throw new Error(data?.error ?? 'Failed to fetch commission');
-  }
-
-  return data.commission;
-};
-
-/**
  * Get all payouts for a commission
  */
 export const fetchCommissionPayouts = async (commissionId: number): Promise<CommissionPayout[]> => {
@@ -149,57 +131,3 @@ export const fetchCommissionPayouts = async (commissionId: number): Promise<Comm
   return data.payouts ?? [];
 };
 
-/**
- * Get commission summary
- */
-export const fetchCommissionSummary = async (commissionId: number): Promise<{
-  commissionAmount: number;
-  totalPaidOut: number;
-  remainingAmount: number;
-  payoutCount: number;
-  status: CommissionStatus;
-}> => {
-  const response = await fetch(`/api/admin/commissions?resource=summary&commissionId=${commissionId}`, {
-    method: 'GET',
-    credentials: 'include',
-  });
-
-  const data = await response.json().catch(() => ({}));
-
-  if (!response.ok) {
-    throw new Error(data?.error ?? 'Failed to fetch commission summary');
-  }
-
-  return data.summary;
-};
-
-/**
- * Get staff commission report
- */
-export const fetchStaffCommissionReport = async (staffId: number, filters?: {
-  startDate?: string;
-  endDate?: string;
-}): Promise<{
-  totalCommissions: number;
-  totalReleased: number;
-  totalPending: number;
-  commissionCount: number;
-  commissions: Commission[];
-}> => {
-  const params = new URLSearchParams({ resource: 'report', staffId: String(staffId) });
-  if (filters?.startDate) params.append('startDate', filters.startDate);
-  if (filters?.endDate) params.append('endDate', filters.endDate);
-
-  const response = await fetch(`/api/admin/commissions?${params}`, {
-    method: 'GET',
-    credentials: 'include',
-  });
-
-  const data = await response.json().catch(() => ({}));
-
-  if (!response.ok) {
-    throw new Error(data?.error ?? 'Failed to fetch staff commission report');
-  }
-
-  return data.report;
-};
