@@ -12,3 +12,5 @@ dist
 coverage/
 *.tsbuildinfo
 .vscode/
+*.md
+*.sql
