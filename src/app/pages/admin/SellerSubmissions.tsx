@@ -290,12 +290,12 @@ export default function AdminSellerSubmissions() {
                   </div>
                 )}
 
-                {(selectedDetail.agriculturalLotTypes.length > 0 || selectedDetail.agriculturalAmenities) && (
+                {((selectedDetail.agriculturalLotTypes?.length ?? 0) > 0 || selectedDetail.agriculturalAmenities) && (
                   <div className="rounded-lg border p-3">
                     <p className="text-xs text-gray-500 mb-2">Agricultural Details</p>
-                    {selectedDetail.agriculturalLotTypes.length > 0 && (
+                    {(selectedDetail.agriculturalLotTypes?.length ?? 0) > 0 && (
                       <p className="text-sm text-gray-900 mb-2">
-                        Lot Types: {selectedDetail.agriculturalLotTypes.join(', ')}
+                        Lot Types: {selectedDetail.agriculturalLotTypes?.join(', ')}
                       </p>
                     )}
                     {selectedDetail.agriculturalAmenities && (

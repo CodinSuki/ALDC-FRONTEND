@@ -125,10 +125,31 @@ const mapStatusToCode = (status: string): SellerSubmissionStatusCode => {
   return 'PND';
 };
 
+const mapCodeToStatus = (code: SellerSubmissionStatusCode): string => {
+  switch (code) {
+    case 'PND':
+      return 'Pending Review';
+    case 'REV':
+      return 'Pending Review';
+    case 'ACC':
+      return 'Client Linked';
+    case 'REJ':
+      return 'Received';
+    case 'AVL':
+      return 'Published';
+    default:
+      return 'Pending Review';
+  }
+};
+
 export const setSubmissionStatus = async (propertyId: number, code: SellerSubmissionStatusCode): Promise<void> => {
   await apiRequest<{ success: boolean }>('/api/admin/workflows', {
     method: 'PATCH',
-    body: JSON.stringify({ propertyId, code }),
+    body: JSON.stringify({
+      source: 'Seller Submission',
+      sourceId: String(propertyId),
+      status: mapCodeToStatus(code),
+    }),
   });
 };
 
