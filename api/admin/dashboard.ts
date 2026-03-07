@@ -46,6 +46,43 @@ type AdminDashboardData = {
   recentTransactions: DashboardTransaction[];
 };
 
+type RevenuePoint = {
+  month: string;
+  revenue: number;
+  transactions: number;
+};
+
+type ProjectPerformance = {
+  project: string;
+  sold: number;
+  available: number;
+  revenue: number;
+};
+
+type ActivityLogEntry = {
+  activityid: number;
+  staffname: string;
+  activitytype: string;
+  entitytype: string;
+  entityid: number;
+  description: string;
+  createdat: string;
+};
+
+type CommissionReport = {
+  staffname: string;
+  staffrole: string;
+  totalcommission: number;
+  transactioncount: number;
+};
+
+type ReportsData = {
+  revenues: RevenuePoint[];
+  projectPerformance: ProjectPerformance[];
+  activityLogs: ActivityLogEntry[];
+  commissions: CommissionReport[];
+};
+
 type ListingStatusRow = {
   propertylistingstatusid: number;
   propertylistingstatuscode: string | null;
@@ -107,6 +144,173 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
+    const view = req.query.view as string | undefined;
+
+    // Handle reports view
+    if (view === 'reports') {
+      const [transactionsRes, activityRes, staffRes, projectRes, propertyRes, commissionRes] = await Promise.all([
+        supabaseAdmin
+          .from('transaction')
+          .select('transactionid, propertyid, amount, total_amount, contract_amount, payment_status, transaction_status, createdat')
+          .order('createdat', { ascending: false }),
+        supabaseAdmin
+          .from('activitylog')
+          .select('activityid, staffid, activitytype, entitytype, entityid, description, createddat')
+          .order('createddat', { ascending: false })
+          .limit(100),
+        supabaseAdmin.from('staff').select('staffid, firstname, middlename, lastname, role'),
+        supabaseAdmin.from('project').select('projectid, projectname'),
+        supabaseAdmin
+          .from('property')
+          .select('propertyid, projectid, propertylistingstatusid, createdat')
+          .eq('is_archived', false),
+        supabaseAdmin.from('commission').select('commissionid, staffid, amount, createdat'),
+      ]);
+
+      if (transactionsRes.error) throw transactionsRes.error;
+      if (activityRes.error) throw activityRes.error;
+
+      const transactions = (transactionsRes.data ?? []) as Array<Record<string, unknown>>;
+      const activityLogs = (activityRes.data ?? []) as Array<Record<string, unknown>>;
+      const staffRows = (staffRes.data ?? []) as Array<Record<string, unknown>>;
+      const projects = (projectRes.data ?? []) as Array<Record<string, unknown>>;
+      const properties = (propertyRes.data ?? []) as Array<Record<string, unknown>>;
+      const commissions = (commissionRes.data ?? []) as Array<Record<string, unknown>>;
+
+      // Build staff map
+      const staffMap = new Map<number, string>();
+      staffRows.forEach((row) => {
+        const name = formatName(row.firstname as string | null, row.middlename as string | null, row.lastname as string | null);
+        staffMap.set(toNumber(row.staffid), name || `Staff #${toNumber(row.staffid)}`);
+      });
+
+      // Build project map
+      const projectMap = new Map<number, string>();
+      projects.forEach((row) => {
+        projectMap.set(toNumber(row.projectid), asText(row.projectname, `Project #${toNumber(row.projectid)}`));
+      });
+
+      // Build property-to-project map
+      const propertyProjectMap = new Map<number, number>();
+      properties.forEach((row) => {
+        propertyProjectMap.set(toNumber(row.propertyid), toNumber(row.projectid));
+      });
+
+      // Calculate revenue trends (last 6 months)
+      const revenueMap = new Map<string, { revenue: number; transactions: number }>();
+      const monthOrder = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+      transactions.forEach((row) => {
+        const amount = toNumber(row.total_amount ?? row.amount ?? row.contract_amount ?? 0);
+        const dateStr = asText(row.createdat, '');
+        const month = dateStr ? monthLabel(dateStr) : 'N/A';
+
+        if (!revenueMap.has(month)) {
+          revenueMap.set(month, { revenue: 0, transactions: 0 });
+        }
+        const entry = revenueMap.get(month);
+        if (entry) {
+          entry.revenue += amount;
+          entry.transactions += 1;
+        }
+      });
+
+      const revenues: RevenuePoint[] = monthOrder
+        .map((month) => {
+          const data = revenueMap.get(month) ?? { revenue: 0, transactions: 0 };
+          return {
+            month,
+            revenue: data.revenue,
+            transactions: data.transactions,
+          };
+        })
+        .filter((point) => point.revenue > 0 || point.transactions > 0 || monthOrder.indexOf(point.month) >= monthOrder.length - 6);
+
+      // Calculate project performance
+      const projectPerformanceMap = new Map<number, { sold: number; available: number; revenue: number }>();
+
+      properties.forEach((row) => {
+        const projectId = toNumber(row.projectid);
+        if (!projectPerformanceMap.has(projectId)) {
+          projectPerformanceMap.set(projectId, { sold: 0, available: 0, revenue: 0 });
+        }
+      });
+
+      transactions.forEach((row) => {
+        const propertyId = toNumber(row.propertyid);
+        const projectId = propertyProjectMap.get(propertyId);
+        if (projectId && projectPerformanceMap.has(projectId)) {
+          const amount = toNumber(row.total_amount ?? row.amount ?? row.contract_amount ?? 0);
+          const entry = projectPerformanceMap.get(projectId);
+          if (entry) {
+            entry.sold += 1;
+            entry.revenue += amount;
+          }
+        }
+      });
+
+      const projectPerformance: ProjectPerformance[] = Array.from(projectPerformanceMap.entries())
+        .map(([projectId, data]) => {
+          const projectName = projectMap.get(projectId) ?? `Project #${projectId}`;
+          const totalLots = properties.filter((p) => toNumber(p.projectid) === projectId).length;
+          return {
+            project: projectName,
+            sold: data.sold,
+            available: totalLots - data.sold,
+            revenue: data.revenue,
+          };
+        })
+        .sort((a, b) => b.revenue - a.revenue);
+
+      // Build activity logs
+      const activityLogsData: ActivityLogEntry[] = activityLogs.map((row) => ({
+        activityid: toNumber(row.activityid),
+        staffname: staffMap.get(toNumber(row.staffid)) ?? 'N/A',
+        activitytype: asText(row.activitytype, 'Unknown'),
+        entitytype: asText(row.entitytype, 'Unknown'),
+        entityid: toNumber(row.entityid),
+        description: asText(row.description, ''),
+        createdat: asText(row.createddat, ''),
+      }));
+
+      // Build commission reports
+      const commissionMap = new Map<number, { amount: number; count: number }>();
+      commissions.forEach((row) => {
+        const staffId = toNumber(row.staffid);
+        const amount = toNumber(row.amount ?? 0);
+        if (!commissionMap.has(staffId)) {
+          commissionMap.set(staffId, { amount: 0, count: 0 });
+        }
+        const entry = commissionMap.get(staffId);
+        if (entry) {
+          entry.amount += amount;
+          entry.count += 1;
+        }
+      });
+
+      const commissionReports: CommissionReport[] = Array.from(commissionMap.entries())
+        .map(([staffId, data]) => {
+          const staff = staffRows.find((s) => toNumber(s.staffid) === staffId);
+          return {
+            staffname: staffMap.get(staffId) ?? 'N/A',
+            staffrole: asText(staff?.role, 'Unknown'),
+            totalcommission: data.amount,
+            transactioncount: data.count,
+          };
+        })
+        .sort((a, b) => b.totalcommission - a.totalcommission);
+
+      const reportsData: ReportsData = {
+        revenues,
+        projectPerformance,
+        activityLogs: activityLogsData.slice(0, 50),
+        commissions: commissionReports,
+      };
+
+      return res.status(200).json(reportsData);
+    }
+
+    // Default dashboard view
     const [projectsCountRes, propertiesRes, propertyTypesRes, listingStatusRes, transactionsRes, consultationRes, inquiryRes, clientRes] =
       await Promise.all([
         supabaseAdmin.from('project').select('projectid', { count: 'exact', head: true }),

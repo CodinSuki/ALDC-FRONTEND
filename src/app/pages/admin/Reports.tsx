@@ -1,24 +1,88 @@
 import AdminLayout from '@/app/components/AdminLayout';
 import { Download, Calendar, TrendingUp, DollarSign, Building2, Users } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
-
-const salesData = [
-  { month: 'Jan', revenue: 45000000, transactions: 12 },
-  { month: 'Feb', revenue: 52000000, transactions: 15 },
-  { month: 'Mar', revenue: 38000000, transactions: 10 },
-  { month: 'Apr', revenue: 65000000, transactions: 18 },
-  { month: 'May', revenue: 48000000, transactions: 14 },
-  { month: 'Jun', revenue: 72000000, transactions: 20 },
-];
-
-const projectPerformance = [
-  { project: 'Vista Verde', sold: 28, available: 17, revenue: 154000000 },
-  { project: 'Greenfield', sold: 18, available: 10, revenue: 153000000 },
-  { project: 'Metro Business', sold: 35, available: 17, revenue: 420000000 },
-  { project: 'Sunrise Beach', sold: 12, available: 6, revenue: 86400000 },
-];
+import { useEffect, useState } from 'react';
+import { fetchReportsData, type ReportsData } from '@/app/services/adminReportsService';
 
 export default function AdminReports() {
+  const [data, setData] = useState<ReportsData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const loadData = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const reportsData = await fetchReportsData();
+        setData(reportsData);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Failed to load reports';
+        setError(message);
+        console.error('Failed to load reports', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
+  }, []);
+
+  const formatCurrency = (value: number): string =>
+    new Intl.NumberFormat('en-PH', {
+      style: 'currency',
+      currency: 'PHP',
+      maximumFractionDigits: 0,
+    }).format(value);
+
+  const calculateMetrics = () => {
+    if (!data) return { totalRevenue: 0, propertiesSold: 0, totalCommissions: 0, avgTransaction: 0 };
+
+    const totalRevenue = data.revenues.reduce((sum, point) => sum + point.revenue, 0);
+    const propertiesSold = data.projectPerformance.reduce((sum, project) => sum + project.sold, 0);
+    const totalCommissions = data.commissions.reduce((sum, commission) => sum + commission.totalcommission, 0);
+    const avgTransaction = propertiesSold > 0 ? totalRevenue / propertiesSold : 0;
+
+    return { totalRevenue, propertiesSold, totalCommissions, avgTransaction };
+  };
+
+  const metrics = calculateMetrics();
+
+  if (loading) {
+    return (
+      <AdminLayout>
+        <div className="space-y-6">
+          <div>
+            <h2 className="text-gray-900">Reports & Analytics</h2>
+            <p className="text-gray-600">View business insights and generate reports</p>
+          </div>
+          <div className="bg-white rounded-lg shadow-sm p-8">
+            <div className="flex items-center justify-center gap-3 text-gray-600">
+              <div className="animate-spin rounded-full h-5 w-5 border-2 border-green-500 border-t-transparent"></div>
+              <span>Loading reports...</span>
+            </div>
+          </div>
+        </div>
+      </AdminLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <AdminLayout>
+        <div className="space-y-6">
+          <div>
+            <h2 className="text-gray-900">Reports & Analytics</h2>
+            <p className="text-gray-600">View business insights and generate reports</p>
+          </div>
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+            <p className="text-red-800 font-medium">Failed to load reports</p>
+            <p className="text-red-700 text-sm mt-1">{error}</p>
+          </div>
+        </div>
+      </AdminLayout>
+    );
+  }
   return (
     <AdminLayout>
       <div className="space-y-8">
@@ -37,10 +101,10 @@ export default function AdminReports() {
         {/* Key Metrics */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {[
-            { label: 'Total Revenue (YTD)', value: '₱320M', change: '+23%', icon: DollarSign, color: 'bg-green-500' },
-            { label: 'Properties Sold (YTD)', value: '93', change: '+18%', icon: Building2, color: 'bg-blue-500' },
-            { label: 'Active Clients', value: '234', change: '+12%', icon: Users, color: 'bg-purple-500' },
-            { label: 'Avg. Transaction Value', value: '₱8.5M', change: '+5%', icon: TrendingUp, color: 'bg-orange-500' },
+            { label: 'Total Revenue', value: formatCurrency(metrics.totalRevenue), change: 'This period', icon: DollarSign, color: 'bg-green-500' },
+            { label: 'Properties Sold', value: String(metrics.propertiesSold), change: 'Total transactions', icon: Building2, color: 'bg-blue-500' },
+            { label: 'Total Commissions', value: formatCurrency(metrics.totalCommissions), change: 'Paid to staff', icon: Users, color: 'bg-purple-500' },
+            { label: 'Avg. Transaction Value', value: formatCurrency(metrics.avgTransaction), change: 'Per property', icon: TrendingUp, color: 'bg-orange-500' },
           ].map((metric, index) => (
             <div key={index} className="bg-white rounded-lg shadow-sm p-6">
               <div className="flex items-start justify-between">
@@ -63,30 +127,36 @@ export default function AdminReports() {
             <h2 className="text-gray-900">Revenue Trend</h2>
             <div className="flex items-center gap-2 text-sm text-gray-600">
               <Calendar className="w-4 h-4" />
-              <span>Last 6 Months</span>
+              <span>Monthly Data</span>
             </div>
           </div>
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={salesData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-              <XAxis dataKey="month" stroke="#666" />
-              <YAxis 
-                stroke="#666"
-                tickFormatter={(value) => `₱${(value / 1000000).toFixed(0)}M`}
-              />
-              <Tooltip 
-                contentStyle={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px' }}
-                formatter={(value: any) => [`₱${(value / 1000000).toFixed(1)}M`, 'Revenue']}
-              />
-              <Line 
-                type="monotone" 
-                dataKey="revenue" 
-                stroke="#10b981" 
-                strokeWidth={3}
-                dot={{ fill: '#10b981', r: 6 }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
+          {data && data.revenues.length > 0 ? (
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={data.revenues}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <XAxis dataKey="month" stroke="#666" />
+                <YAxis 
+                  stroke="#666"
+                  tickFormatter={(value) => `₱${(value / 1000000).toFixed(0)}M`}
+                />
+                <Tooltip 
+                  contentStyle={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px' }}
+                  formatter={(value: any) => [`₱${(value / 1000000).toFixed(1)}M`, 'Revenue']}
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="revenue" 
+                  stroke="#10b981" 
+                  strokeWidth={3}
+                  dot={{ fill: '#10b981', r: 6 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="h-300 flex items-center justify-center text-gray-500">
+              No revenue data available
+            </div>
+          )}
         </div>
 
         {/* Project Performance */}
@@ -114,37 +184,45 @@ export default function AdminReports() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {projectPerformance.map((project, index) => {
-                  const total = project.sold + project.available;
-                  const rate = ((project.sold / total) * 100).toFixed(1);
-                  return (
-                    <tr key={index} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-gray-900">
-                        {project.project}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-gray-900">
-                        {project.sold}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-gray-600">
-                        {project.available}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-gray-900">
-                        ₱{(project.revenue / 1000000).toFixed(1)}M
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center gap-2">
-                          <div className="flex-1 bg-gray-200 rounded-full h-2 max-w-[100px]">
-                            <div 
-                              className="bg-green-600 h-2 rounded-full" 
-                              style={{ width: `${rate}%` }}
-                            />
+                {data && data.projectPerformance.length > 0 ? (
+                  data.projectPerformance.map((project, index) => {
+                    const total = project.sold + project.available;
+                    const rate = total > 0 ? ((project.sold / total) * 100).toFixed(1) : '0.0';
+                    return (
+                      <tr key={index} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap text-gray-900">
+                          {project.project}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-gray-900">
+                          {project.sold}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-gray-600">
+                          {project.available}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-gray-900">
+                          {formatCurrency(project.revenue)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1 bg-gray-200 rounded-full h-2 max-w-[100px]">
+                              <div 
+                                className="bg-green-600 h-2 rounded-full" 
+                                style={{ width: `${rate}%` }}
+                              />
+                            </div>
+                            <span className="text-sm text-gray-600">{rate}%</span>
                           </div>
-                          <span className="text-sm text-gray-600">{rate}%</span>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
+                        </td>
+                      </tr>
+                    );
+                  })
+                ) : (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-4 text-center text-gray-500">
+                      No project data available
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
@@ -153,38 +231,133 @@ export default function AdminReports() {
         {/* Transaction Summary */}
         <div className="bg-white rounded-lg shadow-sm p-6">
           <h2 className="text-gray-900 mb-6">Monthly Transactions</h2>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={salesData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-              <XAxis dataKey="month" stroke="#666" />
-              <YAxis stroke="#666" />
-              <Tooltip 
-                contentStyle={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px' }}
-              />
-              <Bar dataKey="transactions" fill="#3b82f6" radius={[8, 8, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+          {data && data.revenues.length > 0 ? (
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={data.revenues}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <XAxis dataKey="month" stroke="#666" />
+                <YAxis stroke="#666" />
+                <Tooltip 
+                  contentStyle={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px' }}
+                />
+                <Bar dataKey="transactions" fill="#3b82f6" radius={[8, 8, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="h-300 flex items-center justify-center text-gray-500">
+              No transaction data available
+            </div>
+          )}
         </div>
 
-        {/* Quick Reports */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {[
-            { title: 'Commission Report', description: 'View agent and broker commissions', icon: DollarSign },
-            { title: 'Payment Status Report', description: 'Track payment schedules and overdue', icon: Calendar },
-            { title: 'Client Activity Report', description: 'Analyze client inquiries and conversions', icon: Users },
-          ].map((report, index) => (
-            <div key={index} className="bg-white rounded-lg shadow-sm p-6 hover:shadow-md transition-shadow cursor-pointer">
-              <div className="flex items-start gap-4">
-                <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                  <report.icon className="w-6 h-6 text-green-600" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-gray-900 mb-1">{report.title}</h3>
-                  <p className="text-sm text-gray-600">{report.description}</p>
-                </div>
-              </div>
-            </div>
-          ))}
+        {/* Commission Report */}
+        <div className="bg-white rounded-lg shadow-sm p-6">
+          <h2 className="text-gray-900 mb-6">Staff Commission Report</h2>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs text-gray-600 uppercase tracking-wider">
+                    Staff Name
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs text-gray-600 uppercase tracking-wider">
+                    Role
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs text-gray-600 uppercase tracking-wider">
+                    Total Commission
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs text-gray-600 uppercase tracking-wider">
+                    Transactions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {data && data.commissions.length > 0 ? (
+                  data.commissions.map((commission, index) => (
+                    <tr key={index} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap text-gray-900">
+                        {commission.staffname}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-gray-600">
+                        {commission.staffrole}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-gray-900">
+                        {formatCurrency(commission.totalcommission)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-gray-600">
+                        {commission.transactioncount}
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={4} className="px-6 py-4 text-center text-gray-500">
+                      No commission data available
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Activity Audit Log */}
+        <div className="bg-white rounded-lg shadow-sm p-6">
+          <h2 className="text-gray-900 mb-6">Recent Admin Activity Logs</h2>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs text-gray-600 uppercase tracking-wider">
+                    Staff
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs text-gray-600 uppercase tracking-wider">
+                    Activity
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs text-gray-600 uppercase tracking-wider">
+                    Entity
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs text-gray-600 uppercase tracking-wider">
+                    Description
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs text-gray-600 uppercase tracking-wider">
+                    Date
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {data && data.activityLogs.length > 0 ? (
+                  data.activityLogs.slice(0, 20).map((log, index) => (
+                    <tr key={index} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {log.staffname}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                        <span className="inline-block bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs font-medium">
+                          {log.activitytype.replace(/_/g, ' ')}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                        {log.entitytype}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-600 max-w-xs truncate">
+                        {log.description || '—'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {new Date(log.createdat).toLocaleString()}
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-4 text-center text-gray-500">
+                      No activity logs available
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </AdminLayout>

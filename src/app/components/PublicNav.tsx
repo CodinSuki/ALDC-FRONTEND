@@ -124,6 +124,13 @@ export default function PublicNav() {
             >
               Request Consultation
             </Link>
+            <Link
+              to="/sell"
+              className="block border-2 border-green-600 text-green-600 px-6 py-2 rounded-lg hover:bg-green-50 text-center"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              Sell Property
+            </Link>
           </div>
         )}
       </div>

@@ -416,6 +416,159 @@ export default async function handler(req: any, res: any) {
       return;
     }
 
+    if (req.method === 'POST') {
+      const action = req.query.action as string | undefined;
+      const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body ?? {};
+
+      if (action === 'searchClients') {
+        const searchTerm = String(body.searchTerm ?? '').toLowerCase().trim();
+        if (!searchTerm) {
+          return res.status(200).json({ clients: [] });
+        }
+
+        const { data, error } = await supabaseAdmin
+          .from('client')
+          .select('clientid, firstname, middlename, lastname, emailaddress, contactnumber')
+          .or(
+            `firstname.ilike.%${searchTerm}%,lastname.ilike.%${searchTerm}%,emailaddress.ilike.%${searchTerm}%,contactnumber.ilike.%${searchTerm}%`
+          )
+          .limit(20);
+
+        if (error) throw error;
+
+        const clients = (data ?? []).map((row: any) => ({
+          clientId: Number(row.clientid),
+          fullName: formatName(row.firstname, row.middlename, row.lastname),
+          email: asText(row.emailaddress, 'N/A'),
+          contact: asText(row.contactnumber, 'N/A'),
+        }));
+
+        return res.status(200).json({ clients });
+      }
+
+      if (action === 'linkClient') {
+        const { source, sourceId, clientId } = body;
+        if (!source || !sourceId || !clientId) {
+          return res.status(400).json({ error: 'Missing required fields' });
+        }
+
+        if (source === 'Consultation') {
+          const { error } = await supabaseAdmin
+            .from('consultationrequest')
+            .update({ clientid: Number(clientId) })
+            .eq('consultationrequestid', Number(sourceId));
+
+          if (error) throw error;
+        } else if (source === 'Buyer Inquiry') {
+          const { error } = await supabaseAdmin
+            .from('propertyinquiry')
+            .update({ clientid: Number(clientId) })
+            .eq('propertyinquiryid', Number(sourceId));
+
+          if (error) throw error;
+        } else if (source === 'Seller Submission') {
+          const { error } = await supabaseAdmin
+            .from('property')
+            .update({ sellerclientid: Number(clientId) })
+            .eq('propertyid', Number(sourceId));
+
+          if (error) throw error;
+        }
+
+        await logActivity({
+          staffid: session.staffId,
+          activitytype: 'inquiry_assigned' as any,
+          entitytype: source.toLowerCase().replace(' ', '_'),
+          entityid: Number(sourceId),
+          description: `Linked client #${clientId} to ${source} #${sourceId}`,
+        }).catch(() => {});
+
+        return res.status(200).json({ success: true });
+      }
+
+      if (action === 'createClient') {
+        const { source, sourceId, fullname, email, contact } = body;
+        if (!source || !sourceId) {
+          return res.status(400).json({ error: 'Missing required fields' });
+        }
+
+        // Check for existing client with same email or contact
+        if (email || contact) {
+          const { data: existing } = await supabaseAdmin
+            .from('client')
+            .select('clientid')
+            .or(
+              email && contact
+                ? `emailaddress.eq.${email},contactnumber.eq.${contact}`
+                : email
+                ? `emailaddress.eq.${email}`
+                : `contactnumber.eq.${contact}`
+            )
+            .limit(1);
+
+          if (existing && existing.length > 0) {
+            return res.status(409).json({
+              error: 'Client with this email or contact already exists',
+              existingClientId: existing[0].clientid,
+            });
+          }
+        }
+
+        // Parse name into parts
+        const nameParts = String(fullname ?? '').trim().split(' ');
+        const firstname = nameParts[0] || '';
+        const lastname = nameParts.length > 1 ? nameParts[nameParts.length - 1] : '';
+        const middlename = nameParts.length > 2 ? nameParts.slice(1, -1).join(' ') : null;
+
+        // Create new client
+        const { data: newClient, error: createError } = await supabaseAdmin
+          .from('client')
+          .insert({
+            firstname,
+            middlename,
+            lastname,
+            emailaddress: email || null,
+            contactnumber: contact || null,
+          })
+          .select('clientid')
+          .single();
+
+        if (createError) throw createError;
+
+        const newClientId = Number(newClient.clientid);
+
+        // Link to intake item
+        if (source === 'Consultation') {
+          await supabaseAdmin
+            .from('consultationrequest')
+            .update({ clientid: newClientId })
+            .eq('consultationrequestid', Number(sourceId));
+        } else if (source === 'Buyer Inquiry') {
+          await supabaseAdmin
+            .from('propertyinquiry')
+            .update({ clientid: newClientId })
+            .eq('propertyinquiryid', Number(sourceId));
+        } else if (source === 'Seller Submission') {
+          await supabaseAdmin
+            .from('property')
+            .update({ sellerclientid: newClientId })
+            .eq('propertyid', Number(sourceId));
+        }
+
+        await logActivity({
+          staffid: session.staffId,
+          activitytype: 'inquiry_created' as any,
+          entitytype: 'client',
+          entityid: newClientId,
+          description: `Created client from ${source} #${sourceId}`,
+        }).catch(() => {});
+
+        return res.status(200).json({ success: true, clientId: newClientId });
+      }
+
+      return res.status(400).json({ error: 'Invalid action' });
+    }
+
     res.status(405).json({ error: 'Method not allowed' });
   } catch (error: any) {
     res.status(500).json({ error: error?.message ?? 'Failed to process workflows request' });

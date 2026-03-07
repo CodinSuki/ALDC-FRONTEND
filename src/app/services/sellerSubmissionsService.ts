@@ -130,11 +130,11 @@ const mapCodeToStatus = (code: SellerSubmissionStatusCode): string => {
     case 'PND':
       return 'Pending Review';
     case 'REV':
-      return 'Pending Review';
+      return 'Needs Revision';
     case 'ACC':
-      return 'Client Linked';
+      return 'Accepted';
     case 'REJ':
-      return 'Received';
+      return 'Rejected';
     case 'AVL':
       return 'Published';
     default:
@@ -161,7 +161,12 @@ export const deleteSubmissionProperty = async (propertyId: number): Promise<void
 };
 
 export const fetchSellerSubmissionDetail = async (propertyId: number): Promise<SellerSubmissionDetail> => {
-  return apiRequest<SellerSubmissionDetail>(`/api/admin/workflows?propertyId=${propertyId}`, {
+  const response = await apiRequest<SellerSubmissionDetail>(`/api/admin/workflows?propertyId=${propertyId}`, {
     method: 'GET',
   });
+  // Ensure photos array exists
+  return {
+    ...response,
+    photos: response.photos ?? [],
+  };
 };

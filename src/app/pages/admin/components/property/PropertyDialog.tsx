@@ -203,6 +203,15 @@ export default function PropertyDialog({
             onChange={onChange}
           />
 
+          {selectedPropertyType && (
+            <div className={`p-3 rounded-lg ${isAgricultural ? 'bg-blue-50 border border-blue-200' : 'bg-amber-50 border border-amber-200'}`}>
+              <p className="text-xs font-semibold text-gray-600">PROPERTY TYPE</p>
+              <p className={`text-sm font-semibold ${isAgricultural ? 'text-blue-700' : 'text-amber-700'}`}>
+                {selectedPropertyType.propertytypename}
+              </p>
+            </div>
+          )}
+
           <PropertyOwnershipForm
             formData={formData}
             sellers={sellers}
@@ -214,6 +223,44 @@ export default function PropertyDialog({
             listingStatuses={listingStatuses}
             onChange={onChange}
           />
+
+          <div className="border-t pt-4">
+            <h3 className="text-sm font-semibold text-gray-900 mb-3">
+              {isAgricultural ? 'Agricultural Property Details' : 'Urban Property Details'}
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm text-gray-700 mb-1">Lot Type{isAgricultural ? 's' : ''}</label>
+                {isAgricultural ? (
+                  <div className="space-y-2 border border-gray-300 rounded-lg p-3 max-h-40 overflow-y-auto">
+                    {agriculturalLotTypes.map((lotType) => (
+                      <label key={lotType.agriculturalreflottypeid} className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={(formData.agriculturalreflottypeids ?? []).includes(lotType.agriculturalreflottypeid)}
+                          onChange={() => toggleAgriculturalLotType(lotType.agriculturalreflottypeid)}
+                        />
+                        <span>{lotType.agriculturalreflottypename}</span>
+                      </label>
+                    ))}
+                  </div>
+                ) : (
+                  <select
+                    value={formData.urbanreflottypeid || ''}
+                    onChange={(e) => onChange('urbanreflottypeid', e.target.value ? Number(e.target.value) : null)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  >
+                    <option value="">Select lot type</option>
+                    {urbanLotTypes.map((lotType) => (
+                      <option key={lotType.urbanreflottypeid} value={lotType.urbanreflottypeid}>
+                        {lotType.urbanreflottypename}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            </div>
+          </div>
 
           <div className="border-t pt-4">
             <h3 className="text-sm font-semibold text-gray-900 mb-3">Location Details</h3>
@@ -291,37 +338,6 @@ export default function PropertyDialog({
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                 />
               </div>
-
-              <div>
-                <label className="block text-sm text-gray-700 mb-1">Lot Type{isAgricultural ? 's' : ''}</label>
-                {isAgricultural ? (
-                  <div className="space-y-2 border border-gray-300 rounded-lg p-3 max-h-40 overflow-y-auto">
-                    {agriculturalLotTypes.map((lotType) => (
-                      <label key={lotType.agriculturalreflottypeid} className="flex items-center gap-2 text-sm">
-                        <input
-                          type="checkbox"
-                          checked={(formData.agriculturalreflottypeids ?? []).includes(lotType.agriculturalreflottypeid)}
-                          onChange={() => toggleAgriculturalLotType(lotType.agriculturalreflottypeid)}
-                        />
-                        <span>{lotType.agriculturalreflottypename}</span>
-                      </label>
-                    ))}
-                  </div>
-                ) : (
-                  <select
-                    value={formData.urbanreflottypeid || ''}
-                    onChange={(e) => onChange('urbanreflottypeid', e.target.value ? Number(e.target.value) : null)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                  >
-                    <option value="">Select lot type</option>
-                    {urbanLotTypes.map((lotType) => (
-                      <option key={lotType.urbanreflottypeid} value={lotType.urbanreflottypeid}>
-                        {lotType.urbanreflottypename}
-                      </option>
-                    ))}
-                  </select>
-                )}
-              </div>
             </div>
           </div>
 
@@ -347,7 +363,9 @@ export default function PropertyDialog({
           </div>
 
           <div className="border-t pt-4">
-            <h3 className="text-sm font-semibold text-gray-900 mb-3">Facilities & Amenities</h3>
+            <h3 className="text-sm font-semibold text-gray-900 mb-3">
+              {isAgricultural ? 'Facilities & Water Features' : 'Facilities & Amenities'}
+            </h3>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
               {(isAgricultural
                 ? [
@@ -361,9 +379,9 @@ export default function PropertyDialog({
                 : [
                     ['facilities_gated', 'Gated'],
                     ['facilities_security', 'Security'],
-                    ['facilities_clubhouse', 'Clubhouse'],
-                    ['facilities_sports', 'Sports'],
-                    ['facilities_parks', 'Parks'],
+                    ['facilities_clubhouse', 'Clubhouse / Function Hall'],
+                    ['facilities_sports', 'Sports & Fitness Center'],
+                    ['facilities_parks', 'Parks & Playgrounds'],
                   ]).map(([key, label]) => (
                 <label key={key} className="flex items-center gap-2">
                   <input

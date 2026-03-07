@@ -313,11 +313,11 @@ export default function AdminSellerSubmissions() {
 
                 <div className="rounded-lg border p-3">
                   <p className="text-xs text-gray-500 mb-2">Photos</p>
-                  {selectedDetail.photos.length === 0 ? (
+                  {(selectedDetail.photos ?? []).length === 0 ? (
                     <p className="text-sm text-gray-500">No photos submitted.</p>
                   ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {selectedDetail.photos.map((photo) => (
+                      {(selectedDetail.photos ?? []).map((photo) => (
                         <div key={photo.propertyphotoid} className="rounded-lg border border-gray-200 overflow-hidden bg-white">
                           {photo.photoDataUrl ? (
                             <img

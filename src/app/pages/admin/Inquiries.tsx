@@ -158,6 +158,14 @@ export default function AdminInquiries() {
     notes: '',
   });
 
+  // Client search/link states
+  const [isClientSearchOpen, setIsClientSearchOpen] = useState(false);
+  const [isCreateClientOpen, setIsCreateClientOpen] = useState(false);
+  const [clientSearchTerm, setClientSearchTerm] = useState('');
+  const [clientSearchResults, setClientSearchResults] = useState<any[]>([]);
+  const [clientSearchLoading, setClientSearchLoading] = useState(false);
+  const [clientLinkingItem, setClientLinkingItem] = useState<IntakeItem | null>(null);
+
   const statusOptions = useMemo(() => {
     const statuses = Array.from(new Set(items.map((item) => item.status)));
     return statuses.sort((a, b) => a.localeCompare(b));
@@ -262,6 +270,118 @@ export default function AdminInquiries() {
     } finally {
       setActionSaving(false);
     }
+  };
+
+  const searchClients = async (term: string) => {
+    if (!term || term.length < 2) {
+      setClientSearchResults([]);
+      return;
+    }
+
+    setClientSearchLoading(true);
+    try {
+      const response = await fetch('/api/admin/workflows?action=searchClients', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ searchTerm: term }),
+      });
+
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Failed to search clients');
+
+      setClientSearchResults(result.clients || []);
+    } catch (error: any) {
+      alert(error?.message || 'Failed to search clients');
+    } finally {
+      setClientSearchLoading(false);
+    }
+  };
+
+  const linkClientToIntake = async (clientId: number) => {
+    if (!clientLinkingItem) return;
+
+    try {
+      const response = await fetch('/api/admin/workflows?action=linkClient', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          source: clientLinkingItem.source,
+          sourceId: clientLinkingItem.sourceId,
+          clientId,
+        }),
+      });
+
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Failed to link client');
+
+      alert('Client linked successfully!');
+      setIsClientSearchOpen(false);
+      
+      // Reload items
+      const loadResponse = await fetch('/api/admin/workflows', { method: 'GET', credentials: 'include' });
+      const loadResult = await loadResponse.json();
+      setItems(loadResult.items ?? []);
+    } catch (error: any) {
+      alert(error?.message || 'Failed to link client');
+    }
+  };
+
+  const createClientFromIntake = async () => {
+    if (!clientLinkingItem) return;
+
+    try {
+      const response = await fetch('/api/admin/workflows?action=createClient', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          source: clientLinkingItem.source,
+          sourceId: clientLinkingItem.sourceId,
+          fullname: clientLinkingItem.clientName,
+          email: clientLinkingItem.email,
+          contact: clientLinkingItem.contact,
+        }),
+      });
+
+      const result = await response.json();
+      
+      if (response.status === 409) {
+        const useExisting = confirm(
+          `A client with this email or contact already exists (Client #${result.existingClientId}). Would you like to link this intake to the existing client instead?`
+        );
+        if (useExisting) {
+          await linkClientToIntake(result.existingClientId);
+          return;
+        }
+        return;
+      }
+
+      if (!response.ok) throw new Error(result.error || 'Failed to create client');
+
+      alert(`Client created successfully! Client ID: ${result.clientId}`);
+      setIsCreateClientOpen(false);
+      
+      // Reload items
+      const loadResponse = await fetch('/api/admin/workflows', { method: 'GET', credentials: 'include' });
+      const loadResult = await loadResponse.json();
+      setItems(loadResult.items ?? []);
+    } catch (error: any) {
+      alert(error?.message || 'Failed to create client');
+    }
+  };
+
+  const openClientSearchDialog = (item: IntakeItem) => {
+    setClientLinkingItem(item);
+    setClientSearchTerm('');
+    setClientSearchResults([]);
+    setIsClientSearchOpen(true);
+  };
+
+  const openCreateClientDialog = (item: IntakeItem) => {
+    setClientLinkingItem(item);
+    setIsCreateClientOpen(true);
   };
 
   const sourceBadgeClass = (source: IntakeSource) => {
@@ -424,10 +544,18 @@ export default function AdminInquiries() {
                       >
                         <Eye className="w-4 h-4 inline" />
                       </button>
-                      <button className="text-emerald-600 hover:text-emerald-800" title="Find or Link Client">
+                      <button 
+                        onClick={() => openClientSearchDialog(item)}
+                        className="text-emerald-600 hover:text-emerald-800" 
+                        title="Find or Link Client"
+                      >
                         <Link2 className="w-4 h-4 inline" />
                       </button>
-                      <button className="text-purple-600 hover:text-purple-800" title="Create/Confirm Client">
+                      <button 
+                        onClick={() => openCreateClientDialog(item)}
+                        className="text-purple-600 hover:text-purple-800" 
+                        title="Create/Confirm Client"
+                      >
                         <UserPlus className="w-4 h-4 inline" />
                       </button>
                     </td>
@@ -617,6 +745,150 @@ export default function AdminInquiries() {
               className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
             >
               Close
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Client Search Dialog */}
+      <Dialog open={isClientSearchOpen} onOpenChange={setIsClientSearchOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Find and Link Existing Client</DialogTitle>
+            <DialogDescription>
+              Search for an existing client to link to {clientLinkingItem?.source} #{clientLinkingItem?.sourceId}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Search by name, email, or contact
+              </label>
+              <input
+                type="text"
+                value={clientSearchTerm}
+                onChange={(e) => {
+                  setClientSearchTerm(e.target.value);
+                  searchClients(e.target.value);
+                }}
+                placeholder="Type to search..."
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+              />
+            </div>
+
+            <div className="max-h-96 overflow-y-auto">
+              {clientSearchLoading && (
+                <div className="text-center py-8 text-gray-500">Searching...</div>
+              )}
+              
+              {!clientSearchLoading && clientSearchResults.length === 0 && clientSearchTerm.length >= 2 && (
+                <div className="text-center py-8 text-gray-500">No clients found</div>
+              )}
+
+              {!clientSearchLoading && clientSearchResults.length === 0 && clientSearchTerm.length < 2 && (
+                <div className="text-center py-8 text-gray-400 text-sm">Enter at least 2 characters to search</div>
+              )}
+
+              <div className="space-y-2">
+                {clientSearchResults.map((client: any) => (
+                  <div
+                    key={client.clientid}
+                    className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 flex justify-between items-center"
+                  >
+                    <div>
+                      <div className="font-semibold text-gray-900">{client.fullname}</div>
+                      <div className="text-sm text-gray-600">
+                        {client.email && <div>Email: {client.email}</div>}
+                        {client.contact && <div>Contact: {client.contact}</div>}
+                        <div className="text-xs text-gray-400 mt-1">Client ID: {client.clientid}</div>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => linkClientToIntake(client.clientid)}
+                      className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700"
+                    >
+                      Link
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <button
+              onClick={() => setIsClientSearchOpen(false)}
+              className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Client Dialog */}
+      <Dialog open={isCreateClientOpen} onOpenChange={setIsCreateClientOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Create New Client</DialogTitle>
+            <DialogDescription>
+              Create a new client record and link to {clientLinkingItem?.source} #{clientLinkingItem?.sourceId}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
+              <input
+                type="text"
+                value={clientLinkingItem?.clientName || ''}
+                disabled
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50"
+              />
+              <p className="text-xs text-gray-500 mt-1">From intake form</p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+              <input
+                type="text"
+                value={clientLinkingItem?.email || 'Not provided'}
+                disabled
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Contact</label>
+              <input
+                type="text"
+                value={clientLinkingItem?.contact || 'Not provided'}
+                disabled
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50"
+              />
+            </div>
+
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+              <p className="text-sm text-yellow-800">
+                <strong>Note:</strong> This will create a new client record with the information from the intake form.
+                If a client with this email or contact already exists, you'll be prompted to link to that client instead.
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <button
+              onClick={() => setIsCreateClientOpen(false)}
+              className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={createClientFromIntake}
+              className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+            >
+              Create Client
             </button>
           </DialogFooter>
         </DialogContent>
