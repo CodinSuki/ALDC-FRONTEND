@@ -14,7 +14,6 @@ export const fetchPropertyTypes = async (): Promise<PropertyTypeRow[]> => {
     const { data, error } = await supabase
       .from('propertytype')
       .select('propertytypeid, propertytypename')
-      .eq('propertyisactive', true)
       .order('propertytypename', { ascending: true });
 
     if (error) {
