@@ -57,6 +57,9 @@ type SellerDraftFormData = {
   photos: SellerDraftPhoto[];
 };
 
+// Vercel serverless request bodies are limited; keep a safety margin for headers/overhead.
+const MAX_SELLER_DRAFT_REQUEST_BYTES = 4_200_000;
+
 type ListingStatusRow = {
   propertylistingstatusid: number;
 };
@@ -402,13 +405,29 @@ const uploadPropertyPhotos = async (propertyId: number, photos: SellerDraftPhoto
 };
 
 export const submitSellerDraftProperty = async (formData: SellerDraftFormData): Promise<number> => {
+  const requestBody = JSON.stringify(formData);
+  const requestSizeBytes = new TextEncoder().encode(requestBody).length;
+
+  if (requestSizeBytes > MAX_SELLER_DRAFT_REQUEST_BYTES) {
+    const requestSizeMb = (requestSizeBytes / (1024 * 1024)).toFixed(2);
+    const limitMb = (MAX_SELLER_DRAFT_REQUEST_BYTES / (1024 * 1024)).toFixed(2);
+
+    throw new Error(
+      `Your submission is too large (${requestSizeMb} MB). Please upload fewer or smaller photos and keep total payload under about ${limitMb} MB.`
+    );
+  }
+
   const response = await fetch('/api/public?resource=seller-draft', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify(formData),
+    body: requestBody,
   });
+
+  if (response.status === 413) {
+    throw new Error('Submission is too large. Please reduce photo count or image file sizes and try again.');
+  }
 
   const payload = await response.json().catch(() => ({}));
 
