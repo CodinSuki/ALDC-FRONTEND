@@ -486,7 +486,6 @@ const handleConsultation = async (req: any, res: any) => {
         additionalrequirements: additionalRequirements,
         consultationstatus: 'New',
         assignedstaffid: null,
-        scheduledat: null,
       },
     ])
     .select('consultationrequestid')

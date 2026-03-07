@@ -214,7 +214,7 @@ const fetchInboxItems = async (): Promise<{ items: IntakeItem[]; staffOptions: S
     notes: pick(row.additionalrequirements) || 'No additional requirements',
     assignedStaffId: row.assignedstaffid ? Number(row.assignedstaffid) : null,
     assignedStaffName: row.assignedstaffid ? staffById.get(Number(row.assignedstaffid))?.name : null,
-    scheduledAt: row.scheduledat || null,
+    scheduledAt: null,
   }));
 
   // Buyer inquiry items
@@ -318,7 +318,6 @@ const updateIntakeItem = async (payload: UpdateBody, session: any): Promise<void
     const consultationPayload: Record<string, unknown> = {
       consultationstatus: payload.status ?? 'New',
       assignedstaffid: payload.assignedStaffId ?? null,
-      scheduledat: payload.scheduledAt ?? null,
     };
 
     const { error } = await supabaseAdmin
