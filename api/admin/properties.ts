@@ -329,41 +329,363 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // POST /api/admin/properties - create property
     if (req.method === 'POST') {
-      const { payload } = req.body;
+      const { payload, detailPayload } = req.body;
 
-      const { data, error } = await supabaseAdmin
-        .from('property')
-        .insert([payload])
-        .select(PROPERTY_SELECT)
-        .single();
-
-      if (error || !data) {
-        throw error ?? new Error('Failed to create property');
+      if (!payload?.propertyname || !payload?.projectid) {
+        return res.status(400).json({ error: 'Property name and project are required' });
       }
 
-      return res.status(201).json(data);
+      // 1. Insert into property table
+      const { data: propertyData, error: propertyError } = await supabaseAdmin
+        .from('property')
+        .insert([payload])
+        .select('propertyid')
+        .single();
+
+      if (propertyError || !propertyData?.propertyid) {
+        throw propertyError ?? new Error('Failed to create property');
+      }
+
+      const propertyId = propertyData.propertyid;
+
+      // 2. Insert location data
+      if (detailPayload) {
+        const locationData = {
+          propertyid: propertyId,
+          propertyisland: detailPayload.location_island,
+          propertyregion: detailPayload.location_region,
+          propertyprovince: detailPayload.location_province,
+          propertycity: detailPayload.location_city,
+          propertybarangay: detailPayload.location_barangay,
+          propertystreet: detailPayload.location_street,
+          propertysize: detailPayload.lot_size,
+        };
+
+        const { error: locationError } = await supabaseAdmin
+          .from('propertylocation')
+          .insert([locationData]);
+
+        if (locationError) {
+          console.error('Warning: Failed to insert location data:', locationError);
+        }
+
+        // 3. Insert utilities data
+        const utilitiesData = {
+          propertyid: propertyId,
+          propertyhaswater: detailPayload.utilities_water,
+          propertyhaselectricity: detailPayload.utilities_electricity,
+          propertyhasmobilesignal: detailPayload.utilities_sim,
+          propertyhasinternet: detailPayload.utilities_internet,
+        };
+
+        const { error: utilitiesError } = await supabaseAdmin
+          .from('propertyutilities')
+          .insert([utilitiesData]);
+
+        if (utilitiesError) {
+          console.error('Warning: Failed to insert utilities data:', utilitiesError);
+        }
+
+        // 4. Insert accessibility data
+        const accessibilityData = {
+          propertyid: propertyId,
+          propertybymotorcycle: detailPayload.access_motorcycle,
+          propertybycar: detailPayload.access_car,
+          propertybytruck: detailPayload.access_truck,
+          propertybyaccessroad: detailPayload.access_road,
+          propertybycementedroad: detailPayload.access_cemented_road,
+          propertybyroughroad: detailPayload.access_rough_road,
+        };
+
+        const { error: accessibilityError } = await supabaseAdmin
+          .from('propertyaccessibility')
+          .insert([accessibilityData]);
+
+        if (accessibilityError) {
+          console.error('Warning: Failed to insert accessibility data:', accessibilityError);
+        }
+
+        // 5. Insert urban property amenities
+        const urbanAmenitiesData = {
+          propertyid: propertyId,
+          hasgated: detailPayload.facilities_gated,
+          hassecurity: detailPayload.facilities_security,
+          hasclubhouse: detailPayload.facilities_clubhouse,
+          hassportsfitnesscenter: detailPayload.facilities_sports,
+          hasparksplaygrounds: detailPayload.facilities_parks,
+        };
+
+        const { error: amenitiesError } = await supabaseAdmin
+          .from('urbanpropertyamenities')
+          .insert([urbanAmenitiesData]);
+
+        if (amenitiesError) {
+          console.error('Warning: Failed to insert urban amenities data:', amenitiesError);
+        }
+
+        // 6. Insert urban property details (lot type)
+        if (detailPayload.urbanreflottypeid) {
+          const urbanDetailsData = {
+            propertyid: propertyId,
+            urbanreflottypeid: detailPayload.urbanreflottypeid,
+          };
+
+          const { error: urbanDetailsError } = await supabaseAdmin
+            .from('urbanpropertydetails')
+            .insert([urbanDetailsData]);
+
+          if (urbanDetailsError) {
+            console.error('Warning: Failed to insert urban property details:', urbanDetailsError);
+          }
+        }
+
+        // 7. Insert agricultural property amenities
+        const agriAmenitiesData = {
+          propertyid: propertyId,
+          hasfarmhouse: detailPayload.agri_hasfarmhouse,
+          hasbarns: detailPayload.agri_hasbarns,
+          haswarehousestorage: detailPayload.agri_haswarehousestorage,
+          hasriversstreams: detailPayload.agri_hasriversstreams,
+          hasirrigationcanal: detailPayload.agri_hasirrigationcanal,
+          haslakelagoon: detailPayload.agri_haslakelagoon,
+        };
+
+        const { error: agriAmenitiesError } = await supabaseAdmin
+          .from('agriculturalpropertyamenities')
+          .insert([agriAmenitiesData]);
+
+        if (agriAmenitiesError) {
+          console.error('Warning: Failed to insert agricultural amenities data:', agriAmenitiesError);
+        }
+
+        // 8. Insert agricultural property details and lot types
+        if (detailPayload.agriculturalreflottypeids && detailPayload.agriculturalreflottypeids.length > 0) {
+          const { data: agriDetailsData, error: agriDetailsError } = await supabaseAdmin
+            .from('agriculturalpropertydetails')
+            .insert([{ propertyid: propertyId }])
+            .select('agriculturalpropertydetailsid')
+            .single();
+
+          if (agriDetailsError) {
+            console.error('Warning: Failed to create agricultural property details:', agriDetailsError);
+          } else if (agriDetailsData?.agriculturalpropertydetailsid) {
+            const lotTypeRecords = detailPayload.agriculturalreflottypeids.map((typeId: number) => ({
+              agriculturalpropertydetailsid: agriDetailsData.agriculturalpropertydetailsid,
+              agriculturalreflottypeid: typeId,
+            }));
+
+            const { error: lotTypeError } = await supabaseAdmin
+              .from('agriculturalpropertylottype')
+              .insert(lotTypeRecords);
+
+            if (lotTypeError) {
+              console.error('Warning: Failed to insert agricultural lot types:', lotTypeError);
+            }
+          }
+        }
+      }
+
+      // Fetch and return full property with all details
+      const { data, error: fetchError } = await supabaseAdmin
+        .from('property')
+        .select(PROPERTY_SELECT)
+        .eq('propertyid', propertyId)
+        .single();
+
+      if (fetchError || !data) {
+        throw fetchError ?? new Error('Failed to fetch created property');
+      }
+
+      return res.status(201).json(mapPropertyRow(data));
     }
 
     // PUT /api/admin/properties - update property
     if (req.method === 'PUT') {
-      const { propertyid, payload } = req.body;
+      const { propertyid, payload, detailPayload } = req.body;
 
       if (!propertyid) {
         return res.status(400).json({ error: 'Property ID is required' });
       }
 
+      // 1. Update property table
       const { data, error } = await supabaseAdmin
         .from('property')
         .update(payload)
         .eq('propertyid', propertyid)
-        .select(PROPERTY_SELECT)
+        .select('propertyid')
         .single();
 
       if (error || !data) {
         throw error ?? new Error('Failed to update property');
       }
 
-      return res.status(200).json(data);
+      // 2. Update location data
+      if (detailPayload) {
+        const locationData = {
+          propertyisland: detailPayload.location_island,
+          propertyregion: detailPayload.location_region,
+          propertyprovince: detailPayload.location_province,
+          propertycity: detailPayload.location_city,
+          propertybarangay: detailPayload.location_barangay,
+          propertystreet: detailPayload.location_street,
+          propertysize: detailPayload.lot_size,
+        };
+
+        const { error: locationError } = await supabaseAdmin
+          .from('propertylocation')
+          .upsert([{ propertyid, ...locationData }]);
+
+        if (locationError) {
+          console.error('Warning: Failed to update location data:', locationError);
+        }
+
+        // 3. Update utilities data
+        const utilitiesData = {
+          propertyhaswater: detailPayload.utilities_water,
+          propertyhaselectricity: detailPayload.utilities_electricity,
+          propertyhasmobilesignal: detailPayload.utilities_sim,
+          propertyhasinternet: detailPayload.utilities_internet,
+        };
+
+        const { error: utilitiesError } = await supabaseAdmin
+          .from('propertyutilities')
+          .upsert([{ propertyid, ...utilitiesData }]);
+
+        if (utilitiesError) {
+          console.error('Warning: Failed to update utilities data:', utilitiesError);
+        }
+
+        // 4. Update accessibility data
+        const accessibilityData = {
+          propertybymotorcycle: detailPayload.access_motorcycle,
+          propertybycar: detailPayload.access_car,
+          propertybytruck: detailPayload.access_truck,
+          propertybyaccessroad: detailPayload.access_road,
+          propertybycementedroad: detailPayload.access_cemented_road,
+          propertybyroughroad: detailPayload.access_rough_road,
+        };
+
+        const { error: accessibilityError } = await supabaseAdmin
+          .from('propertyaccessibility')
+          .upsert([{ propertyid, ...accessibilityData }]);
+
+        if (accessibilityError) {
+          console.error('Warning: Failed to update accessibility data:', accessibilityError);
+        }
+
+        // 5. Update urban property amenities
+        const urbanAmenitiesData = {
+          hasgated: detailPayload.facilities_gated,
+          hassecurity: detailPayload.facilities_security,
+          hasclubhouse: detailPayload.facilities_clubhouse,
+          hassportsfitnesscenter: detailPayload.facilities_sports,
+          hasparksplaygrounds: detailPayload.facilities_parks,
+        };
+
+        const { error: amenitiesError } = await supabaseAdmin
+          .from('urbanpropertyamenities')
+          .upsert([{ propertyid, ...urbanAmenitiesData }]);
+
+        if (amenitiesError) {
+          console.error('Warning: Failed to update urban amenities data:', amenitiesError);
+        }
+
+        // 6. Update urban property details (lot type)
+        if (detailPayload.urbanreflottypeid) {
+          const urbanDetailsData = {
+            propertyid,
+            urbanreflottypeid: detailPayload.urbanreflottypeid,
+          };
+
+          const { error: urbanDetailsError } = await supabaseAdmin
+            .from('urbanpropertydetails')
+            .upsert([urbanDetailsData]);
+
+          if (urbanDetailsError) {
+            console.error('Warning: Failed to update urban property details:', urbanDetailsError);
+          }
+        }
+
+        // 7. Update agricultural property amenities
+        const agriAmenitiesData = {
+          hasfarmhouse: detailPayload.agri_hasfarmhouse,
+          hasbarns: detailPayload.agri_hasbarns,
+          haswarehousestorage: detailPayload.agri_haswarehousestorage,
+          hasriversstreams: detailPayload.agri_hasriversstreams,
+          hasirrigationcanal: detailPayload.agri_hasirrigationcanal,
+          haslakelagoon: detailPayload.agri_haslakelagoon,
+        };
+
+        const { error: agriAmenitiesError } = await supabaseAdmin
+          .from('agriculturalpropertyamenities')
+          .upsert([{ propertyid, ...agriAmenitiesData }]);
+
+        if (agriAmenitiesError) {
+          console.error('Warning: Failed to update agricultural amenities data:', agriAmenitiesError);
+        }
+
+        // 8. Update agricultural property details and lot types
+        if (detailPayload.agriculturalreflottypeids && detailPayload.agriculturalreflottypeids.length > 0) {
+          // First, get or create agricultural property details
+          const { data: existingAgriDetails } = await supabaseAdmin
+            .from('agriculturalpropertydetails')
+            .select('agriculturalpropertydetailsid')
+            .eq('propertyid', propertyid)
+            .single();
+
+          let agriDetailsId = existingAgriDetails?.agriculturalpropertydetailsid;
+
+          if (!agriDetailsId) {
+            const { data: newAgriDetails, error: agriDetailsError } = await supabaseAdmin
+              .from('agriculturalpropertydetails')
+              .insert([{ propertyid }])
+              .select('agriculturalpropertydetailsid')
+              .single();
+
+            if (agriDetailsError) {
+              console.error('Warning: Failed to create agricultural property details:', agriDetailsError);
+            } else {
+              agriDetailsId = newAgriDetails?.agriculturalpropertydetailsid;
+            }
+          }
+
+          if (agriDetailsId) {
+            // Delete existing lot types and insert new ones
+            const { error: deleteError } = await supabaseAdmin
+              .from('agriculturalpropertylottype')
+              .delete()
+              .eq('agriculturalpropertydetailsid', agriDetailsId);
+
+            if (!deleteError) {
+              const lotTypeRecords = detailPayload.agriculturalreflottypeids.map((typeId: number) => ({
+                agriculturalpropertydetailsid: agriDetailsId,
+                agriculturalreflottypeid: typeId,
+              }));
+
+              const { error: lotTypeError } = await supabaseAdmin
+                .from('agriculturalpropertylottype')
+                .insert(lotTypeRecords);
+
+              if (lotTypeError) {
+                console.error('Warning: Failed to update agricultural lot types:', lotTypeError);
+              }
+            }
+          }
+        }
+      }
+
+      // Fetch and return full property with all details
+      const { data: updatedData, error: fetchError } = await supabaseAdmin
+        .from('property')
+        .select(PROPERTY_SELECT)
+        .eq('propertyid', propertyid)
+        .single();
+
+      if (fetchError || !updatedData) {
+        throw fetchError ?? new Error('Failed to fetch updated property');
+      }
+
+      return res.status(200).json(mapPropertyRow(updatedData));
     }
 
     // DELETE /api/admin/properties - delete property

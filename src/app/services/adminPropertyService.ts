@@ -238,7 +238,7 @@ export const updateAdminProperty = async (
   const response = await fetch('/api/admin/properties', {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ propertyid: propertyId, payload }),
+    body: JSON.stringify({ propertyid: propertyId, payload, detailPayload }),
   });
 
   if (!response.ok) {
