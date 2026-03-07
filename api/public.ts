@@ -308,7 +308,6 @@ const resolveBuyerClientId = async (client: NonNullable<BuyerInquiryBody['client
         lastname: String(client.last_name ?? '').trim(),
         emailaddress: email,
         contactnumber: phone,
-        clientsource: 'buyer_form',
       },
     ])
     .select('clientid')
@@ -440,7 +439,6 @@ const resolveConsultationClientId = async (fullName: string, email: string, phon
         lastname: lastName,
         emailaddress: normalizedEmail,
         contactnumber: normalizedPhone,
-        clientsource: 'consultation_form',
       },
     ])
     .select('clientid')
@@ -650,7 +648,6 @@ const resolveSellerClientId = async (formData: SellerDraftFormData): Promise<num
         lastname: formData.lastName,
         emailaddress: formData.email,
         contactnumber: formData.phone,
-        clientsource: 'seller_form',
       },
     ])
     .select('clientid')
