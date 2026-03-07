@@ -168,7 +168,7 @@ export const fetchSellerSubmissionDetail = async (propertyId: number): Promise<S
       const sellerItems = (res.items ?? []).filter((item: any) => item.source === 'Seller Submission' && item.sourceId === String(propertyId));
       return sellerItems[0] || null;
     }),
-    // Get property details (has location, utilities, accessibility, amenities, etc.)
+    // Get property details (has location, utilities, accessibility, amenities, photos, etc.)
     apiRequest<any>(`/api/admin/properties?action=details&id=${propertyId}`, { method: 'GET' }).catch(
       () => null
     ),
@@ -231,6 +231,6 @@ export const fetchSellerSubmissionDetail = async (propertyId: number): Promise<S
       hasLakeLagoon: propertyDetails.agri_haslakelagoon ?? false,
       amenitiesNotes: null,
     } : null,
-    photos: submissionItem?.photos ?? [],
+    photos: propertyDetails?.photos ?? [],
   };
 };

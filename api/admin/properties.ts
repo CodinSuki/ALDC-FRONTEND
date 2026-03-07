@@ -2,6 +2,31 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { requireAdminSession } from '../../lib/admin/utils/auth.js';
 import { supabaseAdmin } from '../../lib/admin/utils/supabaseAdmin.js';
 
+const hexToBase64 = (hexValue: string | null | undefined): string | null => {
+  if (!hexValue) return null;
+
+  try {
+    const normalizedHex = hexValue.startsWith('\\x') ? hexValue.slice(2) : hexValue;
+    if (!normalizedHex || normalizedHex.length % 2 !== 0) return null;
+    return Buffer.from(normalizedHex, 'hex').toString('base64');
+  } catch {
+    return null;
+  }
+};
+
+const buildPhotoDataUrl = (
+  photoData: string | null | undefined,
+  mimeType: string | null | undefined
+): string | null => {
+  if (!photoData) return null;
+  if (photoData.startsWith('data:')) return photoData;
+
+  const base64Data = hexToBase64(photoData);
+  if (!base64Data) return null;
+
+  return `data:${mimeType || 'image/jpeg'};base64,${base64Data}`;
+};
+
 const PROPERTY_SELECT = `
   *,
   project!fk_property_project(projectname),
@@ -240,7 +265,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           return res.status(400).json({ error: 'Invalid property ID' });
         }
 
-        const [locationRes, utilitiesRes, accessibilityRes, urbanAmenitiesRes, urbanDetailsRes, agriAmenitiesRes, agriDetailsRes] = await Promise.all([
+        const [locationRes, utilitiesRes, accessibilityRes, urbanAmenitiesRes, urbanDetailsRes, agriAmenitiesRes, agriDetailsRes, photosRes] = await Promise.all([
           supabaseAdmin
             .from('propertylocation')
             .select('propertyisland, propertyregion, propertyprovince, propertycity, propertybarangay, propertystreet, propertysize')
@@ -276,6 +301,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             .select('agriculturalpropertydetailsid')
             .eq('propertyid', propertyId)
             .maybeSingle(),
+          supabaseAdmin
+            .from('propertyphoto')
+            .select('propertyphotoid, photoorder, photofilename, photomimetype, photosize, photodata')
+            .eq('propertyid', propertyId)
+            .order('photoorder', { ascending: true }),
         ]);
 
         let agriculturalreflottypeids: number[] = [];
@@ -289,6 +319,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           if (error) throw error;
           agriculturalreflottypeids = (data ?? []).map((row: any) => Number(row.agriculturalreflottypeid));
         }
+
+        // Process photos
+        const photos = (photosRes.data ?? []).map((photo: any) => ({
+          propertyphotoid: photo.propertyphotoid,
+          photoorder: photo.photoorder,
+          photofilename: photo.photofilename,
+          photomimetype: photo.photomimetype,
+          photosize: photo.photosize,
+          photoDataUrl: buildPhotoDataUrl(photo.photodata, photo.photomimetype),
+        }));
 
         return res.status(200).json({
           location_island: locationRes.data?.propertyisland ?? 'Luzon',
@@ -321,6 +361,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           agri_hasriversstreams: Boolean(agriAmenitiesRes.data?.hasriversstreams),
           agri_hasirrigationcanal: Boolean(agriAmenitiesRes.data?.hasirrigationcanal),
           agri_haslakelagoon: Boolean(agriAmenitiesRes.data?.haslakelagoon),
+          photos,
         });
       }
 
