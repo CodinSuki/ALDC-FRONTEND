@@ -1,7 +1,6 @@
 import { supabase } from '../../lib/SupabaseClient';
 
 const DEFAULT_ISLAND_OPTIONS = ['Luzon', 'Visayas', 'Mindanao'];
-const DEFAULT_REGION_OPTIONS = ['Region I', 'Region II', 'Region III', 'NCR', 'CALABARZON', 'MIMAROPA'];
 
 export type SellerDraftPhoto = {
   dataUrl: string;
@@ -17,7 +16,6 @@ export type SellerFormOptions = {
   agriculturalAmenities: string[];
   urbanAmenities: string[];
   islands: string[];
-  regions: string[];
 };
 
 type SellerDraftFormData = {
@@ -172,7 +170,6 @@ export const fetchSellerFormOptions = async (): Promise<SellerFormOptions> => {
       agriculturalAmenities: DEFAULT_AGRICULTURAL_AMENITIES,
       urbanAmenities: DEFAULT_URBAN_AMENITIES,
       islands: DEFAULT_ISLAND_OPTIONS,
-      regions: DEFAULT_REGION_OPTIONS,
     };
   };
 
@@ -214,10 +211,6 @@ export const fetchSellerFormOptions = async (): Promise<SellerFormOptions> => {
     islands: (() => {
       const values = asUniqueSortedValues(payload.islands ?? DEFAULT_ISLAND_OPTIONS);
       return values.length > 0 ? values : fallback.islands;
-    })(),
-    regions: (() => {
-      const values = asUniqueSortedValues(payload.regions ?? DEFAULT_REGION_OPTIONS);
-      return values.length > 0 ? values : fallback.regions;
     })(),
   };
 };

@@ -20,7 +20,6 @@ const INITIAL_FORM_OPTIONS: SellerFormOptions = {
   agriculturalAmenities: ['Farmhouse', 'Barns', 'Warehouse / Storage', 'Rivers / Streams', 'Irrigation / Canal', 'Lake / Lagoon'],
   urbanAmenities: ['Gated', 'Security', 'Clubhouse / Function Hall', 'Sports & Fitness Center', 'Parks & Playgrounds'],
   islands: ['Luzon', 'Visayas', 'Mindanao'],
-  regions: ['Region I', 'Region II', 'Region III', 'NCR', 'CALABARZON', 'MIMAROPA'],
 };
 
 
@@ -632,17 +631,7 @@ export default function SellerForm() {
 
                   <div>
                     <label className="block text-sm text-gray-700 mb-2">Region</label>
-                    <select
-                      name="locationRegion"
-                      value={formData.locationRegion}
-                      onChange={handleChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                    >
-                      <option value="">Select region...</option>
-                      {formOptions.regions.map((region) => (
-                        <option key={region} value={region}>{region}</option>
-                      ))}
-                    </select>
+                    <input type="text" name="locationRegion" value={formData.locationRegion} onChange={handleChange} placeholder="e.g., NCR, CALABARZON" className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent" />
                   </div>
 
                   <div>
