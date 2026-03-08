@@ -325,7 +325,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         supabaseAdmin
           .from('propertylistingstatus')
           .select('propertylistingstatusid, propertylistingstatuscode, propertylistingstatusname'),
-        supabaseAdmin.from('transaction').select('*').order('createdat', { ascending: false }),
+        supabaseAdmin.from('transaction').select('transactionid, propertyid, negotiatedprice, transactionstatus, createdat').order('createdat', { ascending: false }),
         supabaseAdmin.from('consultationrequest').select('fullname, consultationstatus, createdat'),
         supabaseAdmin.from('propertyinquiry').select('propertyinquiryid, propertyid, clientid, inquirystatus, createdat'),
         supabaseAdmin.from('client').select('clientid, firstname, middlename, lastname'),
@@ -393,7 +393,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const recentTransactions: DashboardTransaction[] = transactionRows.slice(0, 5).map((row) => {
       const status = asText(row.transactionstatus ?? 'In Progress', 'In Progress');
-      const propertyName = asText(row.propertyname ?? `Property #${toNumber(row.propertyid)}`, 'N/A');
+      const propertyId = toNumber(row.propertyid);
+      const propertyName = propertyById.get(propertyId) ?? `Property #${propertyId}`;
       const amountValue = toNumber(row.negotiatedprice ?? 0);
       const transactionDate = asText(row.createdat, '');
       const month = transactionDate ? monthLabel(transactionDate) : 'N/A';
