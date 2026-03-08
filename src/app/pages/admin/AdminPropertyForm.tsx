@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, CheckCircle, Upload, X } from 'lucide-react';
 import AdminLayout from '@/app/components/AdminLayout';
 import FormSection from '@/app/components/ui/FormSection';
+import CheckboxGrid from '@/app/components/ui/CheckboxGrid';
 import type { AdminPropertyPhotoUpload } from '@/app/services/adminPropertyService';
 import {
   fetchAdminPropertyData,
@@ -102,6 +103,11 @@ export default function AdminPropertyForm() {
     location_street: '',
     lot_size: 0,
     urbanreflottypeid: null as number | null,
+    lotType: '',
+    titled: '',
+    overlooking: '',
+    topography: '',
+    amenities: [] as string[],
     utilities_water: false,
     utilities_electricity: false,
     utilities_sim: false,
@@ -235,6 +241,23 @@ export default function AdminPropertyForm() {
         ? current.filter((id) => id !== lotTypeId)
         : [...current, lotTypeId];
       return { ...prev, agriculturalreflottypeids: next };
+    });
+  };
+
+  const handleAmenitiesToggle = (amenity: string) => {
+    setFormData((prev) => {
+      const current = prev.amenities;
+      const next = current.includes(amenity)
+        ? current.filter((a) => a !== amenity)
+        : [...current, amenity];
+      // Also update individual boolean fields
+      const updatedData = { ...prev, amenities: next };
+      if (amenity === 'Gated') updatedData.facilities_gated = next.includes('Gated');
+      if (amenity === 'Security') updatedData.facilities_security = next.includes('Security');
+      if (amenity === 'Clubhouse / Function Hall') updatedData.facilities_clubhouse = next.includes('Clubhouse / Function Hall');
+      if (amenity === 'Sports & Fitness Center') updatedData.facilities_sports = next.includes('Sports & Fitness Center');
+      if (amenity === 'Parks & Playgrounds') updatedData.facilities_parks = next.includes('Parks & Playgrounds');
+      return updatedData;
     });
   };
 
@@ -695,58 +718,109 @@ export default function AdminPropertyForm() {
 
           {/* LOT TYPE & DETAILS */}
           {formData.propertytypeid && (
-            <FormSection
-              title={isAgriculturalType ? 'Agricultural Lot Details' : 'Urban Lot Details'}
-            >
-              <div>
-                <label className="block text-sm text-gray-700 mb-3">
-                  {isAgriculturalType ? 'Agricultural Lot Types' : 'Urban Lot Type'}
-                </label>
-                {isAgriculturalType ? (
-                  <div className="space-y-3 border border-gray-300 rounded-lg p-4 max-h-60 overflow-y-auto bg-gray-50">
-                    {agriculturalLotTypes.map((lotType) => (
-                      <label
-                        key={lotType.agriculturalreflottypeid}
-                        className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-white hover:border-green-400 transition-colors bg-white"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={formData.agriculturalreflottypeids.includes(
-                            lotType.agriculturalreflottypeid
-                          )}
-                          onChange={() =>
-                            toggleAgriculturalLotType(lotType.agriculturalreflottypeid)
-                          }
-                          className="text-green-600 focus:ring-green-500 rounded"
-                        />
-                        <span className="font-medium text-gray-700">
-                          {lotType.agriculturalreflottypename}
-                        </span>
-                      </label>
-                    ))}
+            <>
+              {isAgriculturalType ? (
+                <FormSection title="Agricultural Lot Details">
+                  <div>
+                    <label className="block text-sm text-gray-700 mb-3">
+                      Agricultural Lot Type
+                    </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {agriculturalLotTypes.map((lotType) => (
+                        <label
+                          key={lotType.agriculturalreflottypeid}
+                          className="flex items-center gap-2 cursor-pointer"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={formData.agriculturalreflottypeids.includes(
+                              lotType.agriculturalreflottypeid
+                            )}
+                            onChange={() =>
+                              toggleAgriculturalLotType(lotType.agriculturalreflottypeid)
+                            }
+                            className="w-4 h-4"
+                          />
+                          <span className="text-gray-700">
+                            {lotType.agriculturalreflottypename}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
                   </div>
-                ) : (
-                  <select
-                    name="urbanreflottypeid"
-                    value={formData.urbanreflottypeid || ''}
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        urbanreflottypeid: e.target.value ? Number(e.target.value) : null,
-                      }))
-                    }
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  >
-                    <option value="">Select lot type</option>
-                    {urbanLotTypes.map((lotType) => (
-                      <option key={lotType.urbanreflottypeid} value={lotType.urbanreflottypeid}>
-                        {lotType.urbanreflottypename}
-                      </option>
-                    ))}
-                  </select>
-                )}
-              </div>
-            </FormSection>
+                </FormSection>
+              ) : (
+                <section className="border border-blue-200 bg-blue-50 rounded-lg p-6 mt-6 transition-all duration-300">
+                  <h3 className="text-gray-900 font-semibold mb-6">Lot Type & Facilities</h3>
+
+                  <div>
+                    <label className="block text-sm text-gray-700 mb-2">
+                      Lot Type
+                    </label>
+                    <select
+                      name="lotType"
+                      value={formData.lotType}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    >
+                      <option value="">Select lot type...</option>
+                      {urbanLotTypes.map((lotType) => (
+                        <option key={lotType.urbanreflottypeid} value={lotType.urbanreflottypeid}>
+                          {lotType.urbanreflottypename}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="mt-6">
+                    <CheckboxGrid
+                      label="Facilities & Amenities"
+                      options={['Gated', 'Security', 'Clubhouse / Function Hall', 'Sports & Fitness Center', 'Parks & Playgrounds']}
+                      values={formData.amenities}
+                      onToggle={handleAmenitiesToggle}
+                    />
+                  </div>
+
+                  <div className="mt-6">
+                    <RadioGroup
+                      label="Land Titled?"
+                      name="titled"
+                      value={formData.titled}
+                      options={['Yes', 'No']}
+                      onChange={handleChange}
+                    />
+                  </div>
+
+                  <div className="mt-6">
+                    <RadioGroup
+                      label="Overlooking?"
+                      name="overlooking"
+                      value={formData.overlooking}
+                      options={['Yes', 'No']}
+                      onChange={handleChange}
+                    />
+                  </div>
+
+                  <div className="mt-6">
+                    <label className="block text-sm text-gray-700 mb-2">
+                      Topography
+                    </label>
+                    <select
+                      name="topography"
+                      value={formData.topography}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    >
+                      <option value="">Select topography...</option>
+                      <option value="Flat">Flat</option>
+                      <option value="Rolling">Rolling</option>
+                      <option value="Sloping">Sloping</option>
+                      <option value="Mountainous">Mountainous</option>
+                    </select>
+                  </div>
+                </section>
+              )}
+            </>
           )}
 
           {/* UTILITIES */}
@@ -794,135 +868,77 @@ export default function AdminPropertyForm() {
             </div>
           </FormSection>
 
-          {/* FACILITIES & AMENITIES */}
-          {formData.propertytypeid && (
-            <FormSection
-              title={
-                isAgriculturalType ? 'Facilities & Water Features' : 'Facilities & Amenities'
-              }
-            >
-              {isAgriculturalType ? (
-                <>
-                  <RadioGroup
-                    label="Farmhouse"
-                    name="agriFarmhouse"
-                    value={formData.agri_hasfarmhouse}
-                    options={['Yes', 'No']}
-                    onChange={handleRadioChange('agri_hasfarmhouse')}
-                    required
+          {/* FACILITIES & AMENITIES - AGRICULTURAL ONLY */}
+          {formData.propertytypeid && isAgriculturalType && (
+            <FormSection title="Facilities & Water Features">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.agri_hasbarns}
+                    onChange={(e) =>
+                      setFormData((prev) => ({ ...prev, agri_hasbarns: e.target.checked }))
+                    }
+                    className="w-4 h-4"
                   />
-
-                  <div className="mt-6">
-                    <RadioGroup
-                      label="Barns"
-                      name="agriBarns"
-                      value={formData.agri_hasbarns}
-                      options={['Yes', 'No']}
-                      onChange={handleRadioChange('agri_hasbarns')}
-                      required
-                    />
-                  </div>
-
-                  <div className="mt-6">
-                    <RadioGroup
-                      label="Warehouse / Storage"
-                      name="agriWarehouse"
-                      value={formData.agri_haswarehousestorage}
-                      options={['Yes', 'No']}
-                      onChange={handleRadioChange('agri_haswarehousestorage')}
-                      required
-                    />
-                  </div>
-
-                  <div className="mt-6">
-                    <RadioGroup
-                      label="Rivers / Streams"
-                      name="agriRivers"
-                      value={formData.agri_hasriversstreams}
-                      options={['Yes', 'No']}
-                      onChange={handleRadioChange('agri_hasriversstreams')}
-                      required
-                    />
-                  </div>
-
-                  <div className="mt-6">
-                    <RadioGroup
-                      label="Irrigation / Canal"
-                      name="agriIrrigation"
-                      value={formData.agri_hasirrigationcanal}
-                      options={['Yes', 'No']}
-                      onChange={handleRadioChange('agri_hasirrigationcanal')}
-                      required
-                    />
-                  </div>
-
-                  <div className="mt-6">
-                    <RadioGroup
-                      label="Lake / Lagoon"
-                      name="agriLake"
-                      value={formData.agri_haslakelagoon}
-                      options={['Yes', 'No']}
-                      onChange={handleRadioChange('agri_haslakelagoon')}
-                      required
-                    />
-                  </div>
-                </>
-              ) : (
-                <>
-                  <RadioGroup
-                    label="Gated"
-                    name="facilitiesGated"
-                    value={formData.facilities_gated}
-                    options={['Yes', 'No']}
-                    onChange={handleRadioChange('facilities_gated')}
-                    required
+                  <span className="text-gray-700">Barns</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.agri_hasfarmhouse}
+                    onChange={(e) =>
+                      setFormData((prev) => ({ ...prev, agri_hasfarmhouse: e.target.checked }))
+                    }
+                    className="w-4 h-4"
                   />
-
-                  <div className="mt-6">
-                    <RadioGroup
-                      label="Security"
-                      name="facilitiesSecurity"
-                      value={formData.facilities_security}
-                      options={['Yes', 'No']}
-                      onChange={handleRadioChange('facilities_security')}
-                      required
-                    />
-                  </div>
-
-                  <div className="mt-6">
-                    <RadioGroup
-                      label="Clubhouse / Function Hall"
-                      name="facilitiesClubhouse"
-                      value={formData.facilities_clubhouse}
-                      options={['Yes', 'No']}
-                      onChange={handleRadioChange('facilities_clubhouse')}
-                      required
-                    />
-                  </div>
-
-                  <div className="mt-6">
-                    <RadioGroup
-                      label="Sports & Fitness Center"
-                      name="facilitiesSports"
-                      value={formData.facilities_sports}
-                      options={['Yes', 'No']}
-                      onChange={handleRadioChange('facilities_sports')}
-                      required
-                    />
-                  </div>
-
-                  <div className="mt-6">
-                    <RadioGroup
-                      label="Parks & Playgrounds"
-                      name="facilitiesParks"
-                      value={formData.facilities_parks}
-                      options={['Yes', 'No']}
-                      onChange={handleRadioChange('facilities_parks')}
-                      required
-                    />
-                  </div>
-                </>
-              )}
+                  <span className="text-gray-700">Farmhouse</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.agri_hasirrigationcanal}
+                    onChange={(e) =>
+                      setFormData((prev) => ({ ...prev, agri_hasirrigationcanal: e.target.checked }))
+                    }
+                    className="w-4 h-4"
+                  />
+                  <span className="text-gray-700">Irrigation / Canal</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.agri_haslakelagoon}
+                    onChange={(e) =>
+                      setFormData((prev) => ({ ...prev, agri_haslakelagoon: e.target.checked }))
+                    }
+                    className="w-4 h-4"
+                  />
+                  <span className="text-gray-700">Lake / Lagoon</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.agri_hasriversstreams}
+                    onChange={(e) =>
+                      setFormData((prev) => ({ ...prev, agri_hasriversstreams: e.target.checked }))
+                    }
+                    className="w-4 h-4"
+                  />
+                  <span className="text-gray-700">Rivers / Streams</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.agri_haswarehousestorage}
+                    onChange={(e) =>
+                      setFormData((prev) => ({ ...prev, agri_haswarehousestorage: e.target.checked }))
+                    }
+                    className="w-4 h-4"
+                  />
+                  <span className="text-gray-700">Warehouse / Storage</span>
+                </label>
+              </div>
             </FormSection>
           )}
 
