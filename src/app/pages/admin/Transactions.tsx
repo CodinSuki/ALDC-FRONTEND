@@ -10,7 +10,7 @@ import {
   DialogTitle,
 } from '@/app/components/ui/dialog';
 import { Transaction as TransactionType, TransactionStatus, createTransaction, fetchTransactions, updateTransactionStatus, cancelTransaction } from '@/app/services/transactionService';
-import { Payment, recordPayment, fetchPaymentSchedule, fetchPayments } from '@/app/services/paymentService';
+import { Payment, recordPayment, fetchPaymentSchedule, fetchPayments, createPaymentSchedule, type InstallmentFrequency } from '@/app/services/paymentService';
 
 // Enhanced interfaces with API data
 interface Transaction extends TransactionType {
@@ -52,6 +52,7 @@ export default function AdminTransactions() {
   const [isEditTransactionOpen, setIsEditTransactionOpen] = useState(false);
   const [isDeleteTransactionOpen, setIsDeleteTransactionOpen] = useState(false);
   const [isAddPaymentOpen, setIsAddPaymentOpen] = useState(false);
+  const [isCreateScheduleOpen, setIsCreateScheduleOpen] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const [isTransactionDetailOpen, setIsTransactionDetailOpen] = useState(false);
   const [detailTab, setDetailTab] = useState<'overview' | 'payments'>('overview');
@@ -78,11 +79,19 @@ export default function AdminTransactions() {
     paymentmethod: 'Cash' as const,
     paymentstatus: 'Confirmed' as const,
   });
+
   const [paymentScheduleInfo, setPaymentScheduleInfo] = useState<{
     totalAmount: number;
     totalPaid: number;
     remainingBalance: number;
   } | null>(null);
+
+  const [scheduleForm, setScheduleForm] = useState({
+    totalAmount: 0,
+    installmentFrequency: 'Monthly' as InstallmentFrequency,
+    installmentCount: 12,
+    startDate: new Date().toISOString().split('T')[0],
+  });
 
   const loadLookups = async () => {
     const [clientsRes, propertiesRes] = await Promise.all([
@@ -403,18 +412,26 @@ export default function AdminTransactions() {
     setError(null);
   };
 
+  const resetScheduleForm = () => {
+    setScheduleForm({
+      totalAmount: 0,
+      installmentFrequency: 'Monthly',
+      installmentCount: 12,
+      startDate: new Date().toISOString().split('T')[0],
+    });
+  };
+
   const openRecordPaymentDialog = async (transaction: Transaction) => {
     setSelectedTransaction(transaction);
     setError(null);
     setLoadingSchedule(true);
-    
+
     try {
-      // Fetch payment schedule for this transaction
       const schedule = await fetchPaymentSchedule(transaction.transactionid);
       
       if (!schedule) {
-        setError('No payment schedule found for this transaction. Please create a payment schedule first.');
-        setLoadingSchedule(false);
+        // Automatically open create schedule dialog if none exists
+        openCreateScheduleDialog(transaction);
         return;
       }
       
@@ -440,6 +457,50 @@ export default function AdminTransactions() {
       setError(err instanceof Error ? err.message : 'Failed to load payment schedule');
     } finally {
       setLoadingSchedule(false);
+    }
+  };
+
+  const openCreateScheduleDialog = (transaction: Transaction) => {
+    setSelectedTransaction(transaction);
+    setScheduleForm({
+      totalAmount: transaction.negotiatedprice,
+      installmentFrequency: 'Monthly',
+      installmentCount: 12,
+      startDate: new Date().toISOString().split('T')[0],
+    });
+    setIsCreateScheduleOpen(true);
+  };
+
+  const handleCreatePaymentSchedule = async () => {
+    if (!selectedTransaction || !scheduleForm.totalAmount || !scheduleForm.installmentCount) {
+      setError('Please fill in all required fields');
+      return;
+    }
+
+    setIsSaving(true);
+    setError(null);
+    try {
+      await createPaymentSchedule({
+        transactionId: selectedTransaction.transactionid,
+        totalAmount: scheduleForm.totalAmount,
+        installmentFrequency: scheduleForm.installmentFrequency,
+        installmentCount: scheduleForm.installmentCount,
+        startDate: scheduleForm.startDate,
+      });
+      
+      setSuccessMessage(`Payment schedule created successfully for ${selectedTransaction.property_code}. You can now record payments.`);
+      setIsCreateScheduleOpen(false);
+      resetScheduleForm();
+      setTimeout(() => setSuccessMessage(null), 5000);
+      
+      // Automatically open the payment recording dialog after schedule is created
+      setTimeout(() => {
+        openRecordPaymentDialog(selectedTransaction);
+      }, 1000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create payment schedule');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -1088,6 +1149,132 @@ export default function AdminTransactions() {
             >
               {isSaving ? <Loader className="w-4 h-4 animate-spin inline mr-2" /> : null}
               Record Payment
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Payment Schedule Dialog */}
+      <Dialog open={isCreateScheduleOpen} onOpenChange={setIsCreateScheduleOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Create Payment Schedule</DialogTitle>
+            <DialogDescription>
+              Set up a payment schedule for {selectedTransaction?.property_code}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <p className="text-gray-600">Transaction ID</p>
+                  <p className="font-medium text-gray-900">TX-{selectedTransaction?.transactionid}</p>
+                </div>
+                <div>
+                  <p className="text-gray-600">Property</p>
+                  <p className="font-medium text-gray-900">{selectedTransaction?.property_code}</p>
+                </div>
+                <div>
+                  <p className="text-gray-600">Client</p>
+                  <p className="font-medium text-gray-900">{selectedTransaction?.client_name}</p>
+                </div>
+                <div>
+                  <p className="text-gray-600">Transaction Amount</p>
+                  <p className="font-medium text-gray-900">₱{selectedTransaction ? parseFloat(String(selectedTransaction.negotiatedprice)).toLocaleString() : '0'}</p>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm text-gray-700 mb-1">
+                Total Amount (PHP) <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={scheduleForm.totalAmount}
+                onChange={(e) => setScheduleForm(prev => ({ ...prev, totalAmount: parseFloat(e.target.value) }))}
+                disabled={isSaving}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:bg-gray-100"
+              />
+              <p className="text-xs text-gray-500 mt-1">This is the total amount to be paid through the payment schedule</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm text-gray-700 mb-1">
+                  Installment Frequency <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={scheduleForm.installmentFrequency}
+                  onChange={(e) => setScheduleForm(prev => ({ ...prev, installmentFrequency: e.target.value as InstallmentFrequency }))}
+                  disabled={isSaving}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:bg-gray-100"
+                >
+                  <option value="Monthly">Monthly</option>
+                  <option value="Quarterly">Quarterly</option>
+                  <option value="Semi-Annual">Semi-Annual</option>
+                  <option value="Annual">Annual</option>
+                  <option value="One-Time">One-Time</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm text-gray-700 mb-1">
+                  Number of Installments <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={scheduleForm.installmentCount}
+                  onChange={(e) => setScheduleForm(prev => ({ ...prev, installmentCount: parseInt(e.target.value) }))}
+                  disabled={isSaving}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:bg-gray-100"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm text-gray-700 mb-1">
+                Start Date <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="date"
+                value={scheduleForm.startDate}
+                onChange={(e) => setScheduleForm(prev => ({ ...prev, startDate: e.target.value }))}
+                disabled={isSaving}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:bg-gray-100"
+              />
+            </div>
+
+            <div className="bg-gray-50 rounded-lg p-3">
+              <p className="text-sm text-gray-700">
+                <strong>Installment Amount:</strong> ₱{(scheduleForm.totalAmount / scheduleForm.installmentCount).toLocaleString(undefined, { maximumFractionDigits: 2 })} per {scheduleForm.installmentFrequency.toLowerCase()}
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <button
+              onClick={() => {
+                setIsCreateScheduleOpen(false);
+                resetScheduleForm();
+              }}
+              disabled={isSaving}
+              className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleCreatePaymentSchedule}
+              disabled={isSaving}
+              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+            >
+              {isSaving ? <Loader className="w-4 h-4 animate-spin inline mr-2" /> : null}
+              Create Schedule
             </button>
           </DialogFooter>
         </DialogContent>
