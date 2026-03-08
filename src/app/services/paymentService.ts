@@ -3,7 +3,7 @@
  * Handles payment schedules and payment recording
  */
 
-export type InstallmentFrequency = 'Monthly' | 'Quarterly' | 'Semi-Annual' | 'Annual' | 'One-Time';
+export type InstallmentFrequency = 'Monthly' | 'BiMonthly' | 'Quarterly' | 'Yearly' | 'LumpSum';
 export type PaymentStatus = 'Pending' | 'Confirmed' | 'Failed' | 'Refunded';
 export type PaymentMethod = 'Cash' | 'Bank Transfer' | 'Check' | 'Credit Card' | 'Online Payment';
 

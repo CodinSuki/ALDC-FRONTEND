@@ -1214,10 +1214,10 @@ export default function AdminTransactions() {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:bg-gray-100"
                 >
                   <option value="Monthly">Monthly</option>
+                  <option value="BiMonthly">Bi-Monthly</option>
                   <option value="Quarterly">Quarterly</option>
-                  <option value="Semi-Annual">Semi-Annual</option>
-                  <option value="Annual">Annual</option>
-                  <option value="One-Time">One-Time</option>
+                  <option value="Yearly">Yearly</option>
+                  <option value="LumpSum">Lump Sum</option>
                 </select>
               </div>
 
