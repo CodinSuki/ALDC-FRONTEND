@@ -331,6 +331,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (propertiesRes.error) throw propertiesRes.error;
     if (propertyTypesRes.error) throw propertyTypesRes.error;
     if (listingStatusRes.error) throw listingStatusRes.error;
+    if (transactionsRes.error) throw transactionsRes.error;
     if (consultationRes.error) throw consultationRes.error;
     if (inquiryRes.error) throw inquiryRes.error;
     if (clientRes.error) throw clientRes.error;
