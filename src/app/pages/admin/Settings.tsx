@@ -34,6 +34,9 @@ export default function AdminSettings() {
         <div>
           <h2 className="text-gray-900">Settings</h2>
           <p className="text-gray-600">Manage system configuration and preferences</p>
+          <p className="text-sm text-amber-700 mt-2">
+            Note: This page is currently a test design only. Data and actions shown here are for UI demonstration.
+          </p>
         </div>
 
         {/* Tabs */}
