@@ -169,6 +169,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       if (transactionsRes.error) throw transactionsRes.error;
       if (activityRes.error) throw activityRes.error;
+      if (staffRes.error) throw staffRes.error;
+      if (projectRes.error) throw projectRes.error;
+      if (propertyRes.error) throw propertyRes.error;
+      if (commissionRes.error) throw commissionRes.error;
 
       const transactions = (transactionsRes.data ?? []) as Array<Record<string, unknown>>;
       const activityLogs = (activityRes.data ?? []) as Array<Record<string, unknown>>;
