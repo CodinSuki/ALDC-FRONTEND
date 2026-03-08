@@ -53,6 +53,7 @@ export default function FilterBar({
             key={index}
             value={filter.value}
             onChange={(e) => filter.onChange(e.target.value)}
+            aria-label={filter.placeholder || `Filter ${index + 1}`}
             className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
           >
             {filter.options.map((option) => (

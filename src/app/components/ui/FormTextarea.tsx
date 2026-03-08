@@ -19,19 +19,23 @@ export default function FormTextarea({
   rows = 3,
   required,
 }: FormTextareaProps) {
+  const textareaId = `textarea-${name}`;
+
   return (
     <div>
-      <label className="block text-sm text-gray-700 mb-2">
+      <label htmlFor={textareaId} className="block text-sm text-gray-700 mb-2">
         {label}
         {required && <span className="text-red-500 ml-1">*</span>}
       </label>
       <textarea
+        id={textareaId}
         name={name}
         value={value}
         onChange={onChange}
         required={required}
         rows={rows}
         placeholder={placeholder}
+        aria-label={label}
         className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
       />
     </div>

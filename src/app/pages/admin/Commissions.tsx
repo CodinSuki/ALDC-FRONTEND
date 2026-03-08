@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Eye } from 'lucide-react';
 import AdminLayout from '@/app/components/AdminLayout';
-import { Search, AlertCircle, CheckCircle, Clock, Plus, DollarSign, Loader, TrendingUp } from 'lucide-react';
+import { Eye, Search, AlertCircle, CheckCircle, Clock, Plus, DollarSign, Loader, TrendingUp } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -337,7 +336,14 @@ export default function AdminCommissions() {
             <div className="flex-1">
               <p className="text-sm text-red-700">{error}</p>
             </div>
-            <button onClick={() => setError(null)} className="text-red-600 hover:text-red-800">✕</button>
+            <button
+              type="button"
+              onClick={() => setError(null)}
+              aria-label="Dismiss error"
+              className="text-red-600 hover:text-red-800"
+            >
+              ✕
+            </button>
           </div>
         )}
 

@@ -4,6 +4,7 @@ import { ArrowLeft, CheckCircle, Upload, X } from 'lucide-react';
 import AdminLayout from '@/app/components/AdminLayout';
 import FormSection from '@/app/components/ui/FormSection';
 import CheckboxGrid from '@/app/components/ui/CheckboxGrid';
+import AdminPropertyRadioGroup from './components/property/AdminPropertyRadioGroup';
 import type { AdminPropertyPhotoUpload } from '@/app/services/adminPropertyService';
 import {
   fetchAdminPropertyData,
@@ -16,58 +17,11 @@ import {
   type PropertyListingStatusOption,
   type UrbanLotTypeOption,
   type AgriculturalLotTypeOption,
+  type CommercialLotTypeOption,
+  type IndustrialLotTypeOption,
   type PropertyPayload,
   type PropertyDetailPayload,
 } from '@/app/services/adminPropertyService';
-
-/* ===== Helper Components ===== */
-
-function RadioGroup({
-  label,
-  name,
-  value,
-  options,
-  onChange,
-  required = false,
-}: {
-  label: string;
-  name: string;
-  value: string | boolean;
-  options: string[];
-  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  required?: boolean;
-}) {
-  return (
-    <div>
-      <label className="block text-sm text-gray-700 mb-3">
-        {label} {required && '*'}
-      </label>
-      <div className="flex gap-6">
-        {options.map((option) => {
-          const optionValue = option.toLowerCase() === 'yes' ? 'true' : option.toLowerCase() === 'no' ? 'false' : option;
-          const isChecked = typeof value === 'boolean' 
-            ? (option.toLowerCase() === 'yes' ? value === true : value === false)
-            : String(value) === option;
-            
-          return (
-            <label key={option} className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="radio"
-                name={name}
-                value={optionValue}
-                checked={isChecked}
-                onChange={onChange}
-                required={required}
-                className="w-4 h-4"
-              />
-              <span className="text-gray-700">{option}</span>
-            </label>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
 
 /* ===== Main Component ===== */
 
@@ -87,6 +41,8 @@ export default function AdminPropertyForm() {
   const [listingStatuses, setListingStatuses] = useState<PropertyListingStatusOption[]>([]);
   const [urbanLotTypes, setUrbanLotTypes] = useState<UrbanLotTypeOption[]>([]);
   const [agriculturalLotTypes, setAgriculturalLotTypes] = useState<AgriculturalLotTypeOption[]>([]);
+  const [commercialLotTypes, setCommercialLotTypes] = useState<CommercialLotTypeOption[]>([]);
+  const [industrialLotTypes, setIndustrialLotTypes] = useState<IndustrialLotTypeOption[]>([]);
 
   const [formData, setFormData] = useState({
     propertyname: '',
@@ -103,9 +59,11 @@ export default function AdminPropertyForm() {
     location_street: '',
     lot_size: 0,
     urbanreflottypeid: null as number | null,
+    commercialreflottypeid: null as number | null,
+    industrialreflottypeid: null as number | null,
     lotType: '',
-    titled: '',
-    overlooking: '',
+    titled: false,
+    overlooking: false,
     topography: '',
     amenities: [] as string[],
     utilities_water: false,
@@ -130,6 +88,19 @@ export default function AdminPropertyForm() {
     agri_hasriversstreams: false,
     agri_hasirrigationcanal: false,
     agri_haslakelagoon: false,
+    comm_hasparking: false,
+    comm_hasloadingbay: false,
+    comm_haselevator: false,
+    comm_hasfireprotection: false,
+    comm_hassecurity: false,
+    comm_hascctv: false,
+    ind_hasthreephasepower: false,
+    ind_hasheavyhaulroadaccess: false,
+    ind_hasloadingdock: false,
+    ind_haswarehouse: false,
+    ind_hasfireprotection: false,
+    ind_hashazmatzone: false,
+    ind_hastruckaccess: false,
     photos: [] as AdminPropertyPhotoUpload[],
   });
 
@@ -147,6 +118,8 @@ export default function AdminPropertyForm() {
         setListingStatuses(data.listingStatuses);
         setUrbanLotTypes(data.urbanLotTypes);
         setAgriculturalLotTypes(data.agriculturalLotTypes);
+        setCommercialLotTypes(data.commercialLotTypes);
+        setIndustrialLotTypes(data.industrialLotTypes);
 
         // If edit mode, load property details
         if (isEditMode && id) {
@@ -170,6 +143,49 @@ export default function AdminPropertyForm() {
               location_street: details.location_street ?? '',
               lot_size: details.lot_size ?? 0,
               urbanreflottypeid: details.urbanreflottypeid ?? null,
+              commercialreflottypeid: details.commercialreflottypeid ?? null,
+              industrialreflottypeid: details.industrialreflottypeid ?? null,
+              lotType: details.urbanreflottypeid
+                ? String(details.urbanreflottypeid)
+                : details.commercialreflottypeid
+                  ? String(details.commercialreflottypeid)
+                  : details.industrialreflottypeid
+                    ? String(details.industrialreflottypeid)
+                    : '',
+              titled: Boolean(details.detail_istitled),
+              overlooking: Boolean(details.detail_isoverlooking),
+              topography: details.detail_topography ?? '',
+              amenities: (() => {
+                const typeName = (property.property_type_name ?? '').toLowerCase();
+                if (typeName.includes('commercial')) {
+                  return [
+                    ...(details.comm_hasparking ? ['Parking'] : []),
+                    ...(details.comm_hasloadingbay ? ['Loading Bay'] : []),
+                    ...(details.comm_haselevator ? ['Elevator'] : []),
+                    ...(details.comm_hasfireprotection ? ['Fire Protection'] : []),
+                    ...(details.comm_hassecurity ? ['Security'] : []),
+                    ...(details.comm_hascctv ? ['CCTV'] : []),
+                  ];
+                }
+                if (typeName.includes('industrial')) {
+                  return [
+                    ...(details.ind_hasthreephasepower ? ['Three-Phase Power'] : []),
+                    ...(details.ind_hasheavyhaulroadaccess ? ['Heavy Haul Road Access'] : []),
+                    ...(details.ind_hasloadingdock ? ['Loading Dock'] : []),
+                    ...(details.ind_haswarehouse ? ['Warehouse'] : []),
+                    ...(details.ind_hasfireprotection ? ['Fire Protection'] : []),
+                    ...(details.ind_hashazmatzone ? ['Hazmat Zone'] : []),
+                    ...(details.ind_hastruckaccess ? ['Truck Access'] : []),
+                  ];
+                }
+                return [
+                  ...(details.facilities_gated ? ['Gated'] : []),
+                  ...(details.facilities_security ? ['Security'] : []),
+                  ...(details.facilities_clubhouse ? ['Clubhouse / Function Hall'] : []),
+                  ...(details.facilities_sports ? ['Sports & Fitness Center'] : []),
+                  ...(details.facilities_parks ? ['Parks & Playgrounds'] : []),
+                ];
+              })(),
               utilities_water: details.utilities_water ?? false,
               utilities_electricity: details.utilities_electricity ?? false,
               utilities_sim: details.utilities_sim ?? false,
@@ -192,6 +208,19 @@ export default function AdminPropertyForm() {
               agri_hasriversstreams: details.agri_hasriversstreams ?? false,
               agri_hasirrigationcanal: details.agri_hasirrigationcanal ?? false,
               agri_haslakelagoon: details.agri_haslakelagoon ?? false,
+              comm_hasparking: details.comm_hasparking ?? false,
+              comm_hasloadingbay: details.comm_hasloadingbay ?? false,
+              comm_haselevator: details.comm_haselevator ?? false,
+              comm_hasfireprotection: details.comm_hasfireprotection ?? false,
+              comm_hassecurity: details.comm_hassecurity ?? false,
+              comm_hascctv: details.comm_hascctv ?? false,
+              ind_hasthreephasepower: details.ind_hasthreephasepower ?? false,
+              ind_hasheavyhaulroadaccess: details.ind_hasheavyhaulroadaccess ?? false,
+              ind_hasloadingdock: details.ind_hasloadingdock ?? false,
+              ind_haswarehouse: details.ind_haswarehouse ?? false,
+              ind_hasfireprotection: details.ind_hasfireprotection ?? false,
+              ind_hashazmatzone: details.ind_hashazmatzone ?? false,
+              ind_hastruckaccess: details.ind_hastruckaccess ?? false,
               photos: [],
             });
           }
@@ -216,7 +245,11 @@ export default function AdminPropertyForm() {
   const selectedPropertyType = propertyTypes.find(
     (type) => type.propertytypeid === formData.propertytypeid
   );
-  const isAgriculturalType = selectedPropertyType?.propertytypename?.toLowerCase().includes('agri') ?? false;
+  const normalizedPropertyType = selectedPropertyType?.propertytypename?.toLowerCase() ?? '';
+  const isAgriculturalType = normalizedPropertyType.includes('agri');
+  const isCommercialType = normalizedPropertyType.includes('commercial');
+  const isIndustrialType = normalizedPropertyType.includes('industrial');
+  const isUrbanType = !isAgriculturalType && !isCommercialType && !isIndustrialType;
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
@@ -250,13 +283,50 @@ export default function AdminPropertyForm() {
       const next = current.includes(amenity)
         ? current.filter((a) => a !== amenity)
         : [...current, amenity];
-      // Also update individual boolean fields
+
       const updatedData = { ...prev, amenities: next };
-      if (amenity === 'Gated') updatedData.facilities_gated = next.includes('Gated');
-      if (amenity === 'Security') updatedData.facilities_security = next.includes('Security');
-      if (amenity === 'Clubhouse / Function Hall') updatedData.facilities_clubhouse = next.includes('Clubhouse / Function Hall');
-      if (amenity === 'Sports & Fitness Center') updatedData.facilities_sports = next.includes('Sports & Fitness Center');
-      if (amenity === 'Parks & Playgrounds') updatedData.facilities_parks = next.includes('Parks & Playgrounds');
+
+      if (isUrbanType) {
+        if (amenity === 'Gated') updatedData.facilities_gated = next.includes('Gated');
+        if (amenity === 'Security') updatedData.facilities_security = next.includes('Security');
+        if (amenity === 'Clubhouse / Function Hall') {
+          updatedData.facilities_clubhouse = next.includes('Clubhouse / Function Hall');
+        }
+        if (amenity === 'Sports & Fitness Center') {
+          updatedData.facilities_sports = next.includes('Sports & Fitness Center');
+        }
+        if (amenity === 'Parks & Playgrounds') {
+          updatedData.facilities_parks = next.includes('Parks & Playgrounds');
+        }
+      }
+
+      if (isCommercialType) {
+        if (amenity === 'Parking') updatedData.comm_hasparking = next.includes('Parking');
+        if (amenity === 'Loading Bay') updatedData.comm_hasloadingbay = next.includes('Loading Bay');
+        if (amenity === 'Elevator') updatedData.comm_haselevator = next.includes('Elevator');
+        if (amenity === 'Fire Protection') {
+          updatedData.comm_hasfireprotection = next.includes('Fire Protection');
+        }
+        if (amenity === 'Security') updatedData.comm_hassecurity = next.includes('Security');
+        if (amenity === 'CCTV') updatedData.comm_hascctv = next.includes('CCTV');
+      }
+
+      if (isIndustrialType) {
+        if (amenity === 'Three-Phase Power') {
+          updatedData.ind_hasthreephasepower = next.includes('Three-Phase Power');
+        }
+        if (amenity === 'Heavy Haul Road Access') {
+          updatedData.ind_hasheavyhaulroadaccess = next.includes('Heavy Haul Road Access');
+        }
+        if (amenity === 'Loading Dock') updatedData.ind_hasloadingdock = next.includes('Loading Dock');
+        if (amenity === 'Warehouse') updatedData.ind_haswarehouse = next.includes('Warehouse');
+        if (amenity === 'Fire Protection') {
+          updatedData.ind_hasfireprotection = next.includes('Fire Protection');
+        }
+        if (amenity === 'Hazmat Zone') updatedData.ind_hashazmatzone = next.includes('Hazmat Zone');
+        if (amenity === 'Truck Access') updatedData.ind_hastruckaccess = next.includes('Truck Access');
+      }
+
       return updatedData;
     });
   };
@@ -358,6 +428,11 @@ export default function AdminPropertyForm() {
         location_street: formData.location_street,
         lot_size: Number(formData.lot_size),
         urbanreflottypeid: formData.urbanreflottypeid,
+        commercialreflottypeid: formData.commercialreflottypeid,
+        industrialreflottypeid: formData.industrialreflottypeid,
+        detail_istitled: formData.titled,
+        detail_isoverlooking: formData.overlooking,
+        detail_topography: formData.topography,
         utilities_water: formData.utilities_water,
         utilities_electricity: formData.utilities_electricity,
         utilities_sim: formData.utilities_sim,
@@ -380,6 +455,19 @@ export default function AdminPropertyForm() {
         agri_hasriversstreams: formData.agri_hasriversstreams,
         agri_hasirrigationcanal: formData.agri_hasirrigationcanal,
         agri_haslakelagoon: formData.agri_haslakelagoon,
+        comm_hasparking: formData.comm_hasparking,
+        comm_hasloadingbay: formData.comm_hasloadingbay,
+        comm_haselevator: formData.comm_haselevator,
+        comm_hasfireprotection: formData.comm_hasfireprotection,
+        comm_hassecurity: formData.comm_hassecurity,
+        comm_hascctv: formData.comm_hascctv,
+        ind_hasthreephasepower: formData.ind_hasthreephasepower,
+        ind_hasheavyhaulroadaccess: formData.ind_hasheavyhaulroadaccess,
+        ind_hasloadingdock: formData.ind_hasloadingdock,
+        ind_haswarehouse: formData.ind_haswarehouse,
+        ind_hasfireprotection: formData.ind_hasfireprotection,
+        ind_hashazmatzone: formData.ind_hashazmatzone,
+        ind_hastruckaccess: formData.ind_hastruckaccess,
       };
 
       const lookup = {
@@ -515,6 +603,14 @@ export default function AdminPropertyForm() {
                     setFormData((prev) => ({
                       ...prev,
                       propertytypeid: e.target.value ? Number(e.target.value) : null,
+                      lotType: '',
+                      urbanreflottypeid: null,
+                      commercialreflottypeid: null,
+                      industrialreflottypeid: null,
+                      titled: false,
+                      overlooking: false,
+                      topography: '',
+                      amenities: [],
                     }))
                   }
                   required
@@ -825,19 +921,183 @@ export default function AdminPropertyForm() {
                     </div>
                   </div>
                 </section>
-              ) : (
-                <section className="border border-blue-200 bg-blue-50 rounded-lg p-6 mt-6 transition-all duration-300">
-                  <h3 className="text-gray-900 font-semibold mb-6">Lot Type & Facilities</h3>
+              ) : isCommercialType ? (
+                <section className="border border-orange-200 bg-orange-50 rounded-lg p-6 mt-6 transition-all duration-300">
+                  <h3 className="text-gray-900 font-semibold mb-6">Commercial Property Details</h3>
 
                   <div>
                     <label className="block text-sm text-gray-700 mb-2">
-                      Lot Type
+                      Commercial Lot Type
                     </label>
                     <select
                       name="lotType"
                       value={formData.lotType}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          lotType: e.target.value,
+                          commercialreflottypeid: e.target.value ? Number(e.target.value) : null,
+                        }))
+                      }
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    >
+                      <option value="">Select lot type...</option>
+                      {commercialLotTypes.map((lotType) => (
+                        <option
+                          key={lotType.commercialreflottypeid}
+                          value={lotType.commercialreflottypeid}
+                        >
+                          {lotType.commercialreflottypename}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="mt-6">
+                    <CheckboxGrid
+                      label="Facilities & Amenities"
+                      options={['Parking', 'Loading Bay', 'Elevator', 'Fire Protection', 'Security', 'CCTV']}
+                      values={formData.amenities}
+                      onToggle={handleAmenitiesToggle}
+                    />
+                  </div>
+
+                  <div className="mt-6">
+                    <AdminPropertyRadioGroup
+                      label="Land Titled?"
+                      name="titled"
+                      value={formData.titled}
+                      options={['Yes', 'No']}
+                      onChange={handleRadioChange('titled')}
+                    />
+                  </div>
+
+                  <div className="mt-6">
+                    <AdminPropertyRadioGroup
+                      label="Overlooking?"
+                      name="overlooking"
+                      value={formData.overlooking}
+                      options={['Yes', 'No']}
+                      onChange={handleRadioChange('overlooking')}
+                    />
+                  </div>
+
+                  <div className="mt-6">
+                    <label className="block text-sm text-gray-700 mb-2">
+                      Topography
+                    </label>
+                    <select
+                      name="topography"
+                      value={formData.topography}
                       onChange={handleChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    >
+                      <option value="">Select topography...</option>
+                      <option value="Flat">Flat</option>
+                      <option value="Rolling">Rolling</option>
+                      <option value="Sloping">Sloping</option>
+                      <option value="Mountainous">Mountainous</option>
+                    </select>
+                  </div>
+                </section>
+              ) : isIndustrialType ? (
+                <section className="border border-gray-300 bg-gray-50 rounded-lg p-6 mt-6 transition-all duration-300">
+                  <h3 className="text-gray-900 font-semibold mb-6">Industrial Property Details</h3>
+
+                  <div>
+                    <label className="block text-sm text-gray-700 mb-2">
+                      Industrial Lot Type
+                    </label>
+                    <select
+                      name="lotType"
+                      value={formData.lotType}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          lotType: e.target.value,
+                          industrialreflottypeid: e.target.value ? Number(e.target.value) : null,
+                        }))
+                      }
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-transparent"
+                    >
+                      <option value="">Select lot type...</option>
+                      {industrialLotTypes.map((lotType) => (
+                        <option
+                          key={lotType.industrialreflottypeid}
+                          value={lotType.industrialreflottypeid}
+                        >
+                          {lotType.industrialreflottypename}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="mt-6">
+                    <CheckboxGrid
+                      label="Facilities & Amenities"
+                      options={['Three-Phase Power', 'Heavy Haul Road Access', 'Loading Dock', 'Warehouse', 'Fire Protection', 'Hazmat Zone', 'Truck Access']}
+                      values={formData.amenities}
+                      onToggle={handleAmenitiesToggle}
+                    />
+                  </div>
+
+                  <div className="mt-6">
+                    <AdminPropertyRadioGroup
+                      label="Land Titled?"
+                      name="titled"
+                      value={formData.titled}
+                      options={['Yes', 'No']}
+                      onChange={handleRadioChange('titled')}
+                    />
+                  </div>
+
+                  <div className="mt-6">
+                    <AdminPropertyRadioGroup
+                      label="Overlooking?"
+                      name="overlooking"
+                      value={formData.overlooking}
+                      options={['Yes', 'No']}
+                      onChange={handleRadioChange('overlooking')}
+                    />
+                  </div>
+
+                  <div className="mt-6">
+                    <label className="block text-sm text-gray-700 mb-2">
+                      Topography
+                    </label>
+                    <select
+                      name="topography"
+                      value={formData.topography}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-transparent"
+                    >
+                      <option value="">Select topography...</option>
+                      <option value="Flat">Flat</option>
+                      <option value="Rolling">Rolling</option>
+                      <option value="Sloping">Sloping</option>
+                      <option value="Mountainous">Mountainous</option>
+                    </select>
+                  </div>
+                </section>
+              ) : isUrbanType ? (
+                <section className="border border-blue-200 bg-blue-50 rounded-lg p-6 mt-6 transition-all duration-300">
+                  <h3 className="text-gray-900 font-semibold mb-6">Urban Property Details</h3>
+
+                  <div>
+                    <label className="block text-sm text-gray-700 mb-2">
+                      Urban Lot Type
+                    </label>
+                    <select
+                      name="lotType"
+                      value={formData.lotType}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          lotType: e.target.value,
+                          urbanreflottypeid: e.target.value ? Number(e.target.value) : null,
+                        }))
+                      }
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     >
                       <option value="">Select lot type...</option>
                       {urbanLotTypes.map((lotType) => (
@@ -856,52 +1116,14 @@ export default function AdminPropertyForm() {
                       onToggle={handleAmenitiesToggle}
                     />
                   </div>
-
-                  <div className="mt-6">
-                    <RadioGroup
-                      label="Land Titled?"
-                      name="titled"
-                      value={formData.titled}
-                      options={['Yes', 'No']}
-                      onChange={handleChange}
-                    />
-                  </div>
-
-                  <div className="mt-6">
-                    <RadioGroup
-                      label="Overlooking?"
-                      name="overlooking"
-                      value={formData.overlooking}
-                      options={['Yes', 'No']}
-                      onChange={handleChange}
-                    />
-                  </div>
-
-                  <div className="mt-6">
-                    <label className="block text-sm text-gray-700 mb-2">
-                      Topography
-                    </label>
-                    <select
-                      name="topography"
-                      value={formData.topography}
-                      onChange={handleChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                    >
-                      <option value="">Select topography...</option>
-                      <option value="Flat">Flat</option>
-                      <option value="Rolling">Rolling</option>
-                      <option value="Sloping">Sloping</option>
-                      <option value="Mountainous">Mountainous</option>
-                    </select>
-                  </div>
                 </section>
-              )}
+              ) : null}
             </>
           )}
 
           {/* UTILITIES */}
           <FormSection title="Property Utilities">
-            <RadioGroup
+            <AdminPropertyRadioGroup
               label="Water"
               name="utilitiesWater"
               value={formData.utilities_water}
@@ -911,7 +1133,7 @@ export default function AdminPropertyForm() {
             />
 
             <div className="mt-6">
-              <RadioGroup
+              <AdminPropertyRadioGroup
                 label="Electricity"
                 name="utilitiesElectricity"
                 value={formData.utilities_electricity}
@@ -922,7 +1144,7 @@ export default function AdminPropertyForm() {
             </div>
 
             <div className="mt-6">
-              <RadioGroup
+              <AdminPropertyRadioGroup
                 label="SIM Network"
                 name="utilitiesSIM"
                 value={formData.utilities_sim}
@@ -933,7 +1155,7 @@ export default function AdminPropertyForm() {
             </div>
 
             <div className="mt-6">
-              <RadioGroup
+              <AdminPropertyRadioGroup
                 label="Internet"
                 name="utilitiesInternet"
                 value={formData.utilities_internet}
@@ -946,7 +1168,7 @@ export default function AdminPropertyForm() {
 
           {/* ACCESSIBILITY */}
           <FormSection title="Property Accessibility & Vicinity">
-            <RadioGroup
+            <AdminPropertyRadioGroup
               label="Accessible by Motorcycle"
               name="accessMotorcycle"
               value={formData.access_motorcycle}
@@ -956,7 +1178,7 @@ export default function AdminPropertyForm() {
             />
 
             <div className="mt-6">
-              <RadioGroup
+              <AdminPropertyRadioGroup
                 label="Accessible by Car"
                 name="accessCar"
                 value={formData.access_car}
@@ -967,7 +1189,7 @@ export default function AdminPropertyForm() {
             </div>
 
             <div className="mt-6">
-              <RadioGroup
+              <AdminPropertyRadioGroup
                 label="Accessible by Truck"
                 name="accessTruck"
                 value={formData.access_truck}
@@ -978,7 +1200,7 @@ export default function AdminPropertyForm() {
             </div>
 
             <div className="mt-6">
-              <RadioGroup
+              <AdminPropertyRadioGroup
                 label="Has Access Road"
                 name="accessRoad"
                 value={formData.access_road}
@@ -989,7 +1211,7 @@ export default function AdminPropertyForm() {
             </div>
 
             <div className="mt-6">
-              <RadioGroup
+              <AdminPropertyRadioGroup
                 label="Has Cemented Road"
                 name="accessCementedRoad"
                 value={formData.access_cemented_road}
@@ -1000,7 +1222,7 @@ export default function AdminPropertyForm() {
             </div>
 
             <div className="mt-6">
-              <RadioGroup
+              <AdminPropertyRadioGroup
                 label="Has Rough Road"
                 name="accessRoughRoad"
                 value={formData.access_rough_road}

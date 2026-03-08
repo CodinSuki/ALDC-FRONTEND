@@ -63,7 +63,9 @@ export default function Chatbot() {
     <div className="fixed bottom-4 right-4 z-50">
       {!isOpen && (
         <button
+          type="button"
           onClick={() => setIsOpen(true)}
+          aria-label="Open chat assistant"
           className="bg-green-500 text-white p-4 rounded-full shadow-lg hover:bg-blue-700"
         >
           💬
@@ -74,7 +76,9 @@ export default function Chatbot() {
         <div className="bg-white rounded-lg shadow-xl w-96 h-[500px] flex flex-col">
           <div className="bg-green-500 text-white p-4 rounded-t-lg flex justify-between items-center">
             <h3 className="font-semibold">AI Assistant</h3>
-            <button onClick={() => setIsOpen(false)}>✕</button>
+            <button type="button" onClick={() => setIsOpen(false)} aria-label="Close chat assistant">
+              ✕
+            </button>
           </div>
 
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -107,6 +111,7 @@ export default function Chatbot() {
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
+                aria-label="Chat message"
                 placeholder="Ask me anything..."
                 className="flex-1 border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-600"
               />

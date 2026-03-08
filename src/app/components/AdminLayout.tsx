@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Home, Building2, Archive, Users, FileText, DollarSign, Menu, X, FolderKanban, MapPin, UserSearch, MessageSquare, CreditCard, UserCog, BarChart3, Settings, LogOut, Key, FileCheck } from 'lucide-react';
+import { Home, Building2, Archive, Users, FileText, DollarSign, Menu, X, FolderKanban, UserSearch, MessageSquare, UserCog, BarChart3, Settings, LogOut, Key, FileCheck } from 'lucide-react';
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 
@@ -55,7 +55,9 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
             <div className="text-xs text-gray-400">Dashboard</div>
           </div>
           <button 
+            type="button"
             onClick={() => setSidebarOpen(false)}
+            aria-label="Close sidebar"
             className="lg:hidden text-gray-400 hover:text-white"
           >
             <X className="w-6 h-6" />
@@ -124,7 +126,9 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         {/* Top Bar */}
         <header className="bg-white border-b border-gray-200 h-16 flex items-center px-4 lg:px-8">
           <button
+            type="button"
             onClick={() => setSidebarOpen(true)}
+            aria-label="Open sidebar"
             className="lg:hidden p-2 text-gray-600 hover:text-gray-900"
           >
             <Menu className="w-6 h-6" />

@@ -30,6 +30,16 @@ export interface AgriculturalLotTypeOption {
   agriculturalreflottypename: string;
 }
 
+export interface CommercialLotTypeOption {
+  commercialreflottypeid: number;
+  commercialreflottypename: string;
+}
+
+export interface IndustrialLotTypeOption {
+  industrialreflottypeid: number;
+  industrialreflottypename: string;
+}
+
 export interface AdminPropertyPhotoUpload {
   dataUrl: string;
   fileName: string;
@@ -59,6 +69,11 @@ export interface AdminProperty {
   location_street: string;
   lot_size: number;
   urbanreflottypeid?: number | null;
+  commercialreflottypeid?: number | null;
+  industrialreflottypeid?: number | null;
+  detail_istitled?: boolean;
+  detail_isoverlooking?: boolean;
+  detail_topography?: string | null;
   utilities_water: boolean;
   utilities_electricity: boolean;
   utilities_sim: boolean;
@@ -81,6 +96,19 @@ export interface AdminProperty {
   agri_hasriversstreams: boolean;
   agri_hasirrigationcanal: boolean;
   agri_haslakelagoon: boolean;
+  comm_hasparking?: boolean;
+  comm_hasloadingbay?: boolean;
+  comm_haselevator?: boolean;
+  comm_hasfireprotection?: boolean;
+  comm_hassecurity?: boolean;
+  comm_hascctv?: boolean;
+  ind_hasthreephasepower?: boolean;
+  ind_hasheavyhaulroadaccess?: boolean;
+  ind_hasloadingdock?: boolean;
+  ind_haswarehouse?: boolean;
+  ind_hasfireprotection?: boolean;
+  ind_hashazmatzone?: boolean;
+  ind_hastruckaccess?: boolean;
   photos?: AdminPropertyPhotoUpload[];
 }
 
@@ -107,6 +135,11 @@ export interface PropertyDetailPayload {
   location_street: string;
   lot_size: number;
   urbanreflottypeid: number | null;
+  commercialreflottypeid: number | null;
+  industrialreflottypeid: number | null;
+  detail_istitled: boolean;
+  detail_isoverlooking: boolean;
+  detail_topography: string;
   utilities_water: boolean;
   utilities_electricity: boolean;
   utilities_sim: boolean;
@@ -129,6 +162,19 @@ export interface PropertyDetailPayload {
   agri_hasriversstreams: boolean;
   agri_hasirrigationcanal: boolean;
   agri_haslakelagoon: boolean;
+  comm_hasparking: boolean;
+  comm_hasloadingbay: boolean;
+  comm_haselevator: boolean;
+  comm_hasfireprotection: boolean;
+  comm_hassecurity: boolean;
+  comm_hascctv: boolean;
+  ind_hasthreephasepower: boolean;
+  ind_hasheavyhaulroadaccess: boolean;
+  ind_hasloadingdock: boolean;
+  ind_haswarehouse: boolean;
+  ind_hasfireprotection: boolean;
+  ind_hashazmatzone: boolean;
+  ind_hastruckaccess: boolean;
 }
 
 export interface PropertyPayload {
@@ -148,6 +194,8 @@ export interface AdminPropertyLoadResult {
   listingStatuses: PropertyListingStatusOption[];
   urbanLotTypes: UrbanLotTypeOption[];
   agriculturalLotTypes: AgriculturalLotTypeOption[];
+  commercialLotTypes: CommercialLotTypeOption[];
+  industrialLotTypes: IndustrialLotTypeOption[];
 }
 
 export const fetchAdminPropertyDetails = async (
@@ -161,6 +209,11 @@ export const fetchAdminPropertyDetails = async (
   | 'location_street'
   | 'lot_size'
   | 'urbanreflottypeid'
+  | 'commercialreflottypeid'
+  | 'industrialreflottypeid'
+  | 'detail_istitled'
+  | 'detail_isoverlooking'
+  | 'detail_topography'
   | 'utilities_water'
   | 'utilities_electricity'
   | 'utilities_sim'
@@ -183,6 +236,19 @@ export const fetchAdminPropertyDetails = async (
   | 'agri_hasriversstreams'
   | 'agri_hasirrigationcanal'
   | 'agri_haslakelagoon'
+  | 'comm_hasparking'
+  | 'comm_hasloadingbay'
+  | 'comm_haselevator'
+  | 'comm_hasfireprotection'
+  | 'comm_hassecurity'
+  | 'comm_hascctv'
+  | 'ind_hasthreephasepower'
+  | 'ind_hasheavyhaulroadaccess'
+  | 'ind_hasloadingdock'
+  | 'ind_haswarehouse'
+  | 'ind_hasfireprotection'
+  | 'ind_hashazmatzone'
+  | 'ind_hastruckaccess'
 >> => {
   const response = await fetch(`/api/admin/properties?action=details&id=${propertyId}`, {
     method: 'GET',

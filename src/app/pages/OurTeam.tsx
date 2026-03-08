@@ -2,7 +2,8 @@ import { Card } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import PublicNav from '../components/PublicNav';
 import Footer from '../components/Footer';
-import { Mail, Phone, Linkedin } from 'lucide-react';
+import { ImageWithFallback } from '../components/figma/ImageWithFallback';
+import { Mail, Phone } from 'lucide-react';
 
 export default function OurTeam() {
   const agents = [
@@ -68,7 +69,7 @@ export default function OurTeam() {
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
             {agents.map((agent) => (
               <Card key={agent.id} className="overflow-hidden hover:shadow-lg transition-shadow">
-                <img 
+                <ImageWithFallback
                   src={agent.image} 
                   alt={agent.name}
                   className="w-full h-64 object-cover"

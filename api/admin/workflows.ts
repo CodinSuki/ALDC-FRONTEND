@@ -143,6 +143,9 @@ const normalizeStatus = (value: unknown, fallback: IntakeStatus): IntakeStatus =
 const formatName = (first?: string | null, middle?: string | null, last?: string | null): string =>
   [first, middle, last].filter(Boolean).join(' ').trim();
 
+const asText = (value: string | null | undefined, fallback: string = ''): string => 
+  value != null && String(value).trim() !== '' ? String(value) : fallback;
+
 const pick = (...values: unknown[]): string => {
   const found = values.find((value) => value !== undefined && value !== null && String(value).trim() !== '');
   return found == null ? '' : String(found);

@@ -9,6 +9,7 @@ import {
 import type { ChangeEvent } from 'react';
 import { Upload, X } from 'lucide-react';
 import type { AdminPropertyPhotoUpload } from '@/app/services/adminPropertyService';
+import AdminPropertyRadioGroup from './AdminPropertyRadioGroup';
 
 type Project = {
   projectid: number;
@@ -104,60 +105,6 @@ function FormSection({ title, children }: { title: string; children: React.React
       <h2 className="text-gray-900 mb-6 text-xl font-semibold">{title}</h2>
       {children}
     </section>
-  );
-}
-
-function RadioGroup({
-  label,
-  name,
-  value,
-  options,
-  onChange,
-  required = false,
-}: {
-  label: string;
-  name: string;
-  value: string | boolean;
-  options: string[];
-  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  required?: boolean;
-}) {
-  return (
-    <div>
-      <label className="block text-sm font-medium text-gray-700 mb-3">
-        {label} {required && <span className="text-red-500">*</span>}
-      </label>
-      <div className="flex flex-wrap gap-3">
-        {options.map((option) => {
-          const optionValue = option.toLowerCase() === 'yes' ? 'true' : option.toLowerCase() === 'no' ? 'false' : option;
-          const isChecked = typeof value === 'boolean' 
-            ? (option.toLowerCase() === 'yes' ? value === true : value === false)
-            : String(value) === option;
-            
-          return (
-            <label
-              key={option}
-              className={`flex items-center gap-2 px-4 py-2 border rounded-lg cursor-pointer transition-colors ${
-                isChecked
-                  ? 'bg-green-50 border-green-600 text-green-700'
-                  : 'bg-white border-gray-300 text-gray-700 hover:border-green-400'
-              }`}
-            >
-              <input
-                type="radio"
-                name={name}
-                value={optionValue}
-                checked={isChecked}
-                onChange={onChange}
-                required={required}
-                className="text-green-600 focus:ring-green-500"
-              />
-              <span className="font-medium">{option}</span>
-            </label>
-          );
-        })}
-      </div>
-    </div>
   );
 }
 
@@ -522,45 +469,49 @@ export default function PropertyDialog({
 
           {/* UTILITIES */}
           <FormSection title="Property Utilities">
-            <RadioGroup
+            <AdminPropertyRadioGroup
               label="Water"
               name="utilitiesWater"
               value={formData.utilities_water ?? false}
               options={['Yes', 'No']}
               onChange={handleRadioChange('utilities_water')}
               required
+              variant="pill"
             />
 
             <div className="mt-6">
-              <RadioGroup
+              <AdminPropertyRadioGroup
                 label="Electricity"
                 name="utilitiesElectricity"
                 value={formData.utilities_electricity ?? false}
                 options={['Yes', 'No']}
                 onChange={handleRadioChange('utilities_electricity')}
                 required
+                variant="pill"
               />
             </div>
 
             <div className="mt-6">
-              <RadioGroup
+              <AdminPropertyRadioGroup
                 label="SIM Network"
                 name="utilitiesSIM"
                 value={formData.utilities_sim ?? false}
                 options={['Yes', 'No']}
                 onChange={handleRadioChange('utilities_sim')}
                 required
+                variant="pill"
               />
             </div>
 
             <div className="mt-6">
-              <RadioGroup
+              <AdminPropertyRadioGroup
                 label="Internet"
                 name="utilitiesInternet"
                 value={formData.utilities_internet ?? false}
                 options={['Yes', 'No']}
                 onChange={handleRadioChange('utilities_internet')}
                 required
+                variant="pill"
               />
             </div>
           </FormSection>
@@ -569,122 +520,133 @@ export default function PropertyDialog({
           <FormSection title={isAgricultural ? 'Facilities & Water Features' : 'Facilities & Amenities'}>
             {isAgricultural ? (
               <>
-                <RadioGroup
+                <AdminPropertyRadioGroup
                   label="Farmhouse"
                   name="agriFarmhouse"
                   value={formData.agri_hasfarmhouse ?? false}
                   options={['Yes', 'No']}
                   onChange={handleRadioChange('agri_hasfarmhouse')}
                   required
+                  variant="pill"
                 />
 
                 <div className="mt-6">
-                  <RadioGroup
+                  <AdminPropertyRadioGroup
                     label="Barns"
                     name="agriBarns"
                     value={formData.agri_hasbarns ?? false}
                     options={['Yes', 'No']}
                     onChange={handleRadioChange('agri_hasbarns')}
                     required
+                    variant="pill"
                   />
                 </div>
 
                 <div className="mt-6">
-                  <RadioGroup
+                  <AdminPropertyRadioGroup
                     label="Warehouse / Storage"
                     name="agriWarehouse"
                     value={formData.agri_haswarehousestorage ?? false}
                     options={['Yes', 'No']}
                     onChange={handleRadioChange('agri_haswarehousestorage')}
                     required
+                    variant="pill"
                   />
                 </div>
 
                 <div className="mt-6">
-                  <RadioGroup
+                  <AdminPropertyRadioGroup
                     label="Rivers / Streams"
                     name="agriRivers"
                     value={formData.agri_hasriversstreams ?? false}
                     options={['Yes', 'No']}
                     onChange={handleRadioChange('agri_hasriversstreams')}
                     required
+                    variant="pill"
                   />
                 </div>
 
                 <div className="mt-6">
-                  <RadioGroup
+                  <AdminPropertyRadioGroup
                     label="Irrigation / Canal"
                     name="agriIrrigation"
                     value={formData.agri_hasirrigationcanal ?? false}
                     options={['Yes', 'No']}
                     onChange={handleRadioChange('agri_hasirrigationcanal')}
                     required
+                    variant="pill"
                   />
                 </div>
 
                 <div className="mt-6">
-                  <RadioGroup
+                  <AdminPropertyRadioGroup
                     label="Lake / Lagoon"
                     name="agriLake"
                     value={formData.agri_haslakelagoon ?? false}
                     options={['Yes', 'No']}
                     onChange={handleRadioChange('agri_haslakelagoon')}
                     required
+                    variant="pill"
                   />
                 </div>
               </>
             ) : (
               <>
-                <RadioGroup
+                <AdminPropertyRadioGroup
                   label="Gated"
                   name="facilitiesGated"
                   value={formData.facilities_gated ?? false}
                   options={['Yes', 'No']}
                   onChange={handleRadioChange('facilities_gated')}
                   required
+                  variant="pill"
                 />
 
                 <div className="mt-6">
-                  <RadioGroup
+                  <AdminPropertyRadioGroup
                     label="Security"
                     name="facilitiesSecurity"
                     value={formData.facilities_security ?? false}
                     options={['Yes', 'No']}
                     onChange={handleRadioChange('facilities_security')}
                     required
+                    variant="pill"
                   />
                 </div>
 
                 <div className="mt-6">
-                  <RadioGroup
+                  <AdminPropertyRadioGroup
                     label="Clubhouse / Function Hall"
                     name="facilitiesClubhouse"
                     value={formData.facilities_clubhouse ?? false}
                     options={['Yes', 'No']}
                     onChange={handleRadioChange('facilities_clubhouse')}
                     required
+                    variant="pill"
                   />
                 </div>
 
                 <div className="mt-6">
-                  <RadioGroup
+                  <AdminPropertyRadioGroup
                     label="Sports & Fitness Center"
                     name="facilitiesSports"
                     value={formData.facilities_sports ?? false}
                     options={['Yes', 'No']}
                     onChange={handleRadioChange('facilities_sports')}
                     required
+                    variant="pill"
                   />
                 </div>
 
                 <div className="mt-6">
-                  <RadioGroup
+                  <AdminPropertyRadioGroup
                     label="Parks & Playgrounds"
                     name="facilitiesParks"
                     value={formData.facilities_parks ?? false}
                     options={['Yes', 'No']}
                     onChange={handleRadioChange('facilities_parks')}
                     required
+                    variant="pill"
                   />
                 </div>
               </>
@@ -693,67 +655,73 @@ export default function PropertyDialog({
 
           {/* ACCESSIBILITY */}
           <FormSection title="Property Accessibility & Vicinity">
-            <RadioGroup
+            <AdminPropertyRadioGroup
               label="Accessible by Motorcycle"
               name="accessMotorcycle"
               value={formData.access_motorcycle ?? false}
               options={['Yes', 'No']}
               onChange={handleRadioChange('access_motorcycle')}
               required
+              variant="pill"
             />
 
             <div className="mt-6">
-              <RadioGroup
+              <AdminPropertyRadioGroup
                 label="Accessible by Car"
                 name="accessCar"
                 value={formData.access_car ?? false}
                 options={['Yes', 'No']}
                 onChange={handleRadioChange('access_car')}
                 required
+                variant="pill"
               />
             </div>
 
             <div className="mt-6">
-              <RadioGroup
+              <AdminPropertyRadioGroup
                 label="Accessible by Truck"
                 name="accessTruck"
                 value={formData.access_truck ?? false}
                 options={['Yes', 'No']}
                 onChange={handleRadioChange('access_truck')}
                 required
+                variant="pill"
               />
             </div>
 
             <div className="mt-6">
-              <RadioGroup
+              <AdminPropertyRadioGroup
                 label="Has Access Road"
                 name="accessRoad"
                 value={formData.access_road ?? false}
                 options={['Yes', 'No']}
                 onChange={handleRadioChange('access_road')}
                 required
+                variant="pill"
               />
             </div>
 
             <div className="mt-6">
-              <RadioGroup
+              <AdminPropertyRadioGroup
                 label="Has Cemented Road"
                 name="accessCementedRoad"
                 value={formData.access_cemented_road ?? false}
                 options={['Yes', 'No']}
                 onChange={handleRadioChange('access_cemented_road')}
                 required
+                variant="pill"
               />
             </div>
 
             <div className="mt-6">
-              <RadioGroup
+              <AdminPropertyRadioGroup
                 label="Has Rough Road"
                 name="accessRoughRoad"
                 value={formData.access_rough_road ?? false}
                 options={['Yes', 'No']}
                 onChange={handleRadioChange('access_rough_road')}
                 required
+                variant="pill"
               />
             </div>
           </FormSection>

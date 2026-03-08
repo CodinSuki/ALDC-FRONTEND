@@ -74,8 +74,47 @@ const PROPERTY_SELECT = `
     hasriversstreams,
     hasirrigationcanal,
     haslakelagoon
+  ),
+  commercialpropertyamenities!fk_commercialpropertyamenities_property(
+    hasparking,
+    hasloadingbay,
+    haselevator,
+    hasfireprotection,
+    hassecurity,
+    hascctv
+  ),
+  commercialpropertydetails!fk_commercialpropertydetails_property(
+    commercialreflottypeid,
+    istitled,
+    hasoverlooking,
+    isoverlooking,
+    topography
+  ),
+  industrialpropertyamenities!fk_industrialpropertyamenities_property(
+    hasthreephasepower,
+    hasheavyhaulroadaccess,
+    hasloadingdock,
+    haswarehouse,
+    hasfireprotection,
+    hashazmatzone,
+    hastruckaccess
+  ),
+  industrialpropertydetails!fk_industrialpropertydetails_property(
+    industrialreflottypeid,
+    istitled,
+    hasoverlooking,
+    isoverlooking,
+    topography
   )
 `;
+
+const getPropertyKind = (propertyTypeName: string | undefined): 'agricultural' | 'commercial' | 'industrial' | 'urban' => {
+  const normalizedType = (propertyTypeName ?? '').toLowerCase();
+  if (normalizedType.includes('agri')) return 'agricultural';
+  if (normalizedType.includes('commercial')) return 'commercial';
+  if (normalizedType.includes('industrial')) return 'industrial';
+  return 'urban';
+};
 
 const getSingleRelation = <T>(value: T | T[] | null | undefined): T | undefined => {
   if (!value) return undefined;
@@ -139,6 +178,37 @@ const mapPropertyRow = (item: any): any => {
     hasirrigationcanal?: boolean;
     haslakelagoon?: boolean;
   }>(item.agriculturalpropertyamenities);
+  const commercialAmenities = getSingleRelation<{
+    hasparking?: boolean;
+    hasloadingbay?: boolean;
+    haselevator?: boolean;
+    hasfireprotection?: boolean;
+    hassecurity?: boolean;
+    hascctv?: boolean;
+  }>(item.commercialpropertyamenities);
+  const commercialDetails = getSingleRelation<{
+    commercialreflottypeid?: number | null;
+    istitled?: boolean | null;
+    hasoverlooking?: boolean | null;
+    isoverlooking?: boolean | null;
+    topography?: string | null;
+  }>(item.commercialpropertydetails);
+  const industrialAmenities = getSingleRelation<{
+    hasthreephasepower?: boolean;
+    hasheavyhaulroadaccess?: boolean;
+    hasloadingdock?: boolean;
+    haswarehouse?: boolean;
+    hasfireprotection?: boolean;
+    hashazmatzone?: boolean;
+    hastruckaccess?: boolean;
+  }>(item.industrialpropertyamenities);
+  const industrialDetails = getSingleRelation<{
+    industrialreflottypeid?: number | null;
+    istitled?: boolean | null;
+    hasoverlooking?: boolean | null;
+    isoverlooking?: boolean | null;
+    topography?: string | null;
+  }>(item.industrialpropertydetails);
 
   const sellerName = [client?.firstname, client?.middlename, client?.lastname]
     .filter(Boolean)
@@ -167,6 +237,16 @@ const mapPropertyRow = (item: any): any => {
     location_street: location?.propertystreet ?? '',
     lot_size: Number(location?.propertysize ?? 0),
     urbanreflottypeid: urbanDetails?.urbanreflottypeid ?? null,
+    commercialreflottypeid: commercialDetails?.commercialreflottypeid ?? null,
+    industrialreflottypeid: industrialDetails?.industrialreflottypeid ?? null,
+    detail_istitled: Boolean(commercialDetails?.istitled ?? industrialDetails?.istitled),
+    detail_isoverlooking: Boolean(
+      commercialDetails?.isoverlooking ??
+        commercialDetails?.hasoverlooking ??
+        industrialDetails?.isoverlooking ??
+        industrialDetails?.hasoverlooking
+    ),
+    detail_topography: commercialDetails?.topography ?? industrialDetails?.topography ?? null,
     utilities_water: Boolean(utilities?.propertyhaswater),
     utilities_electricity: Boolean(utilities?.propertyhaselectricity),
     utilities_sim: Boolean(utilities?.propertyhasmobilesignal),
@@ -189,6 +269,19 @@ const mapPropertyRow = (item: any): any => {
     agri_hasriversstreams: Boolean(agriAmenities?.hasriversstreams),
     agri_hasirrigationcanal: Boolean(agriAmenities?.hasirrigationcanal),
     agri_haslakelagoon: Boolean(agriAmenities?.haslakelagoon),
+    comm_hasparking: Boolean(commercialAmenities?.hasparking),
+    comm_hasloadingbay: Boolean(commercialAmenities?.hasloadingbay),
+    comm_haselevator: Boolean(commercialAmenities?.haselevator),
+    comm_hasfireprotection: Boolean(commercialAmenities?.hasfireprotection),
+    comm_hassecurity: Boolean(commercialAmenities?.hassecurity),
+    comm_hascctv: Boolean(commercialAmenities?.hascctv),
+    ind_hasthreephasepower: Boolean(industrialAmenities?.hasthreephasepower),
+    ind_hasheavyhaulroadaccess: Boolean(industrialAmenities?.hasheavyhaulroadaccess),
+    ind_hasloadingdock: Boolean(industrialAmenities?.hasloadingdock),
+    ind_haswarehouse: Boolean(industrialAmenities?.haswarehouse),
+    ind_hasfireprotection: Boolean(industrialAmenities?.hasfireprotection),
+    ind_hashazmatzone: Boolean(industrialAmenities?.hashazmatzone),
+    ind_hastruckaccess: Boolean(industrialAmenities?.hastruckaccess),
   };
 };
 
@@ -212,6 +305,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           listingStatusesRes,
           urbanLotTypesRes,
           agriculturalLotTypesRes,
+          commercialLotTypesRes,
+          industrialLotTypesRes,
         ] = await Promise.all([
           supabaseAdmin
             .from('propertytype')
@@ -238,6 +333,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             .from('agriculturalreflottype')
             .select('agriculturalreflottypeid, agriculturalreflottypename')
             .order('agriculturalreflottypeid', { ascending: true }),
+          supabaseAdmin
+            .from('commercialreflottype')
+            .select('commercialreflottypeid, commercialreflottypename')
+            .order('commercialreflottypeid', { ascending: true }),
+          supabaseAdmin
+            .from('industrialreflottype')
+            .select('industrialreflottypeid, industrialreflottypename')
+            .order('industrialreflottypeid', { ascending: true }),
         ]);
 
         const properties = (propertiesRes.data ?? []).map((item: any) => mapPropertyRow(item));
@@ -256,6 +359,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           listingStatuses: listingStatusesRes.data ?? [],
           urbanLotTypes: urbanLotTypesRes.data ?? [],
           agriculturalLotTypes: agriculturalLotTypesRes.data ?? [],
+          commercialLotTypes: commercialLotTypesRes.data ?? [],
+          industrialLotTypes: industrialLotTypesRes.data ?? [],
         });
       }
 
@@ -265,7 +370,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           return res.status(400).json({ error: 'Invalid property ID' });
         }
 
-        const [locationRes, utilitiesRes, accessibilityRes, urbanAmenitiesRes, urbanDetailsRes, agriAmenitiesRes, agriDetailsRes, photosRes] = await Promise.all([
+        const { data: propertyRow, error: propertyError } = await supabaseAdmin
+          .from('property')
+          .select('propertytype!fk_property_propertytype(propertytypename)')
+          .eq('propertyid', propertyId)
+          .single();
+
+        if (propertyError || !propertyRow) {
+          throw propertyError ?? new Error('Failed to fetch property type');
+        }
+
+        const propertyType = getSingleRelation<{ propertytypename?: string }>(propertyRow.propertytype);
+        const propertyKind = getPropertyKind(propertyType?.propertytypename);
+
+        const [
+          locationRes,
+          utilitiesRes,
+          accessibilityRes,
+          urbanAmenitiesRes,
+          urbanDetailsRes,
+          agriAmenitiesRes,
+          agriDetailsRes,
+          commercialAmenitiesRes,
+          commercialDetailsRes,
+          industrialAmenitiesRes,
+          industrialDetailsRes,
+          photosRes,
+        ] = await Promise.all([
           supabaseAdmin
             .from('propertylocation')
             .select('propertyisland, propertyregion, propertyprovince, propertycity, propertybarangay, propertystreet, propertysize')
@@ -302,6 +433,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             .eq('propertyid', propertyId)
             .maybeSingle(),
           supabaseAdmin
+            .from('commercialpropertyamenities')
+            .select('hasparking, hasloadingbay, haselevator, hasfireprotection, hassecurity, hascctv')
+            .eq('propertyid', propertyId)
+            .maybeSingle(),
+          supabaseAdmin
+            .from('commercialpropertydetails')
+            .select('commercialreflottypeid, istitled, hasoverlooking, isoverlooking, topography')
+            .eq('propertyid', propertyId)
+            .maybeSingle(),
+          supabaseAdmin
+            .from('industrialpropertyamenities')
+            .select('hasthreephasepower, hasheavyhaulroadaccess, hasloadingdock, haswarehouse, hasfireprotection, hashazmatzone, hastruckaccess')
+            .eq('propertyid', propertyId)
+            .maybeSingle(),
+          supabaseAdmin
+            .from('industrialpropertydetails')
+            .select('industrialreflottypeid, istitled, hasoverlooking, isoverlooking, topography')
+            .eq('propertyid', propertyId)
+            .maybeSingle(),
+          supabaseAdmin
             .from('propertyphoto')
             .select('propertyphotoid, photoorder, photofilename, photomimetype, photosize, photodata')
             .eq('propertyid', propertyId)
@@ -320,7 +471,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           agriculturalreflottypeids = (data ?? []).map((row: any) => Number(row.agriculturalreflottypeid));
         }
 
-        // Process photos
         const photos = (photosRes.data ?? []).map((photo: any) => ({
           propertyphotoid: photo.propertyphotoid,
           photoorder: photo.photoorder,
@@ -329,6 +479,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           photosize: photo.photosize,
           photoDataUrl: buildPhotoDataUrl(photo.photodata, photo.photomimetype),
         }));
+
+        const detailIsTitled = propertyKind === 'commercial'
+          ? Boolean(commercialDetailsRes.data?.istitled)
+          : propertyKind === 'industrial'
+            ? Boolean(industrialDetailsRes.data?.istitled)
+            : false;
+        const detailIsOverlooking = propertyKind === 'commercial'
+          ? Boolean(commercialDetailsRes.data?.isoverlooking ?? commercialDetailsRes.data?.hasoverlooking)
+          : propertyKind === 'industrial'
+            ? Boolean(industrialDetailsRes.data?.isoverlooking ?? industrialDetailsRes.data?.hasoverlooking)
+            : false;
+        const detailTopography = propertyKind === 'commercial'
+          ? commercialDetailsRes.data?.topography
+          : propertyKind === 'industrial'
+            ? industrialDetailsRes.data?.topography
+            : null;
 
         return res.status(200).json({
           location_island: locationRes.data?.propertyisland ?? 'Luzon',
@@ -339,6 +505,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           location_street: locationRes.data?.propertystreet ?? '',
           lot_size: Number(locationRes.data?.propertysize ?? 0),
           urbanreflottypeid: urbanDetailsRes.data?.urbanreflottypeid ?? null,
+          commercialreflottypeid: commercialDetailsRes.data?.commercialreflottypeid ?? null,
+          industrialreflottypeid: industrialDetailsRes.data?.industrialreflottypeid ?? null,
+          detail_istitled: detailIsTitled,
+          detail_isoverlooking: detailIsOverlooking,
+          detail_topography: detailTopography,
           utilities_water: Boolean(utilitiesRes.data?.propertyhaswater),
           utilities_electricity: Boolean(utilitiesRes.data?.propertyhaselectricity),
           utilities_sim: Boolean(utilitiesRes.data?.propertyhasmobilesignal),
@@ -361,6 +532,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           agri_hasriversstreams: Boolean(agriAmenitiesRes.data?.hasriversstreams),
           agri_hasirrigationcanal: Boolean(agriAmenitiesRes.data?.hasirrigationcanal),
           agri_haslakelagoon: Boolean(agriAmenitiesRes.data?.haslakelagoon),
+          comm_hasparking: Boolean(commercialAmenitiesRes.data?.hasparking),
+          comm_hasloadingbay: Boolean(commercialAmenitiesRes.data?.hasloadingbay),
+          comm_haselevator: Boolean(commercialAmenitiesRes.data?.haselevator),
+          comm_hasfireprotection: Boolean(commercialAmenitiesRes.data?.hasfireprotection),
+          comm_hassecurity: Boolean(commercialAmenitiesRes.data?.hassecurity),
+          comm_hascctv: Boolean(commercialAmenitiesRes.data?.hascctv),
+          ind_hasthreephasepower: Boolean(industrialAmenitiesRes.data?.hasthreephasepower),
+          ind_hasheavyhaulroadaccess: Boolean(industrialAmenitiesRes.data?.hasheavyhaulroadaccess),
+          ind_hasloadingdock: Boolean(industrialAmenitiesRes.data?.hasloadingdock),
+          ind_haswarehouse: Boolean(industrialAmenitiesRes.data?.haswarehouse),
+          ind_hasfireprotection: Boolean(industrialAmenitiesRes.data?.hasfireprotection),
+          ind_hashazmatzone: Boolean(industrialAmenitiesRes.data?.hashazmatzone),
+          ind_hastruckaccess: Boolean(industrialAmenitiesRes.data?.hastruckaccess),
           photos,
         });
       }
@@ -388,6 +572,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       const propertyId = propertyData.propertyid;
+
+      const { data: createTypeRow } = await supabaseAdmin
+        .from('propertytype')
+        .select('propertytypename')
+        .eq('propertytypeid', payload.propertytypeid)
+        .maybeSingle();
+      const createPropertyKind = getPropertyKind(createTypeRow?.propertytypename);
 
       // 2. Insert location data
       if (detailPayload) {
@@ -524,6 +715,83 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
           }
         }
+
+        if (createPropertyKind === 'commercial') {
+          const { error: commercialAmenitiesError } = await supabaseAdmin
+            .from('commercialpropertyamenities')
+            .upsert([
+              {
+                propertyid: propertyId,
+                hasparking: detailPayload.comm_hasparking,
+                hasloadingbay: detailPayload.comm_hasloadingbay,
+                haselevator: detailPayload.comm_haselevator,
+                hasfireprotection: detailPayload.comm_hasfireprotection,
+                hassecurity: detailPayload.comm_hassecurity,
+                hascctv: detailPayload.comm_hascctv,
+              },
+            ]);
+
+          if (commercialAmenitiesError) {
+            console.error('Warning: Failed to insert commercial amenities data:', commercialAmenitiesError);
+          }
+
+          if (detailPayload.commercialreflottypeid) {
+            const { error: commercialDetailsError } = await supabaseAdmin
+              .from('commercialpropertydetails')
+              .upsert([
+                {
+                  propertyid: propertyId,
+                  commercialreflottypeid: detailPayload.commercialreflottypeid,
+                  istitled: detailPayload.detail_istitled,
+                  isoverlooking: detailPayload.detail_isoverlooking,
+                  topography: detailPayload.detail_topography || null,
+                },
+              ]);
+
+            if (commercialDetailsError) {
+              console.error('Warning: Failed to insert commercial details data:', commercialDetailsError);
+            }
+          }
+        }
+
+        if (createPropertyKind === 'industrial') {
+          const { error: industrialAmenitiesError } = await supabaseAdmin
+            .from('industrialpropertyamenities')
+            .upsert([
+              {
+                propertyid: propertyId,
+                hasthreephasepower: detailPayload.ind_hasthreephasepower,
+                hasheavyhaulroadaccess: detailPayload.ind_hasheavyhaulroadaccess,
+                hasloadingdock: detailPayload.ind_hasloadingdock,
+                haswarehouse: detailPayload.ind_haswarehouse,
+                hasfireprotection: detailPayload.ind_hasfireprotection,
+                hashazmatzone: detailPayload.ind_hashazmatzone,
+                hastruckaccess: detailPayload.ind_hastruckaccess,
+              },
+            ]);
+
+          if (industrialAmenitiesError) {
+            console.error('Warning: Failed to insert industrial amenities data:', industrialAmenitiesError);
+          }
+
+          if (detailPayload.industrialreflottypeid) {
+            const { error: industrialDetailsError } = await supabaseAdmin
+              .from('industrialpropertydetails')
+              .upsert([
+                {
+                  propertyid: propertyId,
+                  industrialreflottypeid: detailPayload.industrialreflottypeid,
+                  istitled: detailPayload.detail_istitled,
+                  isoverlooking: detailPayload.detail_isoverlooking,
+                  topography: detailPayload.detail_topography || null,
+                },
+              ]);
+
+            if (industrialDetailsError) {
+              console.error('Warning: Failed to insert industrial details data:', industrialDetailsError);
+            }
+          }
+        }
       }
 
       // Fetch and return full property with all details
@@ -559,6 +827,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (error || !data) {
         throw error ?? new Error('Failed to update property');
       }
+
+      const effectivePropertyTypeId = payload?.propertytypeid;
+      const { data: updateTypeRow } = effectivePropertyTypeId
+        ? await supabaseAdmin
+            .from('propertytype')
+            .select('propertytypename')
+            .eq('propertytypeid', effectivePropertyTypeId)
+            .maybeSingle()
+        : { data: null as any };
+      const updatePropertyKind = getPropertyKind(updateTypeRow?.propertytypename);
 
       // 2. Update location data
       if (detailPayload) {
@@ -710,6 +988,83 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               if (lotTypeError) {
                 console.error('Warning: Failed to update agricultural lot types:', lotTypeError);
               }
+            }
+          }
+        }
+
+        if (updatePropertyKind === 'commercial') {
+          const { error: commercialAmenitiesError } = await supabaseAdmin
+            .from('commercialpropertyamenities')
+            .upsert([
+              {
+                propertyid,
+                hasparking: detailPayload.comm_hasparking,
+                hasloadingbay: detailPayload.comm_hasloadingbay,
+                haselevator: detailPayload.comm_haselevator,
+                hasfireprotection: detailPayload.comm_hasfireprotection,
+                hassecurity: detailPayload.comm_hassecurity,
+                hascctv: detailPayload.comm_hascctv,
+              },
+            ]);
+
+          if (commercialAmenitiesError) {
+            console.error('Warning: Failed to update commercial amenities data:', commercialAmenitiesError);
+          }
+
+          if (detailPayload.commercialreflottypeid) {
+            const { error: commercialDetailsError } = await supabaseAdmin
+              .from('commercialpropertydetails')
+              .upsert([
+                {
+                  propertyid,
+                  commercialreflottypeid: detailPayload.commercialreflottypeid,
+                  istitled: detailPayload.detail_istitled,
+                  isoverlooking: detailPayload.detail_isoverlooking,
+                  topography: detailPayload.detail_topography || null,
+                },
+              ]);
+
+            if (commercialDetailsError) {
+              console.error('Warning: Failed to update commercial details data:', commercialDetailsError);
+            }
+          }
+        }
+
+        if (updatePropertyKind === 'industrial') {
+          const { error: industrialAmenitiesError } = await supabaseAdmin
+            .from('industrialpropertyamenities')
+            .upsert([
+              {
+                propertyid,
+                hasthreephasepower: detailPayload.ind_hasthreephasepower,
+                hasheavyhaulroadaccess: detailPayload.ind_hasheavyhaulroadaccess,
+                hasloadingdock: detailPayload.ind_hasloadingdock,
+                haswarehouse: detailPayload.ind_haswarehouse,
+                hasfireprotection: detailPayload.ind_hasfireprotection,
+                hashazmatzone: detailPayload.ind_hashazmatzone,
+                hastruckaccess: detailPayload.ind_hastruckaccess,
+              },
+            ]);
+
+          if (industrialAmenitiesError) {
+            console.error('Warning: Failed to update industrial amenities data:', industrialAmenitiesError);
+          }
+
+          if (detailPayload.industrialreflottypeid) {
+            const { error: industrialDetailsError } = await supabaseAdmin
+              .from('industrialpropertydetails')
+              .upsert([
+                {
+                  propertyid,
+                  industrialreflottypeid: detailPayload.industrialreflottypeid,
+                  istitled: detailPayload.detail_istitled,
+                  isoverlooking: detailPayload.detail_isoverlooking,
+                  topography: detailPayload.detail_topography || null,
+                },
+              ]);
+
+            if (industrialDetailsError) {
+              console.error('Warning: Failed to update industrial details data:', industrialDetailsError);
             }
           }
         }

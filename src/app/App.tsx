@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import AppRouteErrorBoundary from './components/AppRouteErrorBoundary';
 import Landing from './pages/Landing';
 import About from './pages/About';
 import OurTeam from './pages/OurTeam';
@@ -37,42 +38,44 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <Routes>
-          {/* Public Routes */}
-          <Route path="/" element={<Landing />} />
-          <Route path="/about" element={<About />} />
-          <Route path="/team" element={<OurTeam />} />
-          <Route path="/resources" element={<Resources />} />
-          <Route path="/contact" element={<Contact />} />
-          <Route path="/faqs" element={<FAQs />} />
-          <Route path="/properties" element={<PropertyListings />} />
-          <Route path="/property/:id" element={<PropertyDetail />} />
-          <Route path="/property/:id/inquire" element={<BuyerInterestForm />} />
-          <Route path="/consultation" element={<ConsultationForm />} />
-          <Route path="/sell" element={<SellerForm />} />
-          
-          {/* Admin Login Route */}
-          <Route path="/admin/login" element={<AdminLogin />} />
-          
-          {/* Protected Admin Routes */}
-          <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
-          <Route path="/admin/dashboard" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
-          <Route path="/admin/projects" element={<ProtectedRoute><AdminProjects /></ProtectedRoute>} />
-          <Route path="/admin/properties" element={<ProtectedRoute><AdminProperties /></ProtectedRoute>} />
-          <Route path="/admin/properties/new" element={<ProtectedRoute><AdminPropertyForm /></ProtectedRoute>} />
-          <Route path="/admin/properties/edit/:id" element={<ProtectedRoute><AdminPropertyForm /></ProtectedRoute>} />
-          <Route path="/admin/properties/archived" element={<ProtectedRoute><AdminArchivedProperties /></ProtectedRoute>} />
-          <Route path="/admin/clients" element={<ProtectedRoute><AdminClients /></ProtectedRoute>} />
-          <Route path="/admin/inquiries" element={<ProtectedRoute><AdminInquiries /></ProtectedRoute>} />
-          <Route path="/admin/seller-submissions" element={<ProtectedRoute><AdminSellerSubmissions /></ProtectedRoute>} />
-          <Route path="/admin/documents" element={<ProtectedRoute><AdminDocuments /></ProtectedRoute>} />
-          <Route path="/admin/transactions" element={<ProtectedRoute><AdminTransactions /></ProtectedRoute>} />
-          <Route path="/admin/agents" element={<ProtectedRoute><AdminAgents /></ProtectedRoute>} />
-          <Route path="/admin/reports" element={<ProtectedRoute><AdminReports /></ProtectedRoute>} />
-          <Route path="/admin/settings" element={<ProtectedRoute><AdminSettings /></ProtectedRoute>} />
-          <Route path="/admin/commissions" element={<ProtectedRoute><AdminCommissions /></ProtectedRoute>} />
-          <Route path="/admin/passwords" element={<ProtectedRoute><AdminPasswordInitialization /></ProtectedRoute>} />
-        </Routes>
+        <AppRouteErrorBoundary>
+          <Routes>
+            {/* Public Routes */}
+            <Route path="/" element={<Landing />} />
+            <Route path="/about" element={<About />} />
+            <Route path="/team" element={<OurTeam />} />
+            <Route path="/resources" element={<Resources />} />
+            <Route path="/contact" element={<Contact />} />
+            <Route path="/faqs" element={<FAQs />} />
+            <Route path="/properties" element={<PropertyListings />} />
+            <Route path="/property/:id" element={<PropertyDetail />} />
+            <Route path="/property/:id/inquire" element={<BuyerInterestForm />} />
+            <Route path="/consultation" element={<ConsultationForm />} />
+            <Route path="/sell" element={<SellerForm />} />
+
+            {/* Admin Login Route */}
+            <Route path="/admin/login" element={<AdminLogin />} />
+
+            {/* Protected Admin Routes */}
+            <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
+            <Route path="/admin/dashboard" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
+            <Route path="/admin/projects" element={<ProtectedRoute><AdminProjects /></ProtectedRoute>} />
+            <Route path="/admin/properties" element={<ProtectedRoute><AdminProperties /></ProtectedRoute>} />
+            <Route path="/admin/properties/new" element={<ProtectedRoute><AdminPropertyForm /></ProtectedRoute>} />
+            <Route path="/admin/properties/edit/:id" element={<ProtectedRoute><AdminPropertyForm /></ProtectedRoute>} />
+            <Route path="/admin/properties/archived" element={<ProtectedRoute><AdminArchivedProperties /></ProtectedRoute>} />
+            <Route path="/admin/clients" element={<ProtectedRoute><AdminClients /></ProtectedRoute>} />
+            <Route path="/admin/inquiries" element={<ProtectedRoute><AdminInquiries /></ProtectedRoute>} />
+            <Route path="/admin/seller-submissions" element={<ProtectedRoute><AdminSellerSubmissions /></ProtectedRoute>} />
+            <Route path="/admin/documents" element={<ProtectedRoute><AdminDocuments /></ProtectedRoute>} />
+            <Route path="/admin/transactions" element={<ProtectedRoute><AdminTransactions /></ProtectedRoute>} />
+            <Route path="/admin/agents" element={<ProtectedRoute><AdminAgents /></ProtectedRoute>} />
+            <Route path="/admin/reports" element={<ProtectedRoute><AdminReports /></ProtectedRoute>} />
+            <Route path="/admin/settings" element={<ProtectedRoute><AdminSettings /></ProtectedRoute>} />
+            <Route path="/admin/commissions" element={<ProtectedRoute><AdminCommissions /></ProtectedRoute>} />
+            <Route path="/admin/passwords" element={<ProtectedRoute><AdminPasswordInitialization /></ProtectedRoute>} />
+          </Routes>
+        </AppRouteErrorBoundary>
         <Chatbot />
       </AuthProvider>
     </BrowserRouter>

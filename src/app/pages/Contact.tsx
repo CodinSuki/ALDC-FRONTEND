@@ -1,35 +1,10 @@
 import { Card } from '../components/ui/card';
-import { Button } from '../components/ui/button';
 import PublicNav from '../components/PublicNav';
 import Footer from '../components/Footer';
 import { Mail, Phone, MapPin, Clock } from 'lucide-react';
-import { useState } from 'react';
 import { Link } from 'react-router-dom';
 
 export default function Contact() {
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    subject: '',
-    message: ''
-  });
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
-
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    console.log('Form submitted:', formData);
-    alert('Thank you for reaching out! We will contact you soon.');
-    setFormData({ name: '', email: '', phone: '', subject: '', message: '' });
-  };
-
   const contactInfo = [
     {
       icon: Phone,
