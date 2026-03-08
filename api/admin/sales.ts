@@ -130,7 +130,6 @@ export default async function handler(req: any, res: any) {
         const updates: any = { updatedat: new Date().toISOString() };
         if (transactionStatus) updates.transactionstatus = transactionStatus;
         if (negotiatedPrice !== undefined) updates.negotiatedprice = negotiatedPrice;
-        if (transactionStatus === 'Completed') updates.completiondate = new Date().toISOString();
 
         const { data, error } = await supabaseAdmin
           .from('transaction')

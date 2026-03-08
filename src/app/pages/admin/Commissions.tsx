@@ -18,6 +18,7 @@ import {
   fetchCommissionPayouts,
 } from '@/app/services/commissionService';
 import { fetchTransactions } from '@/app/services/transactionService';
+import { fetchStaff, type StaffRow } from '@/app/services/adminService';
 
 // Enhanced interfaces
 interface EnhancedCommission extends Commission {
@@ -34,16 +35,12 @@ interface PayoutRecord extends CommissionPayout {
 
 interface Staff {
   staffid: number;
-  firstname: string;
-  middlename?: string;
-  lastname: string;
+  fullName: string;
 }
 
 interface Client {
   client_id: number;
-  first_name: string;
-  middle_name?: string;
-  last_name: string;
+  full_name: string;
 }
 
 interface Transaction {
@@ -54,23 +51,12 @@ interface Transaction {
   transactionstatus: string;
 }
 
-// Mock data for staff, clients, properties
-const mockStaff: Staff[] = [
-  { staffid: 1, firstname: 'Miguel', middlename: 'A.', lastname: 'Santos' },
-  { staffid: 2, firstname: 'Sofia', middlename: 'B.', lastname: 'Reyes' },
-  { staffid: 3, firstname: 'Roberto', middlename: 'C.', lastname: 'Martinez' },
-];
-
-const mockClients: Client[] = [
-  { client_id: 1, first_name: 'Maria', middle_name: 'C.', last_name: 'Santos' },
-  { client_id: 2, first_name: 'John', middle_name: 'D.', last_name: 'Reyes' },
-  { client_id: 3, first_name: 'Ana', middle_name: undefined, last_name: 'Cruz' },
-];
-
 export default function AdminCommissions() {
   const [commissions, setCommissions] = useState<EnhancedCommission[]>([]);
   const [payoutsByCommission, setPayoutsByCommission] = useState<Record<number, PayoutRecord[]>>({});
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [staff, setStaff] = useState<Staff[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<'all' | 'Pending' | 'Released'>('all');
   
@@ -106,18 +92,44 @@ export default function AdminCommissions() {
       setIsLoading(true);
       setError(null);
       try {
-        const [commissionsData, transactionsData] = await Promise.all([
+        const [commissionsData, transactionsData, staffRows, clientsResponse] = await Promise.all([
           fetchCommissions(),
           fetchTransactions(),
+          fetchStaff(),
+          fetch('/api/admin/clients', { method: 'GET', credentials: 'include' }),
         ]);
+
+        const clientsPayload = (await clientsResponse.json().catch(() => ({}))) as {
+          error?: string;
+          items?: Array<{
+            clientId: number;
+            fullName: string;
+          }>;
+        };
+
+        if (!clientsResponse.ok) {
+          throw new Error(clientsPayload.error || 'Failed to load clients');
+        }
+
+        const normalizedStaff: Staff[] = (staffRows as StaffRow[]).map((row) => ({
+          staffid: Number(row.staff_id),
+          fullName: row.name,
+        }));
+
+        const normalizedClients: Client[] = (clientsPayload.items || []).map((item) => ({
+          client_id: item.clientId,
+          full_name: item.fullName,
+        }));
         
         setTransactions(transactionsData);
+        setStaff(normalizedStaff);
+        setClients(normalizedClients);
         
         // Enrich commissions with related data
         const enriched = await Promise.all(commissionsData.map(async (comm) => {
           const tx = transactionsData.find(t => t.transactionid === comm.transactionid);
-          const staff = mockStaff.find(s => s.staffid === comm.staffid);
-          const client = mockClients.find(c => c.client_id === tx?.buyerclientid);
+          const staffMember = normalizedStaff.find(s => s.staffid === comm.staffid);
+          const client = normalizedClients.find(c => c.client_id === tx?.buyerclientid);
           
           // Fetch payouts for this commission
           const payouts = await fetchCommissionPayouts(comm.commissionid);
@@ -138,8 +150,8 @@ export default function AdminCommissions() {
           return {
             ...comm,
             transactionCode: `TX-${comm.transactionid}`,
-            staffName: staff ? `${staff.firstname} ${staff.middlename || ''} ${staff.lastname}`.trim() : 'Unknown',
-            clientName: client ? `${client.first_name} ${client.last_name}` : 'Unknown',
+            staffName: staffMember?.fullName || 'Unknown',
+            clientName: client?.full_name || 'Unknown',
             payoutStatus,
             totalPaidOut,
           } as EnhancedCommission;
@@ -184,14 +196,14 @@ export default function AdminCommissions() {
       });
       
       const tx = transactions.find(t => t.transactionid === newComm.transactionid);
-      const staff = mockStaff.find(s => s.staffid === newComm.staffid);
-      const client = mockClients.find(c => c.client_id === tx?.buyerclientid);
+      const staffMember = staff.find(s => s.staffid === newComm.staffid);
+      const client = clients.find(c => c.client_id === tx?.buyerclientid);
       
       const enriched: EnhancedCommission = {
         ...newComm,
         transactionCode: `TX-${newComm.transactionid}`,
-        staffName: staff ? `${staff.firstname} ${staff.lastname}` : 'Unknown',
-        clientName: client ? `${client.first_name} ${client.last_name}` : 'Unknown',
+        staffName: staffMember?.fullName || 'Unknown',
+        clientName: client?.full_name || 'Unknown',
         payoutStatus: 'Pending',
         totalPaidOut: 0,
       };
@@ -599,9 +611,9 @@ export default function AdminCommissions() {
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:bg-gray-100"
               >
                 <option value="">Select Staff</option>
-                {mockStaff.map(staff => (
-                  <option key={staff.staffid} value={staff.staffid}>
-                    {staff.firstname} {staff.lastname}
+                {staff.map(staffMember => (
+                  <option key={staffMember.staffid} value={staffMember.staffid}>
+                    {staffMember.fullName}
                   </option>
                 ))}
               </select>
