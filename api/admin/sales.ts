@@ -312,6 +312,42 @@ export default async function handler(req: any, res: any) {
           return res.status(400).json({ error: 'Invalid payment schedule ID' });
         }
 
+        const { data: scheduleTotals, error: scheduleTotalsError } = await supabaseAdmin
+          .from('paymentschedule')
+          .select('totalamount')
+          .eq('paymentscheduleid', paymentScheduleId)
+          .single();
+
+        if (scheduleTotalsError || !scheduleTotals) {
+          return res.status(404).json({ error: 'Payment schedule not found' });
+        }
+
+        const { data: existingPayments, error: existingPaymentsError } = await supabaseAdmin
+          .from('payment')
+          .select('amountpaid, paymentstatus')
+          .eq('paymentscheduleid', paymentScheduleId);
+
+        if (existingPaymentsError) {
+          throw new Error(`Failed to validate payment balance: ${existingPaymentsError.message}`);
+        }
+
+        const confirmedPaid = (existingPayments ?? [])
+          .filter((p: any) => String(p.paymentstatus ?? '') === 'Confirmed')
+          .reduce((sum: number, p: any) => sum + Number(p.amountpaid ?? 0), 0);
+
+        const totalAmount = Number(scheduleTotals.totalamount ?? 0);
+        const remainingBalance = totalAmount - confirmedPaid;
+
+        if (remainingBalance <= 0) {
+          return res.status(400).json({ error: 'This schedule is fully paid. No additional payments can be recorded.' });
+        }
+
+        if (resolvedAmountPaid > remainingBalance) {
+          return res.status(400).json({
+            error: `Payment amount exceeds remaining balance (${remainingBalance.toFixed(2)})`,
+          });
+        }
+
         const { data, error } = await supabaseAdmin
           .from('payment')
           .insert({

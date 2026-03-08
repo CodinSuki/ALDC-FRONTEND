@@ -332,13 +332,29 @@ export default function AdminTransactions() {
       return;
     }
 
+    if ((paymentScheduleInfo?.remainingBalance ?? 0) <= 0) {
+      setError('This transaction is fully paid. No additional payments can be recorded.');
+      return;
+    }
+
+    const amountToRecord = parseFloat(paymentForm.amountpaid);
+    if (!Number.isFinite(amountToRecord) || amountToRecord <= 0) {
+      setError('Payment amount must be greater than 0');
+      return;
+    }
+
+    if (paymentScheduleInfo && amountToRecord > paymentScheduleInfo.remainingBalance) {
+      setError('Payment amount exceeds remaining balance');
+      return;
+    }
+
     setIsSaving(true);
     setError(null);
     try {
       const newPayment = await recordPayment({
         paymentScheduleId: paymentForm.paymentscheduleid,
         paymentDate: paymentForm.paymentdate,
-        amountPaid: parseFloat(paymentForm.amountpaid),
+        amountPaid: amountToRecord,
         paymentMethod: paymentForm.paymentmethod,
         paymentStatus: 'Confirmed',
       });
@@ -451,6 +467,12 @@ export default function AdminTransactions() {
         totalPaid,
         remainingBalance: parseFloat(String(schedule.totalamount)) - totalPaid,
       });
+
+      const remainingBalance = parseFloat(String(schedule.totalamount)) - totalPaid;
+      if (remainingBalance <= 0) {
+        setError('This transaction is fully paid. No additional payments can be recorded.');
+        return;
+      }
       
       setIsAddPaymentOpen(true);
     } catch (err) {
@@ -1143,7 +1165,7 @@ export default function AdminTransactions() {
             </button>
             <button
               onClick={handleAddPayment}
-              disabled={isSaving}
+              disabled={isSaving || (paymentScheduleInfo?.remainingBalance ?? 0) <= 0}
               className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
             >
               {isSaving ? <Loader className="w-4 h-4 animate-spin inline mr-2" /> : null}
