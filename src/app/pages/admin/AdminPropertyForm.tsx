@@ -720,7 +720,7 @@ export default function AdminPropertyForm() {
           {formData.propertytypeid && (
             <>
               {isAgriculturalType ? (
-                <FormSection title="Agricultural Lot Details">
+                <FormSection title="Agricultural Property Details">
                   <div>
                     <label className="block text-sm text-gray-700 mb-3">
                       Agricultural Lot Type
@@ -746,6 +746,80 @@ export default function AdminPropertyForm() {
                           </span>
                         </label>
                       ))}
+                    </div>
+                  </div>
+
+                  <div className="mt-6">
+                    <label className="block text-sm text-gray-700 mb-3">
+                      Facilities & Amenities
+                    </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={formData.agri_hasbarns}
+                          onChange={(e) =>
+                            setFormData((prev) => ({ ...prev, agri_hasbarns: e.target.checked }))
+                          }
+                          className="w-4 h-4"
+                        />
+                        <span className="text-gray-700">Barns</span>
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={formData.agri_hasfarmhouse}
+                          onChange={(e) =>
+                            setFormData((prev) => ({ ...prev, agri_hasfarmhouse: e.target.checked }))
+                          }
+                          className="w-4 h-4"
+                        />
+                        <span className="text-gray-700">Farmhouse</span>
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={formData.agri_hasirrigationcanal}
+                          onChange={(e) =>
+                            setFormData((prev) => ({ ...prev, agri_hasirrigationcanal: e.target.checked }))
+                          }
+                          className="w-4 h-4"
+                        />
+                        <span className="text-gray-700">Irrigation / Canal</span>
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={formData.agri_haslakelagoon}
+                          onChange={(e) =>
+                            setFormData((prev) => ({ ...prev, agri_haslakelagoon: e.target.checked }))
+                          }
+                          className="w-4 h-4"
+                        />
+                        <span className="text-gray-700">Lake / Lagoon</span>
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={formData.agri_hasriversstreams}
+                          onChange={(e) =>
+                            setFormData((prev) => ({ ...prev, agri_hasriversstreams: e.target.checked }))
+                          }
+                          className="w-4 h-4"
+                        />
+                        <span className="text-gray-700">Rivers / Streams</span>
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={formData.agri_haswarehousestorage}
+                          onChange={(e) =>
+                            setFormData((prev) => ({ ...prev, agri_haswarehousestorage: e.target.checked }))
+                          }
+                          className="w-4 h-4"
+                        />
+                        <span className="text-gray-700">Warehouse / Storage</span>
+                      </label>
                     </div>
                   </div>
                 </FormSection>
@@ -867,80 +941,6 @@ export default function AdminPropertyForm() {
               />
             </div>
           </FormSection>
-
-          {/* FACILITIES & AMENITIES - AGRICULTURAL ONLY */}
-          {formData.propertytypeid && isAgriculturalType && (
-            <FormSection title="Facilities & Water Features">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={formData.agri_hasbarns}
-                    onChange={(e) =>
-                      setFormData((prev) => ({ ...prev, agri_hasbarns: e.target.checked }))
-                    }
-                    className="w-4 h-4"
-                  />
-                  <span className="text-gray-700">Barns</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={formData.agri_hasfarmhouse}
-                    onChange={(e) =>
-                      setFormData((prev) => ({ ...prev, agri_hasfarmhouse: e.target.checked }))
-                    }
-                    className="w-4 h-4"
-                  />
-                  <span className="text-gray-700">Farmhouse</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={formData.agri_hasirrigationcanal}
-                    onChange={(e) =>
-                      setFormData((prev) => ({ ...prev, agri_hasirrigationcanal: e.target.checked }))
-                    }
-                    className="w-4 h-4"
-                  />
-                  <span className="text-gray-700">Irrigation / Canal</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={formData.agri_haslakelagoon}
-                    onChange={(e) =>
-                      setFormData((prev) => ({ ...prev, agri_haslakelagoon: e.target.checked }))
-                    }
-                    className="w-4 h-4"
-                  />
-                  <span className="text-gray-700">Lake / Lagoon</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={formData.agri_hasriversstreams}
-                    onChange={(e) =>
-                      setFormData((prev) => ({ ...prev, agri_hasriversstreams: e.target.checked }))
-                    }
-                    className="w-4 h-4"
-                  />
-                  <span className="text-gray-700">Rivers / Streams</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={formData.agri_haswarehousestorage}
-                    onChange={(e) =>
-                      setFormData((prev) => ({ ...prev, agri_haswarehousestorage: e.target.checked }))
-                    }
-                    className="w-4 h-4"
-                  />
-                  <span className="text-gray-700">Warehouse / Storage</span>
-                </label>
-              </div>
-            </FormSection>
-          )}
 
           {/* ACCESSIBILITY */}
           <FormSection title="Property Accessibility & Vicinity">
