@@ -720,7 +720,9 @@ export default function AdminPropertyForm() {
           {formData.propertytypeid && (
             <>
               {isAgriculturalType ? (
-                <FormSection title="Agricultural Property Details">
+                <section className="border border-green-200 bg-green-50 rounded-lg p-6 mt-6 transition-all duration-300">
+                  <h3 className="text-gray-900 font-semibold mb-6">Agricultural Property Details</h3>
+
                   <div>
                     <label className="block text-sm text-gray-700 mb-3">
                       Agricultural Lot Type
@@ -822,7 +824,7 @@ export default function AdminPropertyForm() {
                       </label>
                     </div>
                   </div>
-                </FormSection>
+                </section>
               ) : (
                 <section className="border border-blue-200 bg-blue-50 rounded-lg p-6 mt-6 transition-all duration-300">
                   <h3 className="text-gray-900 font-semibold mb-6">Lot Type & Facilities</h3>
