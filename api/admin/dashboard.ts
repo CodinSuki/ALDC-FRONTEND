@@ -151,7 +151,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const [transactionsRes, activityRes, staffRes, projectRes, propertyRes, commissionRes] = await Promise.all([
         supabaseAdmin
           .from('transaction')
-          .select('transactionid, propertyid, amount, total_amount, contract_amount, payment_status, transaction_status, createdat')
+          .select('transactionid, propertyid, negotiatedprice, transactionstatus, createdat')
           .order('createdat', { ascending: false }),
         supabaseAdmin
           .from('activitylog')
@@ -164,7 +164,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           .from('property')
           .select('propertyid, projectid, propertylistingstatusid, createdat')
           .eq('is_archived', false),
-        supabaseAdmin.from('commission').select('commissionid, staffid, amount, createdat'),
+        supabaseAdmin.from('commission').select('commissionid, staffid, commissionamount, createdat'),
       ]);
 
       if (transactionsRes.error) throw transactionsRes.error;
@@ -205,7 +205,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const monthOrder = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
       transactions.forEach((row) => {
-        const amount = toNumber(row.total_amount ?? row.amount ?? row.contract_amount ?? 0);
+        const amount = toNumber(row.negotiatedprice ?? 0);
         const dateStr = asText(row.createdat, '');
         const month = dateStr ? monthLabel(dateStr) : 'N/A';
 
@@ -244,7 +244,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const propertyId = toNumber(row.propertyid);
         const projectId = propertyProjectMap.get(propertyId);
         if (projectId && projectPerformanceMap.has(projectId)) {
-          const amount = toNumber(row.total_amount ?? row.amount ?? row.contract_amount ?? 0);
+          const amount = toNumber(row.negotiatedprice ?? 0);
           const entry = projectPerformanceMap.get(projectId);
           if (entry) {
             entry.sold += 1;
@@ -281,7 +281,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const commissionMap = new Map<number, { amount: number; count: number }>();
       commissions.forEach((row) => {
         const staffId = toNumber(row.staffid);
-        const amount = toNumber(row.amount ?? 0);
+        const amount = toNumber(row.commissionamount ?? 0);
         if (!commissionMap.has(staffId)) {
           commissionMap.set(staffId, { amount: 0, count: 0 });
         }
@@ -392,10 +392,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const monthlyMap = new Map<string, { sold: number; reserved: number }>();
 
     const recentTransactions: DashboardTransaction[] = transactionRows.slice(0, 5).map((row) => {
-      const status = asText(row.payment_status ?? row.transaction_status ?? row.status, 'In Progress');
-      const propertyName = asText(row.property_code ?? row.propertyname ?? row.property_id ?? row.propertyid, 'N/A');
-      const amountValue = toNumber(row.total_amount ?? row.amount ?? row.contract_amount ?? 0);
-      const transactionDate = asText(row.transaction_date ?? row.transactiondate ?? row.createdat, '');
+      const status = asText(row.transactionstatus ?? 'In Progress', 'In Progress');
+      const propertyName = asText(row.propertyname ?? `Property #${toNumber(row.propertyid)}`, 'N/A');
+      const amountValue = toNumber(row.negotiatedprice ?? 0);
+      const transactionDate = asText(row.createdat, '');
       const month = transactionDate ? monthLabel(transactionDate) : 'N/A';
 
       if (!monthlyMap.has(month)) {
@@ -429,27 +429,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
 
     const activeTransactions = transactionRows.filter((row) => {
-      const status = asText(row.payment_status ?? row.transaction_status ?? row.status, 'In Progress');
+      const status = asText(row.transactionstatus ?? 'In Progress', 'In Progress');
       return !isCompletedTransactionStatus(status);
     });
 
     const completedTransactions = transactionRows.filter((row) => {
-      const status = asText(row.payment_status ?? row.transaction_status ?? row.status, 'In Progress');
+      const status = asText(row.transactionstatus ?? 'In Progress', 'In Progress');
       return isCompletedTransactionStatus(status);
     });
 
     const paymentsDue = transactionRows.filter((row) => {
-      const status = asText(row.payment_status ?? row.transaction_status ?? row.status, '');
+      const status = asText(row.transactionstatus ?? '', '');
       return isDueStatus(status);
     }).length;
 
     const overduePayments = transactionRows.filter((row) => {
-      const status = asText(row.payment_status ?? row.transaction_status ?? row.status, '');
+      const status = asText(row.transactionstatus ?? '', '');
       return isOverdueStatus(status);
     }).length;
 
     const activeTransactionValue = activeTransactions.reduce((sum, row) => {
-      const amountValue = toNumber(row.total_amount ?? row.amount ?? row.contract_amount ?? 0);
+      const amountValue = toNumber(row.negotiatedprice ?? 0);
       return sum + amountValue;
     }, 0);
 
