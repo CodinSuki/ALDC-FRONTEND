@@ -1,8 +1,8 @@
 import { useParams, Link } from 'react-router-dom';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import PublicNav from '../components/PublicNav';
 import Footer from '../components/Footer';
-import { MapPin, Home, Ruler, ArrowLeft, Calendar } from 'lucide-react';
+import { MapPin, Home, Ruler, ArrowLeft, Calendar, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { ImageWithFallback } from '../components/figma/ImageWithFallback';
 import SpecRow from '../components/ui/SpecRow';
 import { fetchPropertyDetails } from '../services/propertyService';
@@ -13,6 +13,8 @@ export default function PropertyDetail() {
   const [propertyDetails, setPropertyDetails] = useState<MappedPropertyDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   useEffect(() => {
     const loadPropertyDetails = async () => {
@@ -35,6 +37,41 @@ export default function PropertyDetail() {
 
     loadPropertyDetails();
   }, [id]);
+
+  const openLightbox = (index: number) => {
+    setCurrentImageIndex(index);
+    setLightboxOpen(true);
+  };
+
+  const handleNextImage = useCallback(() => {
+    const images = propertyDetails?.images;
+    if (!images || images.length === 0) return;
+    setCurrentImageIndex((prev) => (prev + 1) % images.length);
+  }, [propertyDetails?.images]);
+
+  const handlePrevImage = useCallback(() => {
+    const images = propertyDetails?.images;
+    if (!images || images.length === 0) return;
+    setCurrentImageIndex((prev) => (prev - 1 + images.length) % images.length);
+  }, [propertyDetails?.images]);
+
+  // Keyboard navigation for lightbox
+  useEffect(() => {
+    if (!lightboxOpen) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setLightboxOpen(false);
+      } else if (e.key === 'ArrowLeft') {
+        handlePrevImage();
+      } else if (e.key === 'ArrowRight') {
+        handleNextImage();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [lightboxOpen, handleNextImage, handlePrevImage]);
 
   if (loading) {
     return (
@@ -88,20 +125,20 @@ export default function PropertyDetail() {
             <div className="space-y-4">
               {property.images && property.images.length > 0 && (
                 <>
-                  <div className="rounded-lg overflow-hidden h-96">
+                  <div className="rounded-lg overflow-hidden h-96 cursor-pointer group" onClick={() => openLightbox(0)}>
                     <ImageWithFallback 
                       src={property.images[0]}
                       alt={property.name}
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                     />
                   </div>
                   <div className="grid grid-cols-3 gap-4">
                     {property.images.slice(1).map((img: string, index: number) => (
-                  <div key={index} className="rounded-lg overflow-hidden h-24">
+                  <div key={index} className="rounded-lg overflow-hidden h-24 cursor-pointer group" onClick={() => openLightbox(index + 1)}>
                     <ImageWithFallback 
                       src={img}
                       alt={`${property.name} ${index + 2}`}
-                      className="w-full h-full object-cover hover:scale-105 transition-transform cursor-pointer"
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                     />
                   </div>
                     ))}
@@ -248,6 +285,62 @@ export default function PropertyDetail() {
           </div>
         </div>
       </div>
+
+      {/* Image Lightbox Modal */}
+      {lightboxOpen && propertyDetails?.images && (
+        <div className="fixed inset-0 z-50 bg-black bg-opacity-95 flex items-center justify-center" onClick={() => setLightboxOpen(false)}>
+          {/* Close Button */}
+          <button
+            onClick={() => setLightboxOpen(false)}
+            className="absolute top-4 right-4 text-white hover:text-gray-300 transition-colors z-10"
+            aria-label="Close lightbox"
+          >
+            <X className="w-8 h-8" />
+          </button>
+
+          {/* Image Counter */}
+          <div className="absolute top-4 left-1/2 transform -translate-x-1/2 text-white text-sm z-10">
+            {currentImageIndex + 1} / {propertyDetails.images.length}
+          </div>
+
+          {/* Previous Button */}
+          {propertyDetails.images.length > 1 && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handlePrevImage();
+              }}
+              className="absolute left-4 text-white hover:text-gray-300 transition-colors z-10"
+              aria-label="Previous image"
+            >
+              <ChevronLeft className="w-12 h-12" />
+            </button>
+          )}
+
+          {/* Image */}
+          <div className="max-w-7xl max-h-[90vh] w-full h-full flex items-center justify-center p-4" onClick={(e) => e.stopPropagation()}>
+            <ImageWithFallback
+              src={propertyDetails.images[currentImageIndex]}
+              alt={`${propertyDetails.name} - Image ${currentImageIndex + 1}`}
+              className="max-w-full max-h-full object-contain"
+            />
+          </div>
+
+          {/* Next Button */}
+          {propertyDetails.images.length > 1 && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleNextImage();
+              }}
+              className="absolute right-4 text-white hover:text-gray-300 transition-colors z-10"
+              aria-label="Next image"
+            >
+              <ChevronRight className="w-12 h-12" />
+            </button>
+          )}
+        </div>
+      )}
 
       <Footer />
     </div>
