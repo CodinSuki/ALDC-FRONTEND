@@ -1,30 +1,22 @@
 import { useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import AdminLayout from '@/app/components/AdminLayout';
 import ConfirmActionDialog from '@/app/components/ConfirmActionDialog';
 import { Plus, Edit, Trash2, Search, Archive } from 'lucide-react';
-import PropertyDialog from './components/property/PropertyDialog';
 import {
   archiveAdminProperty,
-  createAdminProperty,
   deleteAdminProperty,
   fetchAdminPropertyData,
-  fetchAdminPropertyDetails,
-  updateAdminProperty,
-  type AgriculturalLotTypeOption,
   type AdminProperty,
   type ProjectOption,
-  type PropertyDetailPayload,
   type PropertyListingStatusOption,
-  type PropertyPayload,
-  type PropertyTypeOption,
   type SellerOption,
-  type UrbanLotTypeOption,
 } from '@/app/services/adminPropertyService';
 
 export default function AdminProperties() {
   type ConfirmMode = 'delete' | 'archive';
 
+  const navigate = useNavigate();
   const [properties, setProperties] = useState<AdminProperty[]>([]);
   const [projects, setProjects] = useState<ProjectOption[]>([]);
   const [sellers, setSellers] = useState<SellerOption[]>([]);
@@ -39,99 +31,11 @@ export default function AdminProperties() {
   const projectIdParam = urlParams.get('projectId');
   const projectIdFilter = projectIdParam ? Number(projectIdParam) : null;
 
-  const [showModal, setShowModal] = useState(false);
-  const [editPropertyId, setEditPropertyId] = useState<number | null>(null);
-  const [propertyTypes, setPropertyTypes] = useState<PropertyTypeOption[]>([]);
-  const [urbanLotTypes, setUrbanLotTypes] = useState<UrbanLotTypeOption[]>([]);
-  const [agriculturalLotTypes, setAgriculturalLotTypes] = useState<AgriculturalLotTypeOption[]>([]);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmMode, setConfirmMode] = useState<ConfirmMode>('delete');
   const [confirmDescription, setConfirmDescription] = useState('');
   const [confirmTarget, setConfirmTarget] = useState<AdminProperty | null>(null);
   const [isActionSubmitting, setIsActionSubmitting] = useState(false);
-
-
-  const [formData, setFormData] = useState<Partial<AdminProperty>>({
-    propertyname: '',
-    projectid: 0,
-    sellerclientid: null,
-    propertytypeid: null,
-    propertylistingstatusid: 0,
-    propertyownershipid: null,
-    location_island: 'Luzon',
-    location_region: '',
-    location_province: '',
-    location_city: '',
-    location_barangay: '',
-    location_street: '',
-    lot_size: 0,
-    urbanreflottypeid: null,
-    utilities_water: false,
-    utilities_electricity: false,
-    utilities_sim: false,
-    utilities_internet: false,
-    access_motorcycle: false,
-    access_car: false,
-    access_truck: false,
-    access_road: false,
-    access_cemented_road: false,
-    access_rough_road: false,
-    facilities_gated: false,
-    facilities_security: false,
-    facilities_clubhouse: false,
-    facilities_sports: false,
-    facilities_parks: false,
-    agriculturalreflottypeids: [],
-    agri_hasfarmhouse: false,
-    agri_hasbarns: false,
-    agri_haswarehousestorage: false,
-    agri_hasriversstreams: false,
-    agri_hasirrigationcanal: false,
-    agri_haslakelagoon: false,
-    photos: [],
-  });
-
-  const buildPayload = (): PropertyPayload => ({
-    propertyname: formData.propertyname ?? '',
-    projectid: Number(formData.projectid),
-    sellerclientid: formData.sellerclientid ?? null,
-    propertytypeid: formData.propertytypeid ?? null,
-    propertylistingstatusid: Number(formData.propertylistingstatusid),
-    propertyownershipid: formData.propertyownershipid ?? null,
-  });
-
-  const buildDetailPayload = (): PropertyDetailPayload => ({
-    location_island: String(formData.location_island ?? 'Luzon'),
-    location_region: String(formData.location_region ?? ''),
-    location_province: String(formData.location_province ?? ''),
-    location_city: String(formData.location_city ?? ''),
-    location_barangay: String(formData.location_barangay ?? ''),
-    location_street: String(formData.location_street ?? ''),
-    lot_size: Number(formData.lot_size ?? 0),
-    urbanreflottypeid: formData.urbanreflottypeid ? Number(formData.urbanreflottypeid) : null,
-    utilities_water: Boolean(formData.utilities_water),
-    utilities_electricity: Boolean(formData.utilities_electricity),
-    utilities_sim: Boolean(formData.utilities_sim),
-    utilities_internet: Boolean(formData.utilities_internet),
-    access_motorcycle: Boolean(formData.access_motorcycle),
-    access_car: Boolean(formData.access_car),
-    access_truck: Boolean(formData.access_truck),
-    access_road: Boolean(formData.access_road),
-    access_cemented_road: Boolean(formData.access_cemented_road),
-    access_rough_road: Boolean(formData.access_rough_road),
-    facilities_gated: Boolean(formData.facilities_gated),
-    facilities_security: Boolean(formData.facilities_security),
-    facilities_clubhouse: Boolean(formData.facilities_clubhouse),
-    facilities_sports: Boolean(formData.facilities_sports),
-    facilities_parks: Boolean(formData.facilities_parks),
-    agriculturalreflottypeids: (formData.agriculturalreflottypeids as number[] | undefined) ?? [],
-    agri_hasfarmhouse: Boolean(formData.agri_hasfarmhouse),
-    agri_hasbarns: Boolean(formData.agri_hasbarns),
-    agri_haswarehousestorage: Boolean(formData.agri_haswarehousestorage),
-    agri_hasriversstreams: Boolean(formData.agri_hasriversstreams),
-    agri_hasirrigationcanal: Boolean(formData.agri_hasirrigationcanal),
-    agri_haslakelagoon: Boolean(formData.agri_haslakelagoon),
-  });
 
   useEffect(() => {
     const loadData = async () => {
@@ -140,12 +44,9 @@ export default function AdminProperties() {
       try {
         const data = await fetchAdminPropertyData();
 
-        setPropertyTypes(data.propertyTypes);
         setProjects(data.projects);
         setSellers(data.sellers);
         setListingStatuses(data.listingStatuses);
-        setUrbanLotTypes(data.urbanLotTypes);
-        setAgriculturalLotTypes(data.agriculturalLotTypes);
         setProperties(data.properties);
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : 'Failed to load properties';
@@ -216,127 +117,6 @@ export default function AdminProperties() {
     );
   }
 
-  const resetForm = () => {
-    setFormData({
-      propertyname: '',
-      projectid: 0,
-      sellerclientid: null,
-      propertytypeid: null,
-      propertylistingstatusid: 0,
-      propertyownershipid: null,
-      location_island: 'Luzon',
-      location_region: '',
-      location_province: '',
-      location_city: '',
-      location_barangay: '',
-      location_street: '',
-      lot_size: 0,
-      urbanreflottypeid: null,
-      utilities_water: false,
-      utilities_electricity: false,
-      utilities_sim: false,
-      utilities_internet: false,
-      access_motorcycle: false,
-      access_car: false,
-      access_truck: false,
-      access_road: false,
-      access_cemented_road: false,
-      access_rough_road: false,
-      facilities_gated: false,
-      facilities_security: false,
-      facilities_clubhouse: false,
-      facilities_sports: false,
-      facilities_parks: false,
-      agriculturalreflottypeids: [],
-      agri_hasfarmhouse: false,
-      agri_hasbarns: false,
-      agri_haswarehousestorage: false,
-      agri_hasriversstreams: false,
-      agri_hasirrigationcanal: false,
-      agri_haslakelagoon: false,
-      photos: [],
-    });
-    setEditPropertyId(null);
-  };
-
-
-
-  const openAddModal = () => {
-    resetForm();
-    setShowModal(true);
-  };
-
-  const openEditModal = async (property: AdminProperty) => {
-    try {
-      const detailData = await fetchAdminPropertyDetails(property.propertyid);
-
-      setFormData({
-        ...property,
-        ...detailData,
-        projectid: property.projectid,
-        propertytypeid: property.propertytypeid ?? null,
-        sellerclientid: property.sellerclientid ?? null,
-        propertylistingstatusid: property.propertylistingstatusid,
-        propertyownershipid: property.propertyownershipid ?? null,
-        photos: [],
-      });
-      setEditPropertyId(property.propertyid);
-      setShowModal(true);
-    } catch (error) {
-      console.error('Failed to load property details for edit', error);
-      alert('Failed to load complete property details. Please try again.');
-    }
-  };
-
-  const handleFormChange = (field: string, value: any) => {
-    setFormData(prev => ({ ...prev, [field as keyof AdminProperty]: value }));
-  };
-
-  const handleAddOrUpdateProperty = async () => {
-    if (
-      !formData.propertyname ||
-      !formData.projectid ||
-      !formData.propertylistingstatusid ||
-      !formData.location_region ||
-      !formData.location_province ||
-      !formData.location_city ||
-      !formData.location_barangay ||
-      !formData.location_street ||
-      !formData.lot_size
-    ) {
-      alert('Please fill all required fields');
-      return;
-    }
-
-    const payload = buildPayload();
-    const detailPayload = buildDetailPayload();
-    const lookup = {
-      projects,
-      sellers,
-      propertyTypes,
-      listingStatuses,
-    };
-
-    try {
-      const newProp = editPropertyId
-        ? await updateAdminProperty(editPropertyId, payload, detailPayload, lookup, formData.photos ?? [])
-        : await createAdminProperty(payload, detailPayload, lookup, formData.photos ?? []);
-
-      setProperties(prev => {
-        if (editPropertyId) {
-          return prev.map(p => (p.propertyid === editPropertyId ? newProp : p));
-        }
-        return [...prev, newProp];
-      });
-
-      setShowModal(false);
-      resetForm();
-    } catch (error) {
-      console.error('Error saving property', error);
-      alert('Error saving property');
-    }
-  };
-
   const requestDeleteProperty = (property: AdminProperty) => {
     setConfirmMode('delete');
     setConfirmTarget(property);
@@ -357,7 +137,7 @@ export default function AdminProperties() {
     const lookup = {
       projects,
       sellers,
-      propertyTypes,
+      propertyTypes: [], // Not needed for archive operation
       listingStatuses,
     };
 
@@ -424,13 +204,13 @@ export default function AdminProperties() {
               <Archive className="w-5 h-5" />
               Archived
             </Link>
-            <button
-              onClick={openAddModal}
+            <Link
+              to="/admin/properties/new"
               className="flex items-center gap-2 bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors"
             >
               <Plus className="w-5 h-5" />
               Add Property
-            </button>
+            </Link>
           </div>
         </div>
 
@@ -493,9 +273,9 @@ export default function AdminProperties() {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
-                      <button onClick={() => openEditModal(p)} className="text-blue-600 hover:text-blue-800 mr-3">
+                      <Link to={`/admin/properties/edit/${p.propertyid}`} className="inline-block text-blue-600 hover:text-blue-800 mr-3">
                         <Edit className="w-4 h-4" />
-                      </button>
+                      </Link>
                       <button onClick={() => requestArchiveProperty(p)} className="text-amber-600 hover:text-amber-800 mr-3">
                         <Archive className="w-4 h-4" />
                       </button>
@@ -512,23 +292,6 @@ export default function AdminProperties() {
             <div className="text-center py-12 text-gray-500">No properties found matching your criteria</div>
           )}
         </div>
-
-        {/* Add/Edit Dialog */}
-        <PropertyDialog
-          open={showModal}
-          onOpenChange={setShowModal}
-          formData={formData}
-          projects={projects}
-          sellers={sellers}
-          propertyTypes={propertyTypes}
-          listingStatuses={listingStatuses}
-          urbanLotTypes={urbanLotTypes}
-          agriculturalLotTypes={agriculturalLotTypes}
-          onChange={handleFormChange}
-          onSubmit={handleAddOrUpdateProperty}
-          onCancel={() => setShowModal(false)}
-          isEditMode={Boolean(editPropertyId)}
-        />
 
         <ConfirmActionDialog
           open={confirmOpen}
