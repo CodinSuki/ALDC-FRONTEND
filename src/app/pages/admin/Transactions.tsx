@@ -798,11 +798,10 @@ export default function AdminTransactions() {
                   <button
                     onClick={() => {
                       if (selectedTransaction) {
-                        setPaymentForm(prev => ({ ...prev, paymentscheduleid: selectedTransaction.transactionid }));
-                        setIsAddPaymentOpen(true);
+                        openRecordPaymentDialog(selectedTransaction);
                       }
                     }}
-                    disabled={isSaving}
+                    disabled={isSaving || loadingSchedule}
                     className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
                   >Record Payment</button>
                 </div>

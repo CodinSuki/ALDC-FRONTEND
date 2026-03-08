@@ -301,6 +301,17 @@ export default async function handler(req: any, res: any) {
           return res.status(400).json({ error: 'Missing required fields' });
         }
 
+        // Guard against FK violations by validating schedule existence up front.
+        const { data: schedule, error: scheduleError } = await supabaseAdmin
+          .from('paymentschedule')
+          .select('paymentscheduleid')
+          .eq('paymentscheduleid', paymentScheduleId)
+          .single();
+
+        if (scheduleError || !schedule) {
+          return res.status(400).json({ error: 'Invalid payment schedule ID' });
+        }
+
         const { data, error } = await supabaseAdmin
           .from('payment')
           .insert({
