@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, CheckCircle, Upload, X } from 'lucide-react';
 import AdminLayout from '@/app/components/AdminLayout';
+import FormSection from '@/app/components/ui/FormSection';
 import type { AdminPropertyPhotoUpload } from '@/app/services/adminPropertyService';
 import {
   fetchAdminPropertyData,
@@ -20,15 +21,6 @@ import {
 
 /* ===== Helper Components ===== */
 
-function FormSection({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <section className="border-t border-gray-200 pt-6">
-      <h2 className="text-gray-900 mb-6 text-xl font-semibold">{title}</h2>
-      {children}
-    </section>
-  );
-}
-
 function RadioGroup({
   label,
   name,
@@ -46,10 +38,10 @@ function RadioGroup({
 }) {
   return (
     <div>
-      <label className="block text-sm font-medium text-gray-700 mb-3">
-        {label} {required && <span className="text-red-500">*</span>}
+      <label className="block text-sm text-gray-700 mb-3">
+        {label} {required && '*'}
       </label>
-      <div className="flex flex-wrap gap-3">
+      <div className="flex gap-6">
         {options.map((option) => {
           const optionValue = option.toLowerCase() === 'yes' ? 'true' : option.toLowerCase() === 'no' ? 'false' : option;
           const isChecked = typeof value === 'boolean' 
@@ -57,14 +49,7 @@ function RadioGroup({
             : String(value) === option;
             
           return (
-            <label
-              key={option}
-              className={`flex items-center gap-2 px-4 py-2 border rounded-lg cursor-pointer transition-colors ${
-                isChecked
-                  ? 'bg-green-50 border-green-600 text-green-700'
-                  : 'bg-white border-gray-300 text-gray-700 hover:border-green-400'
-              }`}
-            >
+            <label key={option} className="flex items-center gap-2 cursor-pointer">
               <input
                 type="radio"
                 name={name}
@@ -72,9 +57,9 @@ function RadioGroup({
                 checked={isChecked}
                 onChange={onChange}
                 required={required}
-                className="text-green-600 focus:ring-green-500"
+                className="w-4 h-4"
               />
-              <span className="font-medium">{option}</span>
+              <span className="text-gray-700">{option}</span>
             </label>
           );
         })}
@@ -461,8 +446,8 @@ export default function AdminPropertyForm() {
             <h2 className="text-gray-900 mb-6 text-xl font-semibold">Property Identity</h2>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Property Name <span className="text-red-500">*</span>
+              <label className="block text-sm text-gray-700 mb-2">
+                Property Name *
               </label>
               <input
                 type="text"
@@ -477,8 +462,8 @@ export default function AdminPropertyForm() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Project <span className="text-red-500">*</span>
+                <label className="block text-sm text-gray-700 mb-2">
+                  Project *
                 </label>
                 <select
                   name="projectid"
@@ -497,8 +482,8 @@ export default function AdminPropertyForm() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Property Type <span className="text-red-500">*</span>
+                <label className="block text-sm text-gray-700 mb-2">
+                  Property Type *
                 </label>
                 <select
                   name="propertytypeid"
@@ -546,9 +531,9 @@ export default function AdminPropertyForm() {
 
           {/* PROPERTY CLASSIFICATION */}
           <FormSection title="Property Classification">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm text-gray-700 mb-2">
                   Seller / Landowner
                 </label>
                 <select
@@ -572,8 +557,8 @@ export default function AdminPropertyForm() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Listing Status <span className="text-red-500">*</span>
+                <label className="block text-sm text-gray-700 mb-2">
+                  Listing Status *
                 </label>
                 <select
                   name="propertylistingstatusid"
@@ -600,8 +585,8 @@ export default function AdminPropertyForm() {
           <FormSection title="Location Details">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Island <span className="text-red-500">*</span>
+                <label className="block text-sm text-gray-700 mb-2">
+                  Island *
                 </label>
                 <select
                   name="location_island"
@@ -616,8 +601,8 @@ export default function AdminPropertyForm() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Region <span className="text-red-500">*</span>
+                <label className="block text-sm text-gray-700 mb-2">
+                  Region *
                 </label>
                 <input
                   type="text"
@@ -631,8 +616,8 @@ export default function AdminPropertyForm() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Province <span className="text-red-500">*</span>
+                <label className="block text-sm text-gray-700 mb-2">
+                  Province *
                 </label>
                 <input
                   type="text"
@@ -646,8 +631,8 @@ export default function AdminPropertyForm() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  City <span className="text-red-500">*</span>
+                <label className="block text-sm text-gray-700 mb-2">
+                  City *
                 </label>
                 <input
                   type="text"
@@ -661,8 +646,8 @@ export default function AdminPropertyForm() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Barangay <span className="text-red-500">*</span>
+                <label className="block text-sm text-gray-700 mb-2">
+                  Barangay *
                 </label>
                 <input
                   type="text"
@@ -676,8 +661,8 @@ export default function AdminPropertyForm() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Street <span className="text-red-500">*</span>
+                <label className="block text-sm text-gray-700 mb-2">
+                  Street *
                 </label>
                 <input
                   type="text"
@@ -691,8 +676,8 @@ export default function AdminPropertyForm() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Lot Size (sqm) <span className="text-red-500">*</span>
+                <label className="block text-sm text-gray-700 mb-2">
+                  Lot Size (sqm) *
                 </label>
                 <input
                   type="number"
@@ -714,7 +699,7 @@ export default function AdminPropertyForm() {
               title={isAgriculturalType ? 'Agricultural Lot Details' : 'Urban Lot Details'}
             >
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-3">
+                <label className="block text-sm text-gray-700 mb-3">
                   {isAgriculturalType ? 'Agricultural Lot Types' : 'Urban Lot Type'}
                 </label>
                 {isAgriculturalType ? (
@@ -1010,82 +995,77 @@ export default function AdminPropertyForm() {
 
           {/* PHOTOS */}
           <FormSection title="Property Photos">
-            <p className="text-sm text-gray-600 mb-4">
-              Upload up to 10 property images.{' '}
-              {isEditMode
-                ? 'New uploads will replace existing photos.'
-                : 'Accepted formats: JPG, PNG, WebP'}
-            </p>
-
-            <label className="inline-flex items-center gap-2 px-4 py-3 border-2 border-dashed border-gray-300 rounded-lg hover:border-green-500 hover:bg-green-50 cursor-pointer text-sm transition-colors">
-              <Upload className="w-5 h-5 text-gray-600" />
-              <span className="font-medium text-gray-700">Choose Photos to Upload</span>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                multiple
-                className="hidden"
-                onChange={handlePhotoUpload}
-              />
-            </label>
+            <div className="border border-dashed border-gray-300 rounded-lg p-6 bg-gray-50">
+              <p className="text-sm text-gray-600 mb-3">
+                Upload up to 10 property images. {isEditMode ? 'New uploads will replace existing photos.' : 'Accepted formats: JPG, PNG, WebP'}
+              </p>
+              <label className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 cursor-pointer text-sm">
+                <Upload className="w-5 h-5 text-gray-600" />
+                <span className="text-gray-700">Choose Photos</span>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  onChange={handlePhotoUpload}
+                />
+              </label>
+            </div>
 
             {formData.photos.length > 0 && (
-              <div className="mt-6">
-                <p className="text-sm font-medium text-gray-700 mb-3">
-                  Selected Photos ({formData.photos.length}/10)
-                </p>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  {formData.photos.map((photo, index) => (
-                    <div
-                      key={`${photo.fileName}-${index}`}
-                      className="relative rounded-lg border-2 border-gray-200 overflow-hidden bg-white hover:border-green-500 transition-colors group"
+              <div className="mt-6 grid grid-cols-2 md:grid-cols-3 gap-4">
+                {formData.photos.map((photo, index) => (
+                  <div
+                    key={`${photo.fileName}-${index}`}
+                    className="relative rounded-lg border border-gray-200 overflow-hidden bg-white"
+                  >
+                    <img
+                      src={photo.dataUrl}
+                      alt={photo.fileName}
+                      className="w-full h-32 object-cover"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removePhoto(index)}
+                      className="absolute top-2 right-2 inline-flex items-center justify-center w-7 h-7 rounded-full bg-black/60 text-white hover:bg-black/80"
+                      aria-label="Remove photo"
                     >
-                      <img
-                        src={photo.dataUrl}
-                        alt={photo.fileName}
-                        className="w-full h-32 object-cover"
-                      />
-                      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-2">
-                        <p className="text-xs text-white truncate">{photo.fileName}</p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => removePhoto(index)}
-                        className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1.5 hover:bg-red-700 opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
-                        aria-label="Remove photo"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
               </div>
             )}
           </FormSection>
 
           {/* SUBMIT */}
-          <div className="border-t border-gray-200 pt-6 flex gap-3">
-            <Link
-              to="/admin/properties"
-              className="flex-1 px-6 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 font-medium transition-colors text-center"
-            >
-              Cancel
-            </Link>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className={`flex-1 px-6 py-3 rounded-lg text-white font-medium transition-colors ${
-                isSubmitting
-                  ? 'bg-gray-400 cursor-not-allowed'
-                  : isEditMode
-                    ? 'bg-blue-600 hover:bg-blue-700'
-                    : 'bg-green-600 hover:bg-green-700'
-              }`}
-            >
-              {isSubmitting ? 'Saving...' : isEditMode ? 'Update Property' : 'Add Property'}
-            </button>
-          </div>
+          <section className="border-t border-gray-200 pt-6">
+            {submitError && (
+              <p className="text-sm text-red-600 mb-3">{submitError}</p>
+            )}
+            <div className="flex gap-3">
+              <Link
+                to="/admin/properties"
+                className="flex-1 px-6 py-4 border border-gray-300 rounded-lg hover:bg-gray-50 font-medium transition-colors text-center text-gray-700"
+              >
+                Cancel
+              </Link>
+              <button
+                type="submit"
+                disabled={isSubmitting || isLoadingOptions}
+                className={`flex-1 px-6 py-4 rounded-lg text-white font-medium transition-colors ${
+                  isSubmitting || isLoadingOptions
+                    ? 'bg-gray-400 cursor-not-allowed'
+                    : isEditMode
+                      ? 'bg-blue-600 hover:bg-blue-700'
+                      : 'bg-green-600 hover:bg-green-700'
+                }`}
+              >
+                {isSubmitting ? 'Saving...' : isEditMode ? 'Update Property' : 'Add Property'}
+              </button>
+            </div>
+          </section>
         </form>
       </div>
     </AdminLayout>
