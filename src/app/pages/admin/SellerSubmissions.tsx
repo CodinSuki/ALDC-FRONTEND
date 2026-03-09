@@ -106,6 +106,10 @@ export default function AdminSellerSubmissions() {
   };
 
   const yesNo = (value: boolean) => (value ? 'Yes' : 'No');
+  const displayValue = (value: string | null | undefined) => {
+    const normalized = (value ?? '').trim();
+    return normalized.length > 0 ? normalized : 'Not provided';
+  };
 
   return (
     <AdminLayout>
@@ -216,6 +220,48 @@ export default function AdminSellerSubmissions() {
                     <p className="text-xs text-gray-500">Status</p>
                     <p className="text-sm text-gray-900">{selectedDetail.statusName}</p>
                     <p className="text-xs text-gray-500">{new Date(selectedDetail.createdat).toLocaleString()}</p>
+                  </div>
+                </div>
+
+                <div className="rounded-lg border p-3">
+                  <p className="text-xs text-gray-500 mb-2">Property Background</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-gray-900">
+                    <p>Property Owner Name: {displayValue(selectedDetail.sellerName)}</p>
+                    <p>Owner Alive: Not captured</p>
+                    <p>Authority to Sell: Not captured</p>
+                    <p>Exclusive Broker: Not captured</p>
+                    <p>Broker Extension: Not captured</p>
+                    <p>Tax Responsibility: Not captured</p>
+                    <p>Commission Type: Not captured</p>
+                    <p>Selling Reason: Not captured</p>
+                    <p className="md:col-span-2">Documents Available: Not captured</p>
+                  </div>
+                </div>
+
+                <div className="rounded-lg border p-3">
+                  <p className="text-xs text-gray-500 mb-2">Contact Information</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-gray-900">
+                    <p>Title: Not captured</p>
+                    <p>First/Last Name: {displayValue(selectedDetail.sellerName)}</p>
+                    <p>Primary Contact: {displayValue(selectedDetail.sellerContact)}</p>
+                    <p>Primary Email: {displayValue(selectedDetail.sellerEmail)}</p>
+                    <p>Secondary Contact: Not captured</p>
+                    <p>Secondary Email: Not captured</p>
+                    <p className="md:col-span-2">Social / Messenger: Not captured</p>
+                  </div>
+                </div>
+
+                <div className="rounded-lg border p-3">
+                  <p className="text-xs text-gray-500 mb-2">Property Details</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-gray-900">
+                    <p>Property Name: {displayValue(selectedDetail.propertyname)}</p>
+                    <p>Property Type: {displayValue(selectedDetail.propertyTypeName)}</p>
+                    <p>Description: Not captured</p>
+                    <p>Land Titled: {yesNo(selectedDetail.detailIsTitled)}</p>
+                    <p>Overlooking: {yesNo(selectedDetail.detailIsOverlooking)}</p>
+                    <p>Topography: {displayValue(selectedDetail.detailTopography)}</p>
+                    <p>Price: Not captured</p>
+                    <p>Pricing Type: Not captured</p>
                   </div>
                 </div>
 

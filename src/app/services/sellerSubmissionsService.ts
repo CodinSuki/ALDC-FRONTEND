@@ -47,6 +47,9 @@ export interface SellerSubmissionDetail {
     otherDetails: string | null;
   } | null;
   urbanLotType: string | null;
+  detailIsTitled: boolean;
+  detailIsOverlooking: boolean;
+  detailTopography: string | null;
   urbanAmenities: {
     hasGated: boolean;
     hasSecurity: boolean;
@@ -213,6 +216,9 @@ export const fetchSellerSubmissionDetail = async (propertyId: number): Promise<S
       otherDetails: null,
     } : null,
     urbanLotType: propertyDetails?.urbanreflottypeid ? submissionItem?.urbanLotType || null : null,
+    detailIsTitled: Boolean(propertyDetails?.detail_istitled),
+    detailIsOverlooking: Boolean(propertyDetails?.detail_isoverlooking),
+    detailTopography: propertyDetails?.detail_topography ?? null,
     urbanAmenities: propertyDetails?.urbanreflottypeid ? {
       hasGated: propertyDetails.facilities_gated ?? false,
       hasSecurity: propertyDetails.facilities_security ?? false,
