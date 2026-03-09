@@ -223,45 +223,27 @@ export default function AdminSellerSubmissions() {
                   </div>
                 </div>
 
-                <div className="rounded-lg border p-3">
-                  <p className="text-xs text-gray-500 mb-2">Property Background</p>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-gray-900">
-                    <p>Property Owner Name: {displayValue(selectedDetail.sellerName)}</p>
-                    <p>Owner Alive: Not captured</p>
-                    <p>Authority to Sell: Not captured</p>
-                    <p>Exclusive Broker: Not captured</p>
-                    <p>Broker Extension: Not captured</p>
-                    <p>Tax Responsibility: Not captured</p>
-                    <p>Commission Type: Not captured</p>
-                    <p>Selling Reason: Not captured</p>
-                    <p className="md:col-span-2">Documents Available: Not captured</p>
-                  </div>
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+                  <p className="text-xs font-medium text-amber-900 mb-2">Data Coverage</p>
+                  <p className="text-sm text-amber-900">
+                    This view currently shows data saved in the property draft records (property, location, utilities, accessibility, amenities, and photos).
+                  </p>
+                  <p className="text-sm text-amber-800 mt-1">
+                    Seller questionnaire fields like owner background, tax/commission preferences, and secondary contacts are not yet persisted in the admin detail API.
+                  </p>
                 </div>
 
                 <div className="rounded-lg border p-3">
-                  <p className="text-xs text-gray-500 mb-2">Contact Information</p>
+                  <p className="text-xs text-gray-500 mb-2">Submission Snapshot</p>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-gray-900">
-                    <p>Title: Not captured</p>
-                    <p>First/Last Name: {displayValue(selectedDetail.sellerName)}</p>
+                    <p>Seller Name: {displayValue(selectedDetail.sellerName)}</p>
                     <p>Primary Contact: {displayValue(selectedDetail.sellerContact)}</p>
                     <p>Primary Email: {displayValue(selectedDetail.sellerEmail)}</p>
-                    <p>Secondary Contact: Not captured</p>
-                    <p>Secondary Email: Not captured</p>
-                    <p className="md:col-span-2">Social / Messenger: Not captured</p>
-                  </div>
-                </div>
-
-                <div className="rounded-lg border p-3">
-                  <p className="text-xs text-gray-500 mb-2">Property Details</p>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-gray-900">
                     <p>Property Name: {displayValue(selectedDetail.propertyname)}</p>
                     <p>Property Type: {displayValue(selectedDetail.propertyTypeName)}</p>
-                    <p>Description: Not captured</p>
                     <p>Land Titled: {yesNo(selectedDetail.detailIsTitled)}</p>
                     <p>Overlooking: {yesNo(selectedDetail.detailIsOverlooking)}</p>
                     <p>Topography: {displayValue(selectedDetail.detailTopography)}</p>
-                    <p>Price: Not captured</p>
-                    <p>Pricing Type: Not captured</p>
                   </div>
                 </div>
 

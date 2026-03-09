@@ -37,7 +37,7 @@ export default function AdminDocuments() {
   const [uploading, setUploading] = useState(false);
   
   // Validation state
-  const [propertyIdInput, setPropertyIdInput] = useState('');
+  const [selectedPropertyIdForValidation, setSelectedPropertyIdForValidation] = useState('');
   const [validationResult, setValidationResult] = useState<null | {
     valid: boolean;
     required: string[];
@@ -118,9 +118,9 @@ export default function AdminDocuments() {
   };
 
   const onValidateProperty = async () => {
-    const propertyId = Number(propertyIdInput);
+    const propertyId = Number(selectedPropertyIdForValidation);
     if (!propertyId || Number.isNaN(propertyId)) {
-      alert('Enter a valid numeric Property ID');
+      alert('Please select a property to validate.');
       return;
     }
 
@@ -170,6 +170,17 @@ export default function AdminDocuments() {
   };
 
   const selectedProperty = properties.find((p) => p.propertyId === Number(uploadPropertyId));
+  const selectedValidationProperty = properties.find(
+    (p) => p.propertyId === Number(selectedPropertyIdForValidation)
+  );
+
+  const resetUploadForm = () => {
+    setShowUploadForm(false);
+    setUploadPropertyId('');
+    setUploadDocumentTypeId('');
+    setUploadDocumentName('');
+    setUploadFile(null);
+  };
 
   if (loading && rows.length === 0 && documentTypes.length === 0 && properties.length === 0) {
     return (
@@ -198,159 +209,197 @@ export default function AdminDocuments() {
         <div>
           <h2 className="text-gray-900">Document Compliance</h2>
           <p className="text-gray-600">
-            Upload property documents after negotiation, verify ownership, and enforce listing requirements.
+            Use the property workflow below to upload documents, review pending submissions, and verify compliance.
           </p>
         </div>
 
-        {/* Upload Form */}
-        <div className="bg-white rounded-lg border p-4">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-base font-medium text-gray-900">Upload Property Document</h3>
-            <button
-              onClick={() => setShowUploadForm(!showUploadForm)}
-              className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center gap-2"
-            >
-              <Upload size={16} />
-              {showUploadForm ? 'Hide Form' : 'Upload Document'}
-            </button>
-          </div>
-
-          {showUploadForm && (
-            <div className="border-t pt-4 space-y-3">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm text-gray-700 mb-1">Property *</label>
-                  <select
-                    value={uploadPropertyId}
-                    onChange={(e) => setUploadPropertyId(e.target.value)}
-                    className="w-full border rounded px-3 py-2 text-sm"
-                    disabled={uploading}
-                  >
-                    <option value="">Select Property</option>
-                    {properties.map((prop) => (
-                      <option key={prop.propertyId} value={prop.propertyId}>
-                        #{prop.propertyId} - {prop.propertyName} (Seller: {prop.sellerName})
-                      </option>
-                    ))}
-                  </select>
-                  {selectedProperty && (
-                    <p className="text-xs text-gray-500 mt-1">
-                      Seller: {selectedProperty.sellerName} ({selectedProperty.sellerEmail || 'No email'})
-                    </p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm text-gray-700 mb-1">Document Type *</label>
-                  <select
-                    value={uploadDocumentTypeId}
-                    onChange={(e) => setUploadDocumentTypeId(e.target.value)}
-                    className="w-full border rounded px-3 py-2 text-sm"
-                    disabled={uploading}
-                  >
-                    <option value="">Select Document Type</option>
-                    {documentTypes.map((type) => (
-                      <option key={type.documentTypeId} value={type.documentTypeId}>
-                        {type.documentTypeName}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm text-gray-700 mb-1">Document Name *</label>
-                  <input
-                    type="text"
-                    value={uploadDocumentName}
-                    onChange={(e) => setUploadDocumentName(e.target.value)}
-                    placeholder="e.g., Land Title - Lot 123"
-                    className="w-full border rounded px-3 py-2 text-sm"
-                    disabled={uploading}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm text-gray-700 mb-1">File *</label>
-                  <input
-                    type="file"
-                    onChange={(e) => setUploadFile(e.target.files?.[0] ?? null)}
-                    className="w-full border rounded px-3 py-2 text-sm"
-                    disabled={uploading}
-                  />
-                  {uploadFile && (
-                    <p className="text-xs text-gray-500 mt-1">
-                      {uploadFile.name} ({(uploadFile.size / 1024).toFixed(1)} KB)
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  onClick={() => {
-                    setShowUploadForm(false);
-                    setUploadPropertyId('');
-                    setUploadDocumentTypeId('');
-                    setUploadDocumentName('');
-                    setUploadFile(null);
-                  }}
-                  disabled={uploading}
-                  className="px-4 py-2 border rounded text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={onUploadDocument}
-                  disabled={uploading}
-                  className="px-4 py-2 bg-green-600 text-white rounded text-sm hover:bg-green-700 disabled:opacity-50"
-                >
-                  {uploading ? 'Uploading...' : 'Upload Document'}
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="bg-white rounded-lg border p-4">
-          <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+        {/* Property-first workflow */}
+        <div className="bg-white rounded-lg border p-4 md:p-5 space-y-5">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <p className="text-sm text-gray-500">Pending verification queue</p>
-              <p className="text-2xl text-gray-900">{pendingCount}</p>
+              <h3 className="text-base font-medium text-gray-900">Property Document Workflow</h3>
+              <p className="text-sm text-gray-600">
+                Step 1: Select property. Step 2: Upload required files. Step 3: Validate compliance.
+              </p>
             </div>
-            <div className="flex items-end gap-2">
-              <div>
-                <label className="block text-xs text-gray-500 mb-1">Validate Property ID</label>
-                <input
-                  value={propertyIdInput}
-                  onChange={(event) => setPropertyIdInput(event.target.value)}
-                  className="border rounded px-3 py-2 text-sm w-40"
-                  placeholder="e.g. 101"
-                />
-              </div>
-              <button
-                onClick={onValidateProperty}
-                className="px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-              >
-                Check Requirements
-              </button>
+            <div className="rounded-lg bg-blue-50 border border-blue-100 px-3 py-2 text-sm">
+              <span className="text-blue-800">Pending verification queue: </span>
+              <span className="text-blue-900 font-semibold">{pendingCount}</span>
             </div>
           </div>
 
-          {validationResult && (
-            <div className="mt-4 rounded border p-3 text-sm">
-              <p className={validationResult.valid ? 'text-green-700' : 'text-red-700'}>
-                {validationResult.valid
-                  ? 'Property is compliant for publish/transaction checks.'
-                  : 'Property is not compliant yet.'}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            <div className="rounded-lg border p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <h4 className="text-sm font-semibold text-gray-900">Upload Property Document</h4>
+                <button
+                  onClick={() => setShowUploadForm(!showUploadForm)}
+                  className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center gap-2"
+                >
+                  <Upload size={16} />
+                  {showUploadForm ? 'Hide Upload Form' : 'Open Upload Form'}
+                </button>
+              </div>
+
+              {showUploadForm ? (
+                <div className="space-y-3 border-t pt-3">
+                  <div>
+                    <label className="block text-sm text-gray-700 mb-1">Property *</label>
+                    <select
+                      value={uploadPropertyId}
+                      onChange={(e) => setUploadPropertyId(e.target.value)}
+                      className="w-full border rounded px-3 py-2 text-sm"
+                      disabled={uploading}
+                    >
+                      <option value="">Select Property</option>
+                      {properties.map((prop) => (
+                        <option key={prop.propertyId} value={prop.propertyId}>
+                          {prop.propertyName} (#{prop.propertyId}) - Seller: {prop.sellerName}
+                        </option>
+                      ))}
+                    </select>
+                    {selectedProperty && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        Seller: {selectedProperty.sellerName} ({selectedProperty.sellerEmail || 'No email'})
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm text-gray-700 mb-1">Document Type *</label>
+                    <select
+                      value={uploadDocumentTypeId}
+                      onChange={(e) => setUploadDocumentTypeId(e.target.value)}
+                      className="w-full border rounded px-3 py-2 text-sm"
+                      disabled={uploading}
+                    >
+                      <option value="">Select Document Type</option>
+                      {documentTypes.map((type) => (
+                        <option key={type.documentTypeId} value={type.documentTypeId}>
+                          {type.documentTypeName}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm text-gray-700 mb-1">Document Name *</label>
+                    <input
+                      type="text"
+                      value={uploadDocumentName}
+                      onChange={(e) => setUploadDocumentName(e.target.value)}
+                      placeholder="e.g., Land Title - Lot 123"
+                      className="w-full border rounded px-3 py-2 text-sm"
+                      disabled={uploading}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm text-gray-700 mb-1">File *</label>
+                    <input
+                      type="file"
+                      onChange={(e) => setUploadFile(e.target.files?.[0] ?? null)}
+                      className="w-full border rounded px-3 py-2 text-sm"
+                      disabled={uploading}
+                    />
+                    {uploadFile && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        {uploadFile.name} ({(uploadFile.size / 1024).toFixed(1)} KB)
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="flex justify-end gap-2 pt-1">
+                    <button
+                      onClick={resetUploadForm}
+                      disabled={uploading}
+                      className="px-4 py-2 border rounded text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={onUploadDocument}
+                      disabled={uploading}
+                      className="px-4 py-2 bg-green-600 text-white rounded text-sm hover:bg-green-700 disabled:opacity-50"
+                    >
+                      {uploading ? 'Uploading...' : 'Upload Document'}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-gray-600">
+                  Open the form to upload ownership and compliance documents for a selected property.
+                </p>
+              )}
+            </div>
+
+            <div className="rounded-lg border p-4 space-y-3">
+              <h4 className="text-sm font-semibold text-gray-900">Validate Property Compliance</h4>
+              <p className="text-sm text-gray-600">
+                Select a property by name to check missing requirements and documents awaiting approval.
               </p>
-              {!validationResult.valid && (
-                <div className="mt-2 space-y-1 text-gray-700">
-                  <p>Missing: {validationResult.missing.join(', ') || 'None'}</p>
-                  <p>Pending or Rejected: {validationResult.pendingOrRejected.join(', ') || 'None'}</p>
+
+              <div className="space-y-2">
+                <label className="block text-sm text-gray-700">Property</label>
+                <select
+                  value={selectedPropertyIdForValidation}
+                  onChange={(event) => {
+                    setSelectedPropertyIdForValidation(event.target.value);
+                    setValidationResult(null);
+                  }}
+                  className="w-full border rounded px-3 py-2 text-sm"
+                >
+                  <option value="">Select Property</option>
+                  {properties.map((prop) => (
+                    <option key={prop.propertyId} value={prop.propertyId}>
+                      {prop.propertyName} (#{prop.propertyId})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex justify-end">
+                <button
+                  onClick={onValidateProperty}
+                  disabled={!selectedPropertyIdForValidation}
+                  className="px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Run Compliance Check
+                </button>
+              </div>
+
+              {validationResult && (
+                <div className="mt-1 rounded-lg border p-3 text-sm space-y-2">
+                  <div className="flex items-center justify-between">
+                    <p className={validationResult.valid ? 'text-green-700 font-medium' : 'text-amber-800 font-medium'}>
+                      {validationResult.valid ? 'Compliant: Ready for publish/transaction checks' : 'Action needed: Property is not yet compliant'}
+                    </p>
+                    <span className="text-xs text-gray-500">
+                      {selectedValidationProperty
+                        ? `${selectedValidationProperty.propertyName} (#${selectedValidationProperty.propertyId})`
+                        : `Property #${selectedPropertyIdForValidation}`}
+                    </span>
+                  </div>
+
+                  <div className="text-xs text-gray-600">
+                    Required: {validationResult.required.length} | Approved: {validationResult.approved.length} | Missing: {validationResult.missing.length} | Pending/Rejected: {validationResult.pendingOrRejected.length}
+                  </div>
+
+                  <div className="space-y-1 text-gray-700">
+                    <p>
+                      Missing required documents: {validationResult.missing.length > 0 ? validationResult.missing.join(', ') : 'None'}
+                    </p>
+                    <p>
+                      Uploaded but not approved: {validationResult.pendingOrRejected.length > 0 ? validationResult.pendingOrRejected.join(', ') : 'None'}
+                    </p>
+                    {validationResult.valid && (
+                      <p className="text-green-700">All required documents are approved.</p>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
-          )}
+          </div>
         </div>
 
         <div className="bg-white rounded-lg shadow-sm overflow-hidden">
