@@ -16,6 +16,7 @@ export type SellerFormOptions = {
   agriculturalAmenities: string[];
   urbanAmenities: string[];
   islands: string[];
+  documentTypes: string[];
 };
 
 type SellerDraftFormData = {
@@ -100,6 +101,7 @@ type OptionRpcPayload = {
   urban_amenities?: string[];
   islands?: string[];
   regions?: string[];
+  document_types?: Array<{ documenttypename?: string }>;
 };
 
 const toBool = (value: string): boolean => value.toLowerCase() === 'yes';
@@ -152,15 +154,17 @@ const parseOptionRpcPayload = (payload: unknown): OptionRpcPayload | null => {
 
 export const fetchSellerFormOptions = async (): Promise<SellerFormOptions> => {
   const fallbackLoad = async (): Promise<SellerFormOptions> => {
-    const [propertyTypeResult, urbanLotTypeResult, agriculturalLotTypeResult] = await Promise.all([
+    const [propertyTypeResult, urbanLotTypeResult, agriculturalLotTypeResult, documentTypeResult] = await Promise.all([
       supabase.from('propertytype').select('propertytypename, propertyisactive').order('propertytypename', { ascending: true }),
       supabase.from('urbanreflottype').select('urbanreflottypename, lottypeisactive').order('urbanreflottypename', { ascending: true }),
       supabase.from('agriculturalreflottype').select('agriculturalreflottypename, isactive').order('agriculturalreflottypename', { ascending: true }),
+      supabase.from('documenttype').select('documenttypename, isactive').order('documenttypename', { ascending: true }),
     ]);
 
     if (propertyTypeResult.error) throw propertyTypeResult.error;
     if (urbanLotTypeResult.error) throw urbanLotTypeResult.error;
     if (agriculturalLotTypeResult.error) throw agriculturalLotTypeResult.error;
+    if (documentTypeResult.error) throw documentTypeResult.error;
 
     const propertyTypes = asUniqueSortedValues(
       (propertyTypeResult.data ?? [])
@@ -180,6 +184,12 @@ export const fetchSellerFormOptions = async (): Promise<SellerFormOptions> => {
         .map((row: any) => row.agriculturalreflottypename)
     );
 
+    const documentTypes = asUniqueSortedValues(
+      (documentTypeResult.data ?? [])
+        .filter((row: any) => row.isactive !== false)
+        .map((row: any) => row.documenttypename)
+    );
+
     return {
       propertyTypes,
       urbanLotTypes,
@@ -187,6 +197,7 @@ export const fetchSellerFormOptions = async (): Promise<SellerFormOptions> => {
       agriculturalAmenities: DEFAULT_AGRICULTURAL_AMENITIES,
       urbanAmenities: DEFAULT_URBAN_AMENITIES,
       islands: DEFAULT_ISLAND_OPTIONS,
+      documentTypes,
     };
   };
 
@@ -210,6 +221,9 @@ export const fetchSellerFormOptions = async (): Promise<SellerFormOptions> => {
   const agriculturalLotTypes = asUniqueSortedValues(
     (payload.agricultural_lot_types ?? []).map((entry) => entry.agriculturalreflottypename)
   );
+  const documentTypes = asUniqueSortedValues(
+    (payload.document_types ?? []).map((entry) => entry.documenttypename)
+  );
 
   const fallback = await fallbackLoad();
 
@@ -229,6 +243,7 @@ export const fetchSellerFormOptions = async (): Promise<SellerFormOptions> => {
       const values = asUniqueSortedValues(payload.islands ?? DEFAULT_ISLAND_OPTIONS);
       return values.length > 0 ? values : fallback.islands;
     })(),
+    documentTypes: documentTypes.length > 0 ? documentTypes : fallback.documentTypes,
   };
 };
 
