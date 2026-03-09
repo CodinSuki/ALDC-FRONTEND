@@ -514,12 +514,26 @@ type SellerDraftPhoto = {
 };
 
 type SellerDraftFormData = {
+  ownerName?: string;
+  ownerAlive?: string;
+  authorityToSell?: string;
+  exclusiveBroker?: string;
+  brokerExtension?: string;
+  taxResponsibility?: string;
+  documents?: string[];
+  commissionType?: string;
+  sellingReason?: string;
+  title?: string;
   firstName: string;
   middleName: string;
   lastName: string;
   phone: string;
   email: string;
+  phone2?: string;
+  email2?: string;
+  social?: string;
   propertyName: string;
+  description?: string;
   propertyType: string;
   locationIsland: string;
   locationRegion: string;
@@ -539,6 +553,7 @@ type SellerDraftFormData = {
   facilitiesClubhouse: string;
   facilitiesSports: string;
   facilitiesParks: string;
+  facilitiesPool?: string;
   facilitiesOther: string;
   agriAmenities: string[];
   accessMotorcycle: string;
@@ -547,6 +562,8 @@ type SellerDraftFormData = {
   accessRoad: string;
   accessCementedRoad: string;
   accessRoughRoad: string;
+  price?: string;
+  pricingType?: string;
   photos: SellerDraftPhoto[];
 };
 
@@ -621,7 +638,17 @@ const resolveSellerClientId = async (formData: SellerDraftFormData): Promise<num
   }
 
   if (existingByEmail && existingByEmail.length > 0) {
-    return Number(existingByEmail[0].clientid);
+    const existingClientId = Number(existingByEmail[0].clientid);
+
+    await supabaseAdmin
+      .from('client')
+      .update({
+        additionalcontactnumber: formData.phone2 || null,
+        additionalemailaddress: formData.email2 || null,
+      })
+      .eq('clientid', existingClientId);
+
+    return existingClientId;
   }
 
   const { data: existingByPhone, error: phoneError } = await supabaseAdmin
@@ -635,7 +662,17 @@ const resolveSellerClientId = async (formData: SellerDraftFormData): Promise<num
   }
 
   if (existingByPhone && existingByPhone.length > 0) {
-    return Number(existingByPhone[0].clientid);
+    const existingClientId = Number(existingByPhone[0].clientid);
+
+    await supabaseAdmin
+      .from('client')
+      .update({
+        additionalcontactnumber: formData.phone2 || null,
+        additionalemailaddress: formData.email2 || null,
+      })
+      .eq('clientid', existingClientId);
+
+    return existingClientId;
   }
 
   const { data: createdClient, error: createClientError } = await supabaseAdmin
@@ -647,6 +684,8 @@ const resolveSellerClientId = async (formData: SellerDraftFormData): Promise<num
         lastname: formData.lastName,
         emailaddress: formData.email,
         contactnumber: formData.phone,
+        additionalemailaddress: formData.email2 || null,
+        additionalcontactnumber: formData.phone2 || null,
       },
     ])
     .select('clientid')
@@ -762,6 +801,25 @@ const submitSellerDraftProperty = async (formData: SellerDraftFormData): Promise
 
   const propertyId = Number(propertyRow.propertyid);
 
+  const sellerSubmissionMeta = {
+    ownerName: formData.ownerName || null,
+    ownerAlive: formData.ownerAlive || null,
+    authorityToSell: formData.authorityToSell || null,
+    exclusiveBroker: formData.exclusiveBroker || null,
+    brokerExtension: formData.brokerExtension || null,
+    taxResponsibility: formData.taxResponsibility || null,
+    documents: Array.isArray(formData.documents) ? formData.documents : [],
+    commissionType: formData.commissionType || null,
+    sellingReason: formData.sellingReason || null,
+    title: formData.title || null,
+    secondaryPhone: formData.phone2 || null,
+    secondaryEmail: formData.email2 || null,
+    social: formData.social || null,
+    description: formData.description || null,
+    price: formData.price || null,
+    pricingType: formData.pricingType || null,
+  };
+
   const [locationRes, utilitiesRes, accessibilityRes] = await Promise.all([
     supabaseAdmin.from('propertylocation').insert([
       {
@@ -793,6 +851,7 @@ const submitSellerDraftProperty = async (formData: SellerDraftFormData): Promise
         propertybyaccessroad: toBool(formData.accessRoad),
         propertybycementedroad: toBool(formData.accessCementedRoad),
         propertybyroughroad: toBool(formData.accessRoughRoad),
+        propertyotherdetails: JSON.stringify(sellerSubmissionMeta),
       },
     ]),
   ]);

@@ -55,7 +55,8 @@ const PROPERTY_SELECT = `
     propertybytruck,
     propertybyaccessroad,
     propertybycementedroad,
-    propertybyroughroad
+    propertybyroughroad,
+    propertyotherdetails
   ),
   urbanpropertyamenities!fk_urbanpropertyamenities_property(
     hasgated,
@@ -159,6 +160,7 @@ const mapPropertyRow = (item: any): any => {
     propertybyaccessroad?: boolean;
     propertybycementedroad?: boolean;
     propertybyroughroad?: boolean;
+    propertyotherdetails?: string | null;
   }>(item.propertyaccessibility);
   const amenities = getSingleRelation<{
     hasgated?: boolean;
@@ -257,6 +259,7 @@ const mapPropertyRow = (item: any): any => {
     access_road: Boolean(accessibility?.propertybyaccessroad),
     access_cemented_road: Boolean(accessibility?.propertybycementedroad),
     access_rough_road: Boolean(accessibility?.propertybyroughroad),
+    access_other_details: accessibility?.propertyotherdetails ?? null,
     facilities_gated: Boolean(amenities?.hasgated),
     facilities_security: Boolean(amenities?.hassecurity),
     facilities_clubhouse: Boolean(amenities?.hasclubhouse),

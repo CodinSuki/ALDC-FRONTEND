@@ -22,6 +22,24 @@ export interface SellerSubmissionDetail {
   sellerName: string;
   sellerEmail: string | null;
   sellerContact: string | null;
+  sellerAdditionalEmail: string | null;
+  sellerAdditionalContact: string | null;
+  sellerMeta: {
+    ownerName: string | null;
+    ownerAlive: string | null;
+    authorityToSell: string | null;
+    exclusiveBroker: string | null;
+    brokerExtension: string | null;
+    taxResponsibility: string | null;
+    documents: string[];
+    commissionType: string | null;
+    sellingReason: string | null;
+    title: string | null;
+    social: string | null;
+    description: string | null;
+    price: string | null;
+    pricingType: string | null;
+  };
   location: {
     island: string | null;
     region: string | null;
@@ -145,6 +163,51 @@ const mapCodeToStatus = (code: SellerSubmissionStatusCode): string => {
   }
 };
 
+const parseSellerMeta = (value: unknown): SellerSubmissionDetail['sellerMeta'] => {
+  const emptyMeta: SellerSubmissionDetail['sellerMeta'] = {
+    ownerName: null,
+    ownerAlive: null,
+    authorityToSell: null,
+    exclusiveBroker: null,
+    brokerExtension: null,
+    taxResponsibility: null,
+    documents: [],
+    commissionType: null,
+    sellingReason: null,
+    title: null,
+    social: null,
+    description: null,
+    price: null,
+    pricingType: null,
+  };
+
+  if (!value || typeof value !== 'string') return emptyMeta;
+
+  try {
+    const parsed = JSON.parse(value) as Record<string, unknown>;
+    return {
+      ownerName: typeof parsed.ownerName === 'string' ? parsed.ownerName : null,
+      ownerAlive: typeof parsed.ownerAlive === 'string' ? parsed.ownerAlive : null,
+      authorityToSell: typeof parsed.authorityToSell === 'string' ? parsed.authorityToSell : null,
+      exclusiveBroker: typeof parsed.exclusiveBroker === 'string' ? parsed.exclusiveBroker : null,
+      brokerExtension: typeof parsed.brokerExtension === 'string' ? parsed.brokerExtension : null,
+      taxResponsibility: typeof parsed.taxResponsibility === 'string' ? parsed.taxResponsibility : null,
+      documents: Array.isArray(parsed.documents)
+        ? parsed.documents.filter((doc): doc is string => typeof doc === 'string')
+        : [],
+      commissionType: typeof parsed.commissionType === 'string' ? parsed.commissionType : null,
+      sellingReason: typeof parsed.sellingReason === 'string' ? parsed.sellingReason : null,
+      title: typeof parsed.title === 'string' ? parsed.title : null,
+      social: typeof parsed.social === 'string' ? parsed.social : null,
+      description: typeof parsed.description === 'string' ? parsed.description : null,
+      price: typeof parsed.price === 'string' ? parsed.price : null,
+      pricingType: typeof parsed.pricingType === 'string' ? parsed.pricingType : null,
+    };
+  } catch {
+    return emptyMeta;
+  }
+};
+
 export const setSubmissionStatus = async (propertyId: number, code: SellerSubmissionStatusCode): Promise<void> => {
   await apiRequest<{ success: boolean }>('/api/admin/workflows', {
     method: 'PATCH',
@@ -165,7 +228,7 @@ export const deleteSubmissionProperty = async (propertyId: number): Promise<void
 
 export const fetchSellerSubmissionDetail = async (propertyId: number): Promise<SellerSubmissionDetail> => {
   // Fetch both the submission item (for basic info) and property details (for location, utilities, etc.)
-  const [submissionResponse, propertyDetailsResponse] = await Promise.all([
+  const [submissionResponse, propertyDetailsResponse, clientsResponse] = await Promise.all([
     // Get submission item from workflows (has seller info, property name, status, etc.)
     apiRequest<{ items: any[] }>('/api/admin/workflows', { method: 'GET' }).then((res) => {
       const sellerItems = (res.items ?? []).filter((item: any) => item.source === 'Seller Submission' && item.sourceId === String(propertyId));
@@ -175,22 +238,41 @@ export const fetchSellerSubmissionDetail = async (propertyId: number): Promise<S
     apiRequest<any>(`/api/admin/properties?action=details&id=${propertyId}`, { method: 'GET' }).catch(
       () => null
     ),
+    apiRequest<{ items: Array<{ clientId: number; additionalEmail: string; additionalContact: string }> }>(
+      '/api/admin/clients',
+      { method: 'GET' }
+    ).catch(() => ({ items: [] })),
   ]);
 
   // Use submission item for basic info, or provide defaults
   const submissionItem = submissionResponse;
   const propertyDetails = propertyDetailsResponse;
+  const sellerClientId = Number(propertyDetails?.sellerclientid);
+  const sellerClient = (clientsResponse?.items ?? []).find(
+    (client) => Number(client.clientId) === sellerClientId
+  );
+
+  const sellerMeta = parseSellerMeta(propertyDetails?.access_other_details);
 
   return {
     propertyid: propertyId,
-    propertyname: submissionItem?.reference || 'Unknown Property',
+    propertyname: submissionItem?.reference || propertyDetails?.propertyname || 'Unknown Property',
     createdat: submissionItem?.createdAt || new Date().toISOString(),
     statusCode: submissionItem ? mapStatusToCode(submissionItem.status) : 'PND',
     statusName: submissionItem?.status || 'Pending Review',
-    propertyTypeName: submissionItem?.propertyTypeName || null,
+    propertyTypeName: submissionItem?.propertyTypeName || propertyDetails?.property_type_name || null,
     sellerName: submissionItem?.clientName || 'Unknown Seller',
     sellerEmail: (submissionItem?.email && submissionItem.email !== 'N/A') ? submissionItem.email : null,
     sellerContact: (submissionItem?.contact && submissionItem.contact !== 'N/A') ? submissionItem.contact : null,
+    sellerAdditionalEmail:
+      sellerClient?.additionalEmail && sellerClient.additionalEmail !== 'N/A'
+        ? sellerClient.additionalEmail
+        : null,
+    sellerAdditionalContact:
+      sellerClient?.additionalContact && sellerClient.additionalContact !== 'N/A'
+        ? sellerClient.additionalContact
+        : null,
+    sellerMeta,
     location: propertyDetails ? {
       island: propertyDetails.location_island || null,
       region: propertyDetails.location_region || null,
@@ -213,7 +295,7 @@ export const fetchSellerSubmissionDetail = async (propertyId: number): Promise<S
       byAccessRoad: propertyDetails.access_road ?? false,
       byCementedRoad: propertyDetails.access_cemented_road ?? false,
       byRoughRoad: propertyDetails.access_rough_road ?? false,
-      otherDetails: null,
+      otherDetails: propertyDetails.access_other_details ?? null,
     } : null,
     urbanLotType: propertyDetails?.urbanreflottypeid ? submissionItem?.urbanLotType || null : null,
     detailIsTitled: Boolean(propertyDetails?.detail_istitled),

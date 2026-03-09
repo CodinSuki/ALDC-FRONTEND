@@ -223,27 +223,47 @@ export default function AdminSellerSubmissions() {
                   </div>
                 </div>
 
-                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
-                  <p className="text-xs font-medium text-amber-900 mb-2">Data Coverage</p>
-                  <p className="text-sm text-amber-900">
-                    This view currently shows data saved in the property draft records (property, location, utilities, accessibility, amenities, and photos).
-                  </p>
-                  <p className="text-sm text-amber-800 mt-1">
-                    Seller questionnaire fields like owner background, tax/commission preferences, and secondary contacts are not yet persisted in the admin detail API.
-                  </p>
+                <div className="rounded-lg border p-3">
+                  <p className="text-xs text-gray-500 mb-2">Property Background</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-gray-900">
+                    <p>Property Owner Name: {displayValue(selectedDetail.sellerMeta.ownerName || selectedDetail.sellerName)}</p>
+                    <p>Owner Alive: {displayValue(selectedDetail.sellerMeta.ownerAlive)}</p>
+                    <p>Authority to Sell: {displayValue(selectedDetail.sellerMeta.authorityToSell)}</p>
+                    <p>Exclusive Broker: {displayValue(selectedDetail.sellerMeta.exclusiveBroker)}</p>
+                    <p>Broker Extension: {displayValue(selectedDetail.sellerMeta.brokerExtension)}</p>
+                    <p>Tax Responsibility: {displayValue(selectedDetail.sellerMeta.taxResponsibility)}</p>
+                    <p>Commission Type: {displayValue(selectedDetail.sellerMeta.commissionType)}</p>
+                    <p>Selling Reason: {displayValue(selectedDetail.sellerMeta.sellingReason)}</p>
+                    <p className="md:col-span-2">
+                      Documents Available: {selectedDetail.sellerMeta.documents.length > 0 ? selectedDetail.sellerMeta.documents.join(', ') : 'Not provided'}
+                    </p>
+                  </div>
                 </div>
 
                 <div className="rounded-lg border p-3">
-                  <p className="text-xs text-gray-500 mb-2">Submission Snapshot</p>
+                  <p className="text-xs text-gray-500 mb-2">Contact Information</p>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-gray-900">
-                    <p>Seller Name: {displayValue(selectedDetail.sellerName)}</p>
+                    <p>Title: {displayValue(selectedDetail.sellerMeta.title)}</p>
+                    <p>First/Last Name: {displayValue(selectedDetail.sellerName)}</p>
                     <p>Primary Contact: {displayValue(selectedDetail.sellerContact)}</p>
                     <p>Primary Email: {displayValue(selectedDetail.sellerEmail)}</p>
+                    <p>Secondary Contact: {displayValue(selectedDetail.sellerAdditionalContact)}</p>
+                    <p>Secondary Email: {displayValue(selectedDetail.sellerAdditionalEmail)}</p>
+                    <p className="md:col-span-2">Social / Messenger: {displayValue(selectedDetail.sellerMeta.social)}</p>
+                  </div>
+                </div>
+
+                <div className="rounded-lg border p-3">
+                  <p className="text-xs text-gray-500 mb-2">Property Details</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-gray-900">
                     <p>Property Name: {displayValue(selectedDetail.propertyname)}</p>
                     <p>Property Type: {displayValue(selectedDetail.propertyTypeName)}</p>
+                    <p>Description: {displayValue(selectedDetail.sellerMeta.description)}</p>
                     <p>Land Titled: {yesNo(selectedDetail.detailIsTitled)}</p>
                     <p>Overlooking: {yesNo(selectedDetail.detailIsOverlooking)}</p>
                     <p>Topography: {displayValue(selectedDetail.detailTopography)}</p>
+                    <p>Price: {displayValue(selectedDetail.sellerMeta.price)}</p>
+                    <p>Pricing Type: {displayValue(selectedDetail.sellerMeta.pricingType)}</p>
                   </div>
                 </div>
 

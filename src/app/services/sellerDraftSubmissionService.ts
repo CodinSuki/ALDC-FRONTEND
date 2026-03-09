@@ -19,12 +19,26 @@ export type SellerFormOptions = {
 };
 
 type SellerDraftFormData = {
+  ownerName?: string;
+  ownerAlive?: string;
+  authorityToSell?: string;
+  exclusiveBroker?: string;
+  brokerExtension?: string;
+  taxResponsibility?: string;
+  documents?: string[];
+  commissionType?: string;
+  sellingReason?: string;
+  title?: string;
   firstName: string;
   middleName: string;
   lastName: string;
   phone: string;
   email: string;
+  phone2?: string;
+  email2?: string;
+  social?: string;
   propertyName: string;
+  description?: string;
   propertyType: string;
   locationIsland: string;
   locationRegion: string;
@@ -44,6 +58,7 @@ type SellerDraftFormData = {
   facilitiesClubhouse: string;
   facilitiesSports: string;
   facilitiesParks: string;
+  facilitiesPool?: string;
   facilitiesOther: string;
   agriAmenities: string[];
   accessMotorcycle: string;
@@ -52,6 +67,8 @@ type SellerDraftFormData = {
   accessRoad: string;
   accessCementedRoad: string;
   accessRoughRoad: string;
+  price?: string;
+  pricingType?: string;
   photos: SellerDraftPhoto[];
 };
 
