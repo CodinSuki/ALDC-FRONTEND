@@ -20,6 +20,7 @@ const INITIAL_FORM_OPTIONS: SellerFormOptions = {
   agriculturalAmenities: ['Farmhouse', 'Barns', 'Warehouse / Storage', 'Rivers / Streams', 'Irrigation / Canal', 'Lake / Lagoon'],
   urbanAmenities: ['Gated', 'Security', 'Clubhouse / Function Hall', 'Sports & Fitness Center', 'Parks & Playgrounds'],
   islands: ['Luzon', 'Visayas', 'Mindanao'],
+  documentTypes: ['TCT', 'Tax Declaration', 'RPT', 'SPA', 'Valid IDs'],
 };
 
 
@@ -385,7 +386,7 @@ export default function SellerForm() {
                   Documents Available
                 </label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {['TCT', 'Tax Declaration', 'RPT', 'SPA', 'Valid IDs'].map((o) => (
+                  {formOptions.documentTypes.map((o) => (
                     <label key={o} className="flex items-center gap-2 cursor-pointer">
                       <input
                         type="checkbox"
